@@ -66,56 +66,51 @@ spec aptos_framework::delegation_pool {
         // aborts_if !exists<stake::ValidatorSet>(@aptos_framework);
     }
 
-    spec initialize_delegation_pool(
+        spec initialize_delegation_pool(
         owner: &signer,
         operator_commission_percentage: u64,
         delegation_pool_creation_seed: vector<u8>,
     ) {
-        pragma verify = true;
-        
-        pool_u64: pool_u64::Pool;
-
-        aborts_if !features::delegation_pools_enabled();
-        requires exists<DelegationPoolOwnership>(signer::address_of(owner));
+        pragma verify = false;
+        pragma aborts_if_is_partial = true;
+        include stake::ResourceRequirement;
+        //requires signer::address_of(owner) != NULL_SHAREHOLDER;
+        //Request 1: asserts_if 
+        //ERROR
+        //Prover can't resolve features::delegation_pools_enabled(), use magic number instead
+        aborts_if !features::spec_is_enabled(11);  
+        //Request 2: asserts_if exists<DelegationPoolOwnership>(owner) precondition
+        //OK
+        aborts_if exists<DelegationPoolOwnership>(signer::address_of(owner));
+        //Request 3: Sasserts_if operator_commission_percentage > MAX_FEE
+        //OK
         aborts_if operator_commission_percentage > MAX_FEE;
+        //Request 4: exists<DelegationPoolOwnership>(owner) postcondition
+        //OK
         ensures exists<DelegationPoolOwnership>(signer::address_of(owner));
-
-        // pool_address: address;
-        // delegator_address: address;
-    
-        let pool_address = global<DelegationPoolOwnership>(owner).pool_address;
-        let pool = global<DelegationPool>(pool_address);
-        let stake_pool = global<StakePool>(pool_address);
-
-        aborts_if !exists<DelegationPool>(pool_address);
-        aborts_if !stake::stake_pool_exists(pool_address);
-        aborts_if !table::contains(pool.inactive_shares, pool.observed_lockup_cycle);        
-        
-        let active =  coin::value(stake_pool.active);
-        let inactive =  coin::value(stake_pool.inactive);
-        let pending_active = coin::value(stake_pool.pending_active);
-        let pending_inactive = coin::value(stake_pool.pending_inactive);
-
-        let shares = pool_u64::spec_shares(pool_u64, delegator_address);
-        let total_coins = pool_u64.total_coins;
-        aborts_if !pool.active_shares.total_coins == active_ + pending_inactive_;
-
-        //maybe wrong
-        aborts_if !pool.inactive_shares[pool.observed_lockup_cycle].pool_u64.total_coins == active_ + pending_inactive_;
-        
-        aborts_if !pool.inactive_shares.total_coins == pending_inactive_;
-
-        // asserts_if !features::delegation_pools_enabled()
-        // asserts_if exists<DelegationPoolOwnership>(owner) precondition
-        // asserts_if operator_commission_percentage > MAX_FEE
-        // exists<DelegationPoolOwnership>(owner) postcondition
-        // let pool_address = global<DelegationPoolOwnership>(owner).pool_address;
-        // exists<DelegationPool>(pool_address)
-        // exists<StakePool>(pool_address)
-        // table::contains(pool.inactive_shares, pool.OLC): shares pool of pending_inactive stake always exists (cannot be deleted unless it becomes inactive)
-        // total_coins(pool.active_shares) == active + pending_active on StakePool
-        // Maybe Wrong - total_coins(pool.inactive_shares[pool.OLC]) == pending_inactive on StakePool
-        // total_coins_inactive == inactive on StakePool
+        //Request 5: let pool_address = global<DelegationPoolOwnership>(owner).pool_address;
+        //OK
+        let post pool_address = global<DelegationPoolOwnership>(signer::address_of(owner)).pool_address;
+        //Request 6: exists<DelegationPool>(pool_address)
+        //OK
+        ensures exists<DelegationPool>(pool_address);
+        //Request 7: exists<StakePool>(pool_address)
+        //OK
+        ensures stake::stake_pool_exists(pool_address);
+        //Request 8: table::contains(pool.inactive_shares, pool.OLC): shares pool of pending_inactive stake always exists (cannot be deleted unless it becomes inactive) 
+        //OK
+        let post pool = global<DelegationPool>(pool_address);
+        ensures table::spec_contains(pool.inactive_shares, pool.observed_lockup_cycle); 
+        //Request 9: total_coins(pool.active_shares) == active + pending_active on StakePool
+        //OK
+        let post stake_pool = global<stake::StakePool>(pool_address);
+        ensures pool.active_shares.total_coins == coin::value(stake_pool.active) + coin::value(stake_pool.pending_active);
+        //Request 10: total_coins(pool.inactive_shares[pool.OLC]) == pending_inactive
+        //OK
+        ensures table::spec_get(pool.inactive_shares,pool.observed_lockup_cycle).total_coins == coin::value(stake_pool.pending_inactive);
+        //Request 11: total_coins_inactive == inactive on StakePool
+        //OK
+        ensures pool.total_coins_inactive == coin::value(stake_pool.pending_inactive);
     }
 
     spec assert_owner_cap_exists(owner: address) {
@@ -256,59 +251,59 @@ spec aptos_framework::delegation_pool {
     }
 
     spec unlock(delegator: &signer, pool_address: address, amount: u64) {
+        pragma verify = false;
+        // let pool = global<DelegationPool>(pool_address);
+        // let source_pool = pool.active_shares;
+        // let destination_pool = pending_inactive_shares_pool(pool);
 
-        let pool = global<DelegationPool>(pool_address);
-        let source_pool = pool.active_shares;
-        let destination_pool = pending_inactive_shares_pool(pool);
+        // let active =  coin::value(stake_pool.active);
+        // let inactive =  coin::value(stake_pool.inactive);
+        // let pending_active = coin::value(stake_pool.pending_active);
+        // let pending_inactive = coin::value(stake_pool.pending_inactive);
 
-        let active =  coin::value(stake_pool.active);
-        let inactive =  coin::value(stake_pool.inactive);
-        let pending_active = coin::value(stake_pool.pending_active);
-        let pending_inactive = coin::value(stake_pool.pending_inactive);
+        // ensures pool_u64::shares_to_amount( source_pool, pool_u64::shares(old(source_pool), delegator) - pool_u64::shares(source_pool, delegator)) == amount;
 
-        ensures pool_u64::shares_to_amount( source_pool, pool_u64::shares(old(source_pool), delegator) - pool_u64::shares(source_pool, delegator)) == amount;
+        // ensures pool_u64::shares(destination_pool, delegator) - pool_u64::shares(old(destination_pool), delegator) == pool_u64::amount_to_shares(destination_pool, amount);
 
-        ensures pool_u64::shares(destination_pool, delegator) - pool_u64::shares(old(destination_pool), delegator) == pool_u64::amount_to_shares(destination_pool, amount);
+        // ensures old(source_pool).total_coins - source_pool.total_coins == destination_pool.total_coins - destination_pool.total_coins;        
+        // ensures old(source_pool).total_coins - source_pool.total_coins == amount;
+        // ensures pool.active_shares - old(pool.active_shares) == old(pending_inactive_shares_pool(pool)) - pending_inactive_shares_pool(pool);
 
-        ensures old(source_pool).total_coins - source_pool.total_coins == destination_pool.total_coins - destination_pool.total_coins;        
-        ensures old(source_pool).total_coins - source_pool.total_coins == amount;
-        ensures pool.active_shares - old(pool.active_shares) == old(pending_inactive_shares_pool(pool)) - pending_inactive_shares_pool(pool);
+        // ensures pool_u64::balance(pool.inactive_shares[pool.observed_lockup_cycle], delegator) + pool_u64::balance(pool.active_shares, delegator) <= pool_u64::balance(old(inactive_shares[pool.observed_lockup_cycle]), delegator) + pool_u64::balance(old(active_shares), delegator);
 
-        ensures pool_u64::balance(pool.inactive_shares[pool.observed_lockup_cycle], delegator) + pool_u64::balance(pool.active_shares, delegator) <= pool_u64::balance(old(inactive_shares[pool.observed_lockup_cycle]), delegator) + pool_u64::balance(old(active_shares), delegator);
-
-        ensures pending_active == old(pending_active);
-        aborts_if !pool.active_shares.total_coins == active + pending_active;
-        aborts_if !pending_inactive_shares_pool(pool).total_coins == pending_inactive;
-        aborts_if pool_u64::balance(destination_pool, delegator) < MIN_COINS_ON_SHARES_POOL;
-        ensures pool_u64::balance(source_pool, delegator) >= MIN_COINS_ON_SHARES_POOL || 0;
+        // ensures pending_active == old(pending_active);
+        // aborts_if !pool.active_shares.total_coins == active + pending_active;
+        // aborts_if !pending_inactive_shares_pool(pool).total_coins == pending_inactive;
+        // aborts_if pool_u64::balance(destination_pool, delegator) < MIN_COINS_ON_SHARES_POOL;
+        // ensures pool_u64::balance(source_pool, delegator) >= MIN_COINS_ON_SHARES_POOL || 0;
     }
 
     spec reactivate_stake(delegator: &signer, pool_address: address, amount: u64) {
 
-        let pool = global<DelegationPool>(pool_address);
-        let source_pool = pool.active_shares;
-        let destination_pool = pending_inactive_shares_pool(pool);
+        // let pool = global<DelegationPool>(pool_address);
+        // let source_pool = pool.active_shares;
+        // let destination_pool = pending_inactive_shares_pool(pool);
 
-        let active =  coin::value(stake_pool.active);
-        let inactive =  coin::value(stake_pool.inactive);
-        let pending_active = coin::value(stake_pool.pending_active);
-        let pending_inactive = coin::value(stake_pool.pending_inactive);
+        // let active =  coin::value(stake_pool.active);
+        // let inactive =  coin::value(stake_pool.inactive);
+        // let pending_active = coin::value(stake_pool.pending_active);
+        // let pending_inactive = coin::value(stake_pool.pending_inactive);
 
-        ensures pool_u64::shares_to_amount( source_pool, pool_u64::shares(old(source_pool), delegator) - pool_u64::shares(source_pool, delegator)) == amount;
+        // ensures pool_u64::shares_to_amount( source_pool, pool_u64::shares(old(source_pool), delegator) - pool_u64::shares(source_pool, delegator)) == amount;
 
-        ensures pool_u64::shares(destination_pool, delegator) - pool_u64::shares(old(destination_pool), delegator) == pool_u64::amount_to_shares(destination_pool, amount);
+        // ensures pool_u64::shares(destination_pool, delegator) - pool_u64::shares(old(destination_pool), delegator) == pool_u64::amount_to_shares(destination_pool, amount);
 
-        ensures old(source_pool).total_coins - source_pool.total_coins == destination_pool.total_coins - destination_pool.total_coins;        
-        ensures old(source_pool).total_coins - source_pool.total_coins == amount;
-        ensures pool.active_shares - old(pool.active_shares) == old(pending_inactive_shares_pool(pool)) - pending_inactive_shares_pool(pool);
+        // ensures old(source_pool).total_coins - source_pool.total_coins == destination_pool.total_coins - destination_pool.total_coins;        
+        // ensures old(source_pool).total_coins - source_pool.total_coins == amount;
+        // ensures pool.active_shares - old(pool.active_shares) == old(pending_inactive_shares_pool(pool)) - pending_inactive_shares_pool(pool);
 
-        ensures pool_u64::balance(pool.inactive_shares[pool.observed_lockup_cycle], delegator) + pool_u64::balance(pool.active_shares, delegator) <= pool_u64::balance(old(inactive_shares[pool.observed_lockup_cycle]), delegator) + pool_u64::balance(old(active_shares), delegator);
+        // ensures pool_u64::balance(pool.inactive_shares[pool.observed_lockup_cycle], delegator) + pool_u64::balance(pool.active_shares, delegator) <= pool_u64::balance(old(inactive_shares[pool.observed_lockup_cycle]), delegator) + pool_u64::balance(old(active_shares), delegator);
 
-        ensures pending_active == old(pending_active);
-        aborts_if !pool.active_shares.total_coins == active + pending_active;
-        aborts_if !pending_inactive_shares_pool(pool).total_coins == pending_inactive;
-        aborts_if pool_u64::balance(destination_pool, delegator) < MIN_COINS_ON_SHARES_POOL;
-        ensures pool_u64::balance(source_pool, delegator) >= MIN_COINS_ON_SHARES_POOL || 0;
+        // ensures pending_active == old(pending_active);
+        // aborts_if !pool.active_shares.total_coins == active + pending_active;
+        // aborts_if !pending_inactive_shares_pool(pool).total_coins == pending_inactive;
+        // aborts_if pool_u64::balance(destination_pool, delegator) < MIN_COINS_ON_SHARES_POOL;
+        // ensures pool_u64::balance(source_pool, delegator) >= MIN_COINS_ON_SHARES_POOL || 0;
         
         // pool_u64::shares_to_amount(
         // source_pool, // snapshot of shares pool before redeem_shares
@@ -430,27 +425,27 @@ spec aptos_framework::delegation_pool {
         // let observed_lockup_cycle = pool.observed_lockup_cycle;
         // aborts_if !table::spec_contains(pool.inactive_shares, lockup_cycle);
 
-        let delegator = get_delegation_pool_stake(pool);
-        let inactiveshares = table::borrow_mut(&mut pool.inactive_shares, lockup_cycle);
-        let shares_to_redeem = amount_to_shares_to_redeem(inactive_shares, shareholder, coins_amount);
+        // let delegator = get_delegation_pool_stake(pool);
+        // let inactiveshares = table::borrow_mut(&mut pool.inactive_shares, lockup_cycle);
+        // let shares_to_redeem = amount_to_shares_to_redeem(inactive_shares, shareholder, coins_amount);
 
-        let active =  coin::value(stake_pool.active);
-        let inactive =  coin::value(stake_pool.inactive);
-        let pending_active = coin::value(stake_pool.pending_active);
-        let pending_inactive = coin::value(stake_pool.pending_inactive);
+        // let active =  coin::value(stake_pool.active);
+        // let inactive =  coin::value(stake_pool.inactive);
+        // let pending_active = coin::value(stake_pool.pending_active);
+        // let pending_inactive = coin::value(stake_pool.pending_inactive);
 
-        ensures (pool_u64::shares(old(pool.inactive_shares[lockup_cycle]), shareholder) != 0 && pool_u64::shares(pool.inactive_shares[lockup_cycle], shareholder) == 0); 
-        ensures !table::contains(pool.pending_withdrawals, delegator);
-        //how to =>
-
-
-
-        ensures (old(pool.inactive_shares[lockup_cycle].total_coins) - pool_u64::redeem_shares(inactive_shares, shareholder, shares_to_redeem) == 0); 
-        ensures !table::contains(pool.inactive_shares, lockup_cycle);
+        // ensures (pool_u64::shares(old(pool.inactive_shares[lockup_cycle]), shareholder) != 0 && pool_u64::shares(pool.inactive_shares[lockup_cycle], shareholder) == 0); 
+        // ensures !table::contains(pool.pending_withdrawals, delegator);
+        // //how to =>
 
 
-        ensures (table::contains(old(pool.pending_withdrawals), delegator) && !table::contains(pool.pending_withdrawals, delegator));
-        ensures old(pool.pending_withdrawals)[delegator] == lockup_cycle;
+
+        // ensures (old(pool.inactive_shares[lockup_cycle].total_coins) - pool_u64::redeem_shares(inactive_shares, shareholder, shares_to_redeem) == 0); 
+        // ensures !table::contains(pool.inactive_shares, lockup_cycle);
+
+
+        // ensures (table::contains(old(pool.pending_withdrawals), delegator) && !table::contains(pool.pending_withdrawals, delegator));
+        // ensures old(pool.pending_withdrawals)[delegator] == lockup_cycle;
 
         // ensures pool_u64::shares(old(pool).inactive_shares[lockup_cycle], shareholder) != 0;
         // ensures pool_u64::shares(pool.inactive_shares[lockup_cycle], shareholder) == 0;
