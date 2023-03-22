@@ -66,7 +66,7 @@ spec aptos_framework::delegation_pool {
         // aborts_if !exists<stake::ValidatorSet>(@aptos_framework);
     }
 
-        spec initialize_delegation_pool(
+    spec initialize_delegation_pool(
         owner: &signer,
         operator_commission_percentage: u64,
         delegation_pool_creation_seed: vector<u8>,
@@ -74,41 +74,39 @@ spec aptos_framework::delegation_pool {
         pragma verify = false;
         pragma aborts_if_is_partial = true;
         include stake::ResourceRequirement;
-        //requires signer::address_of(owner) != NULL_SHAREHOLDER;
-        //Request 1: asserts_if 
-        //ERROR
-        //Prover can't resolve features::delegation_pools_enabled(), use magic number instead
-        aborts_if !features::spec_is_enabled(11);  
-        //Request 2: asserts_if exists<DelegationPoolOwnership>(owner) precondition
+        //Property 1 [OK]: asserts_if !features::delegation_pools_enabled()
+        //TODO: Prover can't resolve features::delegation_pools_enabled(), use magic number instead , may fixed later.
+        aborts_if !features::spec_is_enabled(features::DELEGATION_POOLS);
+        //Property 2 [OK]: asserts_if exists<DelegationPoolOwnership>(owner) precondition
         //OK
         aborts_if exists<DelegationPoolOwnership>(signer::address_of(owner));
-        //Request 3: Sasserts_if operator_commission_percentage > MAX_FEE
+        //Property 3 [OK]: Sasserts_if operator_commission_percentage > MAX_FEE
         //OK
         aborts_if operator_commission_percentage > MAX_FEE;
-        //Request 4: exists<DelegationPoolOwnership>(owner) postcondition
+        //Property 4 [OK]: exists<DelegationPoolOwnership>(owner) postcondition
         //OK
         ensures exists<DelegationPoolOwnership>(signer::address_of(owner));
-        //Request 5: let pool_address = global<DelegationPoolOwnership>(owner).pool_address;
+        //Property 5 [OK]: let pool_address = global<DelegationPoolOwnership>(owner).pool_address;
         //OK
         let post pool_address = global<DelegationPoolOwnership>(signer::address_of(owner)).pool_address;
-        //Request 6: exists<DelegationPool>(pool_address)
+        //Property 6 [OK]: exists<DelegationPool>(pool_address)
         //OK
         ensures exists<DelegationPool>(pool_address);
-        //Request 7: exists<StakePool>(pool_address)
+        //Property 7 [OK]: exists<StakePool>(pool_address)
         //OK
         ensures stake::stake_pool_exists(pool_address);
-        //Request 8: table::contains(pool.inactive_shares, pool.OLC): shares pool of pending_inactive stake always exists (cannot be deleted unless it becomes inactive) 
+        //Property 8 [OK]: table::contains(pool.inactive_shares, pool.OLC): shares pool of pending_inactive stake always exists (cannot be deleted unless it becomes inactive) 
         //OK
         let post pool = global<DelegationPool>(pool_address);
         ensures table::spec_contains(pool.inactive_shares, pool.observed_lockup_cycle); 
-        //Request 9: total_coins(pool.active_shares) == active + pending_active on StakePool
+        //Property 9 [OK]:: total_coins(pool.active_shares) == active + pending_active on StakePool
         //OK
         let post stake_pool = global<stake::StakePool>(pool_address);
         ensures pool.active_shares.total_coins == coin::value(stake_pool.active) + coin::value(stake_pool.pending_active);
-        //Request 10: total_coins(pool.inactive_shares[pool.OLC]) == pending_inactive
+        //Property 10 [OK]: total_coins(pool.inactive_shares[pool.OLC]) == pending_inactive
         //OK
         ensures table::spec_get(pool.inactive_shares,pool.observed_lockup_cycle).total_coins == coin::value(stake_pool.pending_inactive);
-        //Request 11: total_coins_inactive == inactive on StakePool
+        //Property 11 [OK]: total_coins_inactive == inactive on StakePool
         //OK
         ensures pool.total_coins_inactive == coin::value(stake_pool.pending_inactive);
     }
@@ -511,7 +509,13 @@ spec aptos_framework::delegation_pool {
             // let stake_pool = global<stake::StakePool>(pool_address);
             // let inactive = stake_pool.inactive.value;
             // ensures pre_pool.observed_lockup_cycle.index != pool.observed_lockup_cycle.index && inactive > pre_pool.total_coins_inactive;
-            // 5.
+            
+            // Property 5 [OK]: pool.OLC == old(pool).OLC + 1 => table::contains(pool.inactive_shares, pool.OLC)
+            let post pool = global<DelegationPool>(pool_address);
+            let pre_pool = global<DelegationPool>(pool_address);
+            let stake_pool = global<stake::StakePool>(pool_address);
+            let inactive = stake_pool.inactive.value;
+            ensures pool.observed_lockup_cycle.index == pre_pool.observed_lockup_cycle.index + 1 ==> table::spec_contains(pool.inactive_shares,pool.observed_lockup_cycle);
         }
 
     spec multiply_then_divide(x: u64, y: u64, z: u64): u64 {
