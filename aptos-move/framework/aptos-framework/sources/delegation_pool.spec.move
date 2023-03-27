@@ -3,6 +3,16 @@ spec aptos_framework::delegation_pool {
         // TODO: verification disabled until this module is specified.
         pragma verify = false;
         pragma aborts_if_is_strict;
+
+        // 2 timeout
+        // invariant forall addr: address: global<DelegationPool>(addr).stake_pool_signer_cap.account == addr;
+        // 7 timeout
+        // invariant forall addr: address: table::spec_contains(global<DelegationPool>(addr).inactive_shares, global<DelegationPool>(addr).observed_lockup_cycle);
+        // 8 timeout
+        // forall i in [0, pool.OLC): table::contains(pool.inactive_shares, i) => total_coins(pool.inactive_shares[i]) != 0
+        // invariant forall addr: address:
+        // forall i in 0..global<DelegationPool>(addr).observed_lockup_cycle.index:
+        // table::spec_contains(global<DelegationPool>(addr).inactive_shares,ObservedLockupCycle{index:i}) ==> table::spec_get(global<DelegationPool>(addr).inactive_shares,ObservedLockupCycle{index:i}).total_coins != 0;
     }
 
 
@@ -203,24 +213,32 @@ spec aptos_framework::delegation_pool {
 
     }
 
-    spec add_stake(delegator: &signer, pool_address: address, amount: u64) {
+   spec add_stake(delegator: &signer, pool_address: address, amount: u64) {
 
-        pragma verify = false;
+        pragma verify = true;
         pragma aborts_if_is_partial;
-
+        //Devnote
+        //This function is very confusing
+        //There is two stake account involved in the add_stake
+        //The first one is obtain by get_pool_address()
+        //The second one is obtain by stake::get_ownerbility
+        //So why? whats the difference? 
+        let pool = global<DelegationPool>(pool_address);
         //Note: Origin func return when amount > 0, so it should be a pre-condition
         requires amount > 0;
+       
         //Property 1 [OK]: aborts_if pool_u64::balance(pool.active_shares, delegator) < MIN_COINS_ON_SHARES_POOL
         //Note: Prover occur timeout when introducing the pool_64::balance directly, using ghost var instead.
         aborts_if ghost_balance < MIN_COINS_ON_SHARES_POOL;
 
-        //Property 2 [TIMEOUT]: ensures active + pending_active == old(active) + old(pending_active) + amount
+        //Property 2 [OK]: ensures active + pending_active == old(active) + old(pending_active) + amount
         //TODO: Decrease the usage of ghost var
-        //ensures ghost_active_p + ghost_pending_active_p == ghost_p_active + ghost_p_pending_active + amount;
+        //Note: Add a function in stake.move to obtain the onwerbility.pool_address
+        ensures ghost_active_p + ghost_pending_active_p == ghost_p_active + ghost_p_pending_active + amount;
 
-        //Property 3 [TIMEOUT]: total_coins(pool.active_shares) == active + pending_active on StakePool 
-        let pool = global<DelegationPool>(pool_address);
-        //ensures pool.active_shares.total_coins == ghost_active_p + ghost_pending_active_p;
+        //Property 3 [ERROR]: total_coins(pool.active_shares) == active + pending_active on StakePool
+        //Note: Which StakePool does it mean? global<stake::StakePool>(pool_address) or global<stake::StakePool>(get_address_of(pool))?
+        ensures global<DelegationPool>(pool_address).active_shares.total_coins == coin::value(global<stake::StakePool>(pool_address).active) + coin::value(global<stake::StakePool>(pool_address).pending_active);
 
         //Property 4 [OK]: pool_u64::shares(pool.active_shares, delegator) - pool_u64::shares(old(pool).active_shares, delegator) == pool_u64::amount_to_shares(pool.active_shares, amount - get_add_stake_fee(pool_address, amount))   
         //TODO: May use ghost_pool instead of ghost_share later.
@@ -238,13 +256,13 @@ spec aptos_framework::delegation_pool {
         ensures ghost_coin_3 == ghost_coin_1 - amount;
         
         //Property 7 [ERROR]: resource-account-balance == old(resource-account-balance)
-        //Issue: Delegtor transfer to the pool_address, and let resource-account add stake, is this correct?
-        //Suggestion: Delegtor should transfer to the resource-account
+        //Issue: Delegtor transfer to the pool_address (recive), and let resource-account add stake (paid), how could resource-account balance remain the same?
+        //Suggestion: ghost_coin_4 == ghost_coin_2 - amount
         //After Suggestion [OK]
-        ensures ghost_coin_4 == ghost_coin_2;
+        ensures ghost_coin_4 == ghost_coin_2 - amount;
         
         //Property 8 [TODO]: delegator does not earn rewards from its pending_active stake when this epoch ends
-        //Note: I'm not sure if this property should be verfied here
+        //Note: I'm not sure if this property should be verfied here, it should belong to sync_delegation_pool
 
     }
 

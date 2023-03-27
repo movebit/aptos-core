@@ -550,6 +550,14 @@ module aptos_framework::stake {
         move_from<OwnerCapability>(owner_address)
     }
 
+    /// For Spec ONLY
+    public fun get_owner_cap_address(owner: &signer): address acquires OwnerCapability {
+        let owner_address = signer::address_of(owner);
+        assert_owner_cap_exists(owner_address);
+        let ownership_cap = borrow_global<OwnerCapability>(owner_address);
+        ownership_cap.pool_address
+    }
+
     /// Deposit `owner_cap` into `account`. This requires `account` to not already have owernship of another
     /// staking pool.
     public fun deposit_owner_cap(owner: &signer, owner_cap: OwnerCapability) {
