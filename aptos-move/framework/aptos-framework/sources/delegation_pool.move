@@ -567,14 +567,42 @@ module aptos_framework::delegation_pool {
 
         let pool = borrow_global_mut<DelegationPool>(pool_address);
         let delegator_address = signer::address_of(delegator);
-
+        // --------------- for spec only ------------------
+        let ghost_shares_ = pool_u64::shares(&mut pool.active_shares, delegator_address);
+        let (ghost_p_active_, ghost_p_inactive_, ghost_p_pending_active_,ghost_p_pending_inactive_) = stake::get_stake(get_pool_address(pool));
+        let ghost_coin_1_ = coin::balance<AptosCoin>(delegator_address);
+        let ghost_coin_2_ = coin::balance<AptosCoin>(get_pool_address(pool));
+        spec{
+            assume ghost_coin_1 == ghost_coin_1_;
+            assume ghost_coin_2 == ghost_coin_2_;
+            assume ghost_delegation_pool == pool;
+            assume ghost_shares == ghost_shares_;
+            assume ghost_p_active == ghost_p_active_;
+            assume ghost_p_pending_active == ghost_p_pending_active_;
+            assume ghost_p_inactive == ghost_p_inactive_;
+            assume ghost_p_pending_inactive == ghost_p_pending_inactive_;
+        };
+        // --------------- for spec only ------------------
         // stake the entire amount to the stake pool
-        coin::transfer<AptosCoin>(delegator, pool_address, amount);
-        stake::add_stake(&retrieve_stake_pool_owner(pool), amount);
 
+        let resource_signer = &retrieve_stake_pool_owner(pool);
+        coin::transfer<AptosCoin>(delegator,get_pool_address(pool), amount);
+        stake::add_stake(resource_signer, amount);
+        // NEW ASSERT
+        assert!(get_pool_address(pool) != pool_address, error::invalid_argument(ENOT_ENOUGH_ACTIVE_STAKE_TO_UNLOCK) );
+        assert!(delegator_address != pool_address, error::invalid_argument(ENOT_ENOUGH_ACTIVE_STAKE_TO_UNLOCK) );
+        assert!(resource_signer != delegator, error::invalid_argument(ENOT_ENOUGH_ACTIVE_STAKE_TO_UNLOCK));
+        assert!(signer::address_of(resource_signer) != pool_address, error::invalid_argument(ENOT_ENOUGH_ACTIVE_STAKE_TO_UNLOCK));
         // but buy shares for delegator just for the remaining amount after fee
         pool_u64::buy_in(&mut pool.active_shares, delegator_address, amount - add_stake_fee);
         assert_min_active_balance(pool, delegator_address);
+
+        // --------------- for spec only ------------------
+        let ghost_balance_ = pool_u64::balance(&pool.active_shares, delegator_address);
+        spec{
+            assume ghost_balance == ghost_balance_;
+        };
+        // --------------- for spec only ------------------
 
         // grant temporary ownership over `add_stake` fees to a separate shareholder in order to:
         // - not mistake them for rewards to pay the operator from
@@ -591,8 +619,22 @@ module aptos_framework::delegation_pool {
                 add_stake_fee,
             },
         );
-    }
 
+        // --------------- for spec only ------------------
+        let pool = borrow_global_mut<DelegationPool>(pool_address);
+        let (ghost_active_p_, ghost_inactive_p_, ghost_pending_active_p_, ghost_pending_inactive_p_) = stake::get_stake(get_pool_address(pool));
+        let ghost_coin_3_ = coin::balance<AptosCoin>(delegator_address);
+        let ghost_coin_4_ = coin::balance<AptosCoin>(get_pool_address(pool));
+        spec{
+            assume ghost_coin_3 == ghost_coin_3_;
+            assume ghost_coin_4 == ghost_coin_4_;
+            assume ghost_active_p == ghost_active_p_;
+            assume ghost_pending_active_p == ghost_pending_active_p_;
+            assume ghost_inactive_p == ghost_inactive_p_;
+            assume ghost_pending_inactive_p == ghost_pending_inactive_p_;
+        };
+        // --------------- for spec only ------------------
+    }
     /// Unlock `amount` from the active + pending_active stake of `delegator` or
     /// at most how much active stake there is on the stake pool.
     public entry fun unlock(delegator: &signer, pool_address: address, amount: u64) acquires DelegationPool {

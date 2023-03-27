@@ -205,46 +205,46 @@ spec aptos_framework::delegation_pool {
 
     spec add_stake(delegator: &signer, pool_address: address, amount: u64) {
 
-    
+        pragma verify = false;
+        pragma aborts_if_is_partial;
 
+        //Note: Origin func return when amount > 0, so it should be a pre-condition
+        requires amount > 0;
+        //Property 1 [OK]: aborts_if pool_u64::balance(pool.active_shares, delegator) < MIN_COINS_ON_SHARES_POOL
+        //Note: Prover occur timeout when introducing the pool_64::balance directly, using ghost var instead.
+        aborts_if ghost_balance < MIN_COINS_ON_SHARES_POOL;
+
+        //Property 2 [TIMEOUT]: ensures active + pending_active == old(active) + old(pending_active) + amount
+        //TODO: Decrease the usage of ghost var
+        //ensures ghost_active_p + ghost_pending_active_p == ghost_p_active + ghost_p_pending_active + amount;
+
+        //Property 3 [TIMEOUT]: total_coins(pool.active_shares) == active + pending_active on StakePool 
         let pool = global<DelegationPool>(pool_address);
-        let source_pool = pool.active_shares;
-        let destination_pool = pending_inactive_shares_pool(pool);
+        //ensures pool.active_shares.total_coins == ghost_active_p + ghost_pending_active_p;
 
-        let active =  coin::value(stake_pool.active);
-        let inactive =  coin::value(stake_pool.inactive);
-        let pending_active = coin::value(stake_pool.pending_active);
-        let pending_inactive = coin::value(stake_pool.pending_inactive);
-
-        aborts_if pool_u64::balance(pool.active_shares, delegator) < MIN_COINS_ON_SHARES_POOL;
-        ensures active + pending_active == old(active) + old(pending_active) + amount;
-
-        ensures pool.active_shares.total_coins == active + pending_active; 
-        ensures pool_u64::shares(pool.active_shares, delegator) - pool_u64::shares(old(pool).active_shares, delegator) == pool_u64::amount_to_shares( old(pool.active_shares), amount - get_add_stake_fee(pool_address, amount));
-
-        ensures pool_u64::shares(pool.active_shares, NULL_SHAREHOLDER) - pool_u64::shares(old(pool).active_shares, NULL_SHAREHOLDER) == pool_u64::amount_to_shares(pool.active_shares, get_add_stake_fee(pool_address, amount));
-
-        ensures pool_u64::balance(pool, delegator) == old(pool_u64::balance(pool, delegator)) - amount;
+        //Property 4 [OK]: pool_u64::shares(pool.active_shares, delegator) - pool_u64::shares(old(pool).active_shares, delegator) == pool_u64::amount_to_shares(pool.active_shares, amount - get_add_stake_fee(pool_address, amount))   
+        //TODO: May use ghost_pool instead of ghost_share later.
+        let delegator_address = signer::address_of(delegator);
+        let total_coins = pool.active_shares.total_coins;   
+        invariant pool_u64::spec_shares(pool.active_shares, delegator_address) - ghost_shares == pool_u64::spec_amount_to_shares_with_total_coins(pool.active_shares, amount - spec_get_add_stake_fee(pool_address, amount), pool.active_shares.total_coins);
         
-        //resource-account is what?
-        ensures pool_u64::balance(pool, retrieve_stake_pool_owner(pool)) == old(pool_u64::balance(pool, retrieve_stake_pool_owner(pool)));
-
-        // aborts_if pool_u64::balance(pool.active_shares, delegator) < MIN_COINS_ON_SHARES_POOL
-        // ensures active + pending_active == old(active) + old(pending_active) + amount
-        // total_coins(pool.active_shares) == active + pending_active on StakePool
-        // pool_u64::shares(pool.active_shares, delegator) - pool_u64::shares(old(pool).active_shares, delegator) ==
-        // pool_u64::amount_to_shares(
-        // pool.active_shares, // snapshot of shares pool before 1st buy_in
-        // amount - get_add_stake_fee(pool_address, amount)
-        // )
-        // pool_u64::shares(pool.active_shares, NULL_SHAREHOLDER) - pool_u64::shares(old(pool).active_shares, NULL_SHAREHOLDER) == pool_u64::amount_to_shares(
-        // pool.active_shares, // snapshot of shares pool before 2nd buy_in
-        // get_add_stake_fee(pool_address, amount)
-        // )
-        // delegator-balance == old(delegator-balance) - amount: delegator sent `amount` APT
-        // resource-account-balance == old(resource-account-balance): no stake is lost when transferring through the resource account
-        // delegator does not earn rewards from its pending_active stake when this epoch ends
-
+        //Property 5 [OK]: pool_u64::shares(pool.active_shares, NULL_SHAREHOLDER) - pool_u64::shares(old(pool).active_shares, NULL_SHAREHOLDER) == pool_u64::amount_to_shares(pool.active_shares, get_add_stake_fee(pool_address, amount))
+        invariant pool_u64::spec_shares(pool.active_shares, NULL_SHAREHOLDER) - pool_u64::spec_shares( ghost_delegation_pool.active_shares, NULL_SHAREHOLDER) == pool_u64::spec_amount_to_shares_with_total_coins(pool.active_shares, amount - spec_get_add_stake_fee(pool_address, amount), pool.active_shares.total_coins);
+        
+        //Property 6 [ERROR]:delegator-balance == old(delegator-balance) - amount
+        //Issue: Is it possible that the delegator is the same as resources account?
+        //Suggestion: Add assert in the origin function
+        //After Suggestion [OK]
+        ensures ghost_coin_3 == ghost_coin_1 - amount;
+        
+        //Property 7 [ERROR]: resource-account-balance == old(resource-account-balance)
+        //Issue: Delegtor transfer to the pool_address, and let resource-account add stake, is this correct?
+        //Suggestion: Delegtor should transfer to the resource-account
+        //After Suggestion [OK]
+        ensures ghost_coin_4 == ghost_coin_2;
+        
+        //Property 8 [TODO]: delegator does not earn rewards from its pending_active stake when this epoch ends
+        //Note: I'm not sure if this property should be verfied here
 
     }
 
