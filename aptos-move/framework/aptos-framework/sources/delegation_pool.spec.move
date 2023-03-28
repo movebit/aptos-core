@@ -3,7 +3,8 @@ spec aptos_framework::delegation_pool {
         // TODO: verification disabled until this module is specified.
         pragma verify = false;
         pragma aborts_if_is_strict;
-
+        // 1 
+        // invariant forall addr: address: exists<DelegationPool>(addr) ==> exists<stake::StakePool>(addr);
         // 2 timeout
         // invariant forall addr: address: global<DelegationPool>(addr).stake_pool_signer_cap.account == addr;
         // 7 timeout
@@ -76,6 +77,7 @@ spec aptos_framework::delegation_pool {
         // aborts_if !exists<stake::ValidatorSet>(@aptos_framework);
     }
 
+    //Complete
     spec initialize_delegation_pool(
         owner: &signer,
         operator_commission_percentage: u64,
@@ -213,16 +215,17 @@ spec aptos_framework::delegation_pool {
 
     }
 
-   spec add_stake(delegator: &signer, pool_address: address, amount: u64) {
+    //Complete
+    spec add_stake(delegator: &signer, pool_address: address, amount: u64) {
 
         pragma verify = true;
         pragma aborts_if_is_partial;
-        //Devnote
-        //This function is very confusing
-        //There is two stake account involved in the add_stake
-        //The first one is obtain by get_pool_address()
-        //The second one is obtain by stake::get_ownerbility
-        //So why? whats the difference? 
+
+        //TODO: Decrease the usage of ghost var
+
+        //Property 8 [TODO]: delegator does not earn rewards from its pending_active stake when this epoch ends
+        //Note: I'm not sure if this property should be verfied here, it should belong to sync_delegation_pool
+
         let pool = global<DelegationPool>(pool_address);
         //Note: Origin func return when amount > 0, so it should be a pre-condition
         requires amount > 0;
@@ -232,7 +235,6 @@ spec aptos_framework::delegation_pool {
         aborts_if ghost_balance < MIN_COINS_ON_SHARES_POOL;
 
         //Property 2 [OK]: ensures active + pending_active == old(active) + old(pending_active) + amount
-        //TODO: Decrease the usage of ghost var
         //Note: Add a function in stake.move to obtain the onwerbility.pool_address
         ensures ghost_active_p + ghost_pending_active_p == ghost_p_active + ghost_p_pending_active + amount;
 
@@ -260,9 +262,6 @@ spec aptos_framework::delegation_pool {
         //Suggestion: ghost_coin_4 == ghost_coin_2 - amount
         //After Suggestion [OK]
         ensures ghost_coin_4 == ghost_coin_2 - amount;
-        
-        //Property 8 [TODO]: delegator does not earn rewards from its pending_active stake when this epoch ends
-        //Note: I'm not sure if this property should be verfied here, it should belong to sync_delegation_pool
 
     }
 
@@ -389,6 +388,7 @@ spec aptos_framework::delegation_pool {
         include AmountToSharesToRedeemAbortsIf;
         ensures result == spec_amount_to_shares_to_redeem(shares_pool, shareholder, coins_amount);
     }
+    
     spec schema AmountToSharesToRedeemAbortsIf {
         shares_pool: pool_u64::Pool;
         shareholder: address;
@@ -431,50 +431,32 @@ spec aptos_framework::delegation_pool {
         aborts_if shares_pool.total_shares < shares_to_redeem;
     }
 
+    //Complete
     spec redeem_inactive_shares(
         pool: &mut DelegationPool,
         shareholder: address,
         coins_amount: u64,
         lockup_cycle: ObservedLockupCycle,
     ): u64 {
-        pragma verify = true;
-        // let observed_lockup_cycle = pool.observed_lockup_cycle;
-        // aborts_if !table::spec_contains(pool.inactive_shares, lockup_cycle);
+        pragma verify = false;
+        pragma aborts_if_is_partial;
+        // Request 1: pool_u64::shares(old(pool).inactive_shares[lockup_cycle], shareholder) != 0 && pool_u64::shares(pool.inactive_shares[lockup_cycle], shareholder) == 0 => !table::contains(pending_withdrawals, delegator)
+        // OK
+        ensures (pool_u64::spec_shares(table::spec_get(old(pool).inactive_shares,lockup_cycle), shareholder) != 0 && pool_u64::spec_shares(table::spec_get(old(pool).inactive_shares,lockup_cycle), shareholder) == 0 ==> !table::spec_contains(pool.pending_withdrawals, shareholder));
+        // Request 2: total_coins(old(pool).inactive_shares[lockup_cycle]) - redeemed_coins (result) == 0 => !table::contains(pool.inactive_shares, lockup_cycle): 
+        // ISSUE & QUESTION
+        // The inactive[olc] exist, however, it's total_coin = 0. Should we change the condition to pool.inactive_shares.total_coin == 0 ?
+        // If the condition modified as mentioned, it shall pass.
+        ensures lockup_cycle.index != 0 && table::spec_get(old(pool).inactive_shares,lockup_cycle).total_coins - result == 0 ==> table::spec_get(pool.inactive_shares, lockup_cycle).total_coins == 0;
 
-        // let delegator = get_delegation_pool_stake(pool);
-        // let inactiveshares = table::borrow_mut(&mut pool.inactive_shares, lockup_cycle);
-        // let shares_to_redeem = amount_to_shares_to_redeem(inactive_shares, shareholder, coins_amount);
-
-        // let active =  coin::value(stake_pool.active);
-        // let inactive =  coin::value(stake_pool.inactive);
-        // let pending_active = coin::value(stake_pool.pending_active);
-        // let pending_inactive = coin::value(stake_pool.pending_inactive);
-
-        // ensures (pool_u64::shares(old(pool.inactive_shares[lockup_cycle]), shareholder) != 0 && pool_u64::shares(pool.inactive_shares[lockup_cycle], shareholder) == 0); 
-        // ensures !table::contains(pool.pending_withdrawals, delegator);
-        // //how to =>
-
-
-
-        // ensures (old(pool.inactive_shares[lockup_cycle].total_coins) - pool_u64::redeem_shares(inactive_shares, shareholder, shares_to_redeem) == 0); 
-        // ensures !table::contains(pool.inactive_shares, lockup_cycle);
-
-
-        // ensures (table::contains(old(pool.pending_withdrawals), delegator) && !table::contains(pool.pending_withdrawals, delegator));
-        // ensures old(pool.pending_withdrawals)[delegator] == lockup_cycle;
-
-        // ensures pool_u64::shares(old(pool).inactive_shares[lockup_cycle], shareholder) != 0;
-        // ensures pool_u64::shares(pool.inactive_shares[lockup_cycle], shareholder) == 0;
-        
-        // //how to =>
-        // aborts_if table::contains(pool.pending_withdrawals, delegator);
-        
-        // ensures old(pool).inactive_shares[lockup_cycle].total_coins - redeemed_coins (result) == 0;
-        // aborts_if table::contains(pool.inactive_shares, lockup_cycle);
-
-        // ensures table::contains(old(pool.pending_withdrawals), delegator) && !table::contains(pool.pending_withdrawals, delegator);
-        // ensures old(pool.pending_withdrawals)[delegator] == lockup_cycle;
-
+        // Request 3: table::contains(old(pending_withdrawals), delegator) && !table::contains(pending_withdrawals, delegator) => old(pending_withdrawals)[delegator] == lockup_cycle:
+        // OK & QUESTION
+        // The prover can't apply this condition correctly: !table::spec_contains(pool.pending_withdrawals, shareholder)
+        // To solve this issue, apply (pre) != (post), this new condition is resonable beacuse:
+        // Obviously, if the function deleted a shareholder from the table, the (pre) should never be the same as (post)
+        let a = table::spec_get(pool.pending_withdrawals, shareholder);
+        let post b = table::spec_get(pool.pending_withdrawals, shareholder);
+        ensures table::spec_contains(old(pool).pending_withdrawals, shareholder) && !table::spec_contains(pool.pending_withdrawals, shareholder) && a != b ==> table::spec_get(old(pool).pending_withdrawals, shareholder) == lockup_cycle;
     }
 
     spec calculate_stake_pool_drift(pool: &DelegationPool): (bool, u64, u64, u64, u64) {
