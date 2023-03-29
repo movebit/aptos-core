@@ -70,17 +70,9 @@ pub struct Client {
 
 impl Client {
     pub fn new_with_timeout(base_url: Url, timeout: Duration) -> Self {
-        Client::new_with_timeout_and_user_agent(base_url, timeout, USER_AGENT)
-    }
-
-    pub fn new_with_timeout_and_user_agent(
-        base_url: Url,
-        timeout: Duration,
-        user_agent: &str,
-    ) -> Self {
         let inner = ReqwestClient::builder()
             .timeout(timeout)
-            .user_agent(user_agent)
+            .user_agent(USER_AGENT)
             .cookie_store(true)
             .build()
             .unwrap();

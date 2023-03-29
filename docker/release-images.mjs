@@ -65,12 +65,7 @@ const IMAGES_TO_RELEASE = {
     release: [
       Features.Default,
     ],
-  },
-  "indexer-grpc": {
-    release: [
-      Features.Default,
-    ],
-  },
+  }
 };
 
 import { execSync } from "node:child_process";

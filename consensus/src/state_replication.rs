@@ -10,7 +10,7 @@ use crate::{
 use anyhow::Result;
 use aptos_consensus_types::{
     block::Block,
-    common::{Payload, PayloadFilter},
+    common::{Payload, PayloadFilter, Round},
     executed_block::ExecutedBlock,
 };
 use aptos_crypto::HashValue;
@@ -26,6 +26,7 @@ pub type StateComputerCommitCallBackType =
 pub trait PayloadClient: Send + Sync {
     async fn pull_payload(
         &self,
+        round: Round,
         max_items: u64,
         max_bytes: u64,
         exclude: PayloadFilter,

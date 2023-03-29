@@ -5,7 +5,6 @@ use aptos_indexer_grpc_utils::{
     build_protobuf_encoded_transaction_wrappers,
     cache_operator::{CacheBatchGetStatus, CacheOperator},
     config::IndexerGrpcConfig,
-    constants::GRPC_AUTH_TOKEN_HEADER,
     file_store_operator::FileStoreOperator,
     EncodedTransactionWithVersion,
 };
@@ -83,14 +82,6 @@ impl IndexerStream for DatastreamServer {
         &self,
         req: Request<RawDatastreamRequest>,
     ) -> Result<Response<Self::RawDatastreamStream>, Status> {
-        // Get request identity. The request is already authenticated by the interceptor.
-        let request_token = req
-            .metadata()
-            .get(GRPC_AUTH_TOKEN_HEADER)
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
         // Response channel to stream the data to the client.
         let (tx, rx) = channel(MAX_RESPONSE_CHANNEL_SIZE);
         let req = req.into_inner();
@@ -104,7 +95,6 @@ impl IndexerStream for DatastreamServer {
             let mut cache_operator = CacheOperator::new(conn);
             let file_store_operator = FileStoreOperator::new(file_store_bucket_name);
             file_store_operator.verify_storage_bucket_existence().await;
-            let request_token = request_token.to_string();
 
             let chain_id = cache_operator.get_chain_id().await.unwrap();
             // Data service metrics.
@@ -113,7 +103,6 @@ impl IndexerStream for DatastreamServer {
             let request_id = Uuid::new_v4().to_string();
             info!(
                 chain_id = chain_id,
-                token_id = request_token.as_str(),
                 request_id = request_id.as_str(),
                 current_version = current_version,
                 "[Indexer Data] New request received."
@@ -141,14 +130,13 @@ impl IndexerStream for DatastreamServer {
                             continue;
                         },
                         Ok(TransactionsDataStatus::DataGap) => {
-                            data_gap_handling(request_token.as_str(), current_version);
+                            data_gap_handling(current_version);
                             // End the data stream.
                             break;
                         },
                         Err(e) => {
                             data_fetch_error_handling(
                                 e,
-                                request_token.as_str(),
                                 current_version,
                                 chain_id,
                                 request_id.as_str(),
@@ -167,7 +155,6 @@ impl IndexerStream for DatastreamServer {
                     Ok(_) => {},
                     Err(TrySendError::Full(_)) => {
                         warn!(
-                            token_id = request_token.as_str(),
                             request_id = request_id.as_str(),
                             "[Indexer Data] Receiver is full; retrying."
                         );
@@ -179,7 +166,6 @@ impl IndexerStream for DatastreamServer {
                     },
                     Err(TrySendError::Closed(_)) => {
                         warn!(
-                            token_id = request_token.as_str(),
                             request_id = request_id.as_str(),
                             "[Indexer Data] Receiver is closed; exiting."
                         );
@@ -190,7 +176,6 @@ impl IndexerStream for DatastreamServer {
                 tps_calculator.tick_now(current_batch_size as u64);
                 current_version = end_of_batch_version + 1;
                 info!(
-                    token_id = request_token.as_str(),
                     request_id = request_id.as_str(),
                     current_version = current_version,
                     batch_size = current_batch_size,
@@ -199,7 +184,6 @@ impl IndexerStream for DatastreamServer {
                 );
             }
             info!(
-                token_id = request_token.as_str(),
                 request_id = request_id.as_str(),
                 "[Indexer Data] Client disconnected."
             );
@@ -280,11 +264,10 @@ async fn ahead_of_cache_data_handling() {
 }
 
 /// Handles data gap errors, i.e., the data is not present in the cache or file store.
-fn data_gap_handling(token_id: &str, version: u64) {
+fn data_gap_handling(version: u64) {
     // TODO(larry): add metrics/alerts to track the gap.
     // Do not crash the server when gap detected since other clients may still be able to get data.
     error!(
-        token_id = token_id,
         current_version = version,
         "[Indexer Data] Data gap detected. Please check the logs for more details."
     );
@@ -293,13 +276,11 @@ fn data_gap_handling(token_id: &str, version: u64) {
 /// Handles data fetch errors, including cache and file store related errors.
 async fn data_fetch_error_handling(
     err: anyhow::Error,
-    token_id: &str,
     current_version: u64,
     chain_id: u64,
     request_id: &str,
 ) {
     error!(
-        token_id = token_id,
         request_id = request_id,
         chain_id = chain_id,
         current_version = current_version,

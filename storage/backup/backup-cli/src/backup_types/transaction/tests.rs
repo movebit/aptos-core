@@ -56,24 +56,20 @@ fn end_to_end() {
     let first_ver_to_backup = (total_txns / 4) as Version;
     let num_txns_to_backup = total_txns - first_ver_to_backup as usize;
     let target_version = first_ver_to_backup + total_txns as Version / 2;
-    let mut backup_handles = vec![];
-    if first_ver_to_backup > 0 {
-        let transaction_backup_before_first_ver = rt
-            .block_on(
-                TransactionBackupController::new(
-                    TransactionBackupOpt {
-                        start_version: 0,
-                        num_transactions: first_ver_to_backup as usize,
-                    },
-                    GlobalBackupOpt { max_chunk_size },
-                    client.clone(),
-                    Arc::clone(&store),
-                )
-                .run(),
+    let transaction_backup_before_first_ver = rt
+        .block_on(
+            TransactionBackupController::new(
+                TransactionBackupOpt {
+                    start_version: 0,
+                    num_transactions: first_ver_to_backup as usize,
+                },
+                GlobalBackupOpt { max_chunk_size },
+                client.clone(),
+                Arc::clone(&store),
             )
-            .unwrap();
-        backup_handles.push(transaction_backup_before_first_ver);
-    }
+            .run(),
+        )
+        .unwrap();
 
     let transaction_backup_after_first_ver = rt
         .block_on(
@@ -89,7 +85,7 @@ fn end_to_end() {
             .run(),
         )
         .unwrap();
-    backup_handles.push(transaction_backup_after_first_ver);
+
     rt.block_on(
         TransactionRestoreBatchController::new(
             GlobalRestoreOpt {
@@ -104,7 +100,10 @@ fn end_to_end() {
             .try_into()
             .unwrap(),
             store,
-            backup_handles,
+            vec![
+                transaction_backup_before_first_ver,
+                transaction_backup_after_first_ver,
+            ],
             None,
             None,
             VerifyExecutionMode::verify_all(),

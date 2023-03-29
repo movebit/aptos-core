@@ -188,9 +188,10 @@ impl StateDb {
         let mut read_opts = ReadOptions::default();
         // We want `None` if the state_key changes in iteration.
         read_opts.set_prefix_same_as_start(true);
+        // TODO(grao): Support sharding here.
         let mut iter = self
             .state_kv_db
-            .db_shard(state_key.get_shard_id())
+            .metadata_db()
             .iter::<StateValueSchema>(read_opts)?;
         iter.seek(&(state_key.clone(), version))?;
         Ok(iter
@@ -583,7 +584,7 @@ impl StateStore {
         first_version: Version,
         expected_usage: StateStorageUsage,
         ledger_batch: &SchemaBatch,
-        sharded_state_kv_batches: &[SchemaBatch; 256],
+        state_kv_batch: &SchemaBatch,
     ) -> Result<()> {
         let _timer = OTHER_TIMERS_SECONDS
             .with_label_values(&["put_value_sets"])
@@ -594,7 +595,7 @@ impl StateStore {
             first_version,
             expected_usage,
             ledger_batch,
-            sharded_state_kv_batches,
+            state_kv_batch,
         )?;
 
         let _timer = OTHER_TIMERS_SECONDS
@@ -607,8 +608,7 @@ impl StateStore {
             .flat_map_iter(|(i, kvs)| {
                 let version = first_version + i as Version;
                 kvs.iter().map(move |(k, v)| {
-                    sharded_state_kv_batches[k.get_shard_id() as usize]
-                        .put::<StateValueSchema>(&(k.clone(), version), v)
+                    state_kv_batch.put::<StateValueSchema>(&(k.clone(), version), v)
                 })
             })
             .collect()
@@ -636,7 +636,7 @@ impl StateStore {
         first_version: Version,
         expected_usage: StateStorageUsage,
         batch: &SchemaBatch,
-        sharded_state_kv_batches: &[SchemaBatch; 256],
+        state_kv_batch: &SchemaBatch,
     ) -> Result<()> {
         let _timer = OTHER_TIMERS_SECONDS
             .with_label_values(&["put_stats_and_indices"])
@@ -689,8 +689,7 @@ impl StateStore {
                     usage.add_item(key.size() + value.size());
                 } else {
                     // stale index of the tombstone at current version.
-                    sharded_state_kv_batches[key.get_shard_id() as usize]
-                        .put::<StaleStateValueIndexSchema>(
+                    state_kv_batch.put::<StaleStateValueIndexSchema>(
                         &StaleStateValueIndex {
                             stale_since_version: version,
                             version,
@@ -711,8 +710,7 @@ impl StateStore {
                 if let Some((old_version, old_value)) = old_version_and_value_opt {
                     usage.remove_item(key.size() + old_value.size());
                     // stale index of the old value at its version.
-                    sharded_state_kv_batches[key.get_shard_id() as usize]
-                        .put::<StaleStateValueIndexSchema>(
+                    state_kv_batch.put::<StaleStateValueIndexSchema>(
                         &StaleStateValueIndex {
                             stale_since_version: version,
                             version: old_version,

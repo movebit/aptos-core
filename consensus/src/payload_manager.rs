@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    counters,
     network::NetworkSender,
     quorum_store::{
         batch_store::{BatchReader, BatchStore},
@@ -12,7 +11,7 @@ use crate::{
 use aptos_consensus_types::{
     block::Block,
     common::{DataStatus, Payload},
-    proof_of_store::ProofOfStore,
+    proof_of_store::{LogicalTime, ProofOfStore},
 };
 use aptos_crypto::HashValue;
 use aptos_executor_types::{Error::DataNotFound, *};
@@ -32,7 +31,7 @@ pub enum PayloadManager {
 impl PayloadManager {
     async fn request_transactions(
         proofs: Vec<ProofOfStore>,
-        block_timestamp: u64,
+        logical_time: LogicalTime,
         batch_store: &BatchStore<NetworkSender>,
     ) -> Vec<(
         HashValue,
@@ -41,12 +40,12 @@ impl PayloadManager {
         let mut receivers = Vec::new();
         for pos in proofs {
             trace!(
-                "QSE: requesting pos {:?}, digest {}, time = {}",
+                "QSE: requesting pos {:?}, digest {}, time = {:?}",
                 pos,
                 pos.digest(),
-                block_timestamp
+                logical_time
             );
-            if block_timestamp <= pos.expiration() {
+            if logical_time <= pos.expiration() {
                 receivers.push((*pos.digest(), batch_store.get_batch(pos)));
             } else {
                 debug!("QSE: skipped expired pos {}", pos.digest());
@@ -56,14 +55,12 @@ impl PayloadManager {
     }
 
     ///Pass commit information to BatchReader and QuorumStore wrapper for their internal cleanups.
-    pub async fn notify_commit(&self, block_timestamp: u64, payloads: Vec<Payload>) {
+    pub async fn notify_commit(&self, logical_time: LogicalTime, payloads: Vec<Payload>) {
         match self {
             PayloadManager::DirectMempool => {},
             PayloadManager::InQuorumStore(batch_store, coordinator_tx) => {
                 // TODO: move this to somewhere in quorum store, so this can be a batch reader
-                batch_store
-                    .update_certified_timestamp(block_timestamp)
-                    .await;
+                batch_store.update_certified_round(logical_time).await;
 
                 let digests: Vec<HashValue> = payloads
                     .into_iter()
@@ -80,7 +77,7 @@ impl PayloadManager {
 
                 if let Err(e) = tx
                     .send(CoordinatorCommand::CommitNotification(
-                        block_timestamp,
+                        logical_time,
                         digests,
                     ))
                     .await
@@ -107,7 +104,7 @@ impl PayloadManager {
                     if proof_with_status.status.lock().is_none() {
                         let receivers = PayloadManager::request_transactions(
                             proof_with_status.proofs.clone(),
-                            block.timestamp_usecs(),
+                            LogicalTime::new(block.epoch(), block.round()),
                             batch_store,
                         )
                         .await;
@@ -141,7 +138,6 @@ impl PayloadManager {
                 let status = proof_with_data.status.lock().take();
                 match status.expect("Should have been updated before.") {
                     DataStatus::Cached(data) => {
-                        counters::QUORUM_BATCH_READY_COUNT.inc();
                         proof_with_data
                             .status
                             .lock()
@@ -149,7 +145,6 @@ impl PayloadManager {
                         Ok(data)
                     },
                     DataStatus::Requested(receivers) => {
-                        let _timer = counters::BATCH_WAIT_DURATION.start_timer();
                         let mut vec_ret = Vec::new();
                         if !receivers.is_empty() {
                             debug!(
@@ -165,7 +160,7 @@ impl PayloadManager {
                                     warn!("Oneshot channel to get a batch was dropped with error {:?}", e);
                                     let new_receivers = PayloadManager::request_transactions(
                                         proof_with_data.proofs.clone(),
-                                        block.timestamp_usecs(),
+                                        LogicalTime::new(block.epoch(), block.round()),
                                         batch_store,
                                     )
                                     .await;
@@ -182,7 +177,7 @@ impl PayloadManager {
                                 Ok(Err(e)) => {
                                     let new_receivers = PayloadManager::request_transactions(
                                         proof_with_data.proofs.clone(),
-                                        block.timestamp_usecs(),
+                                        LogicalTime::new(block.epoch(), block.round()),
                                         batch_store,
                                     )
                                     .await;

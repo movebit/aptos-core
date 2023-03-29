@@ -14,7 +14,9 @@ use crate::{
 };
 use anyhow::Result;
 use aptos_consensus_notifications::ConsensusNotificationSender;
-use aptos_consensus_types::{block::Block, common::Round, executed_block::ExecutedBlock};
+use aptos_consensus_types::{
+    block::Block, executed_block::ExecutedBlock, proof_of_store::LogicalTime,
+};
 use aptos_crypto::HashValue;
 use aptos_executor_types::{BlockExecutorTrait, Error as ExecutionError, StateComputeResult};
 use aptos_infallible::Mutex;
@@ -33,18 +35,6 @@ type NotificationType = (
     Vec<Transaction>,
     Vec<ContractEvent>,
 );
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
-struct LogicalTime {
-    epoch: u64,
-    round: Round,
-}
-
-impl LogicalTime {
-    pub fn new(epoch: u64, round: Round) -> Self {
-        Self { epoch, round }
-    }
-}
 
 /// Basic communication with the Execution module;
 /// implements StateComputer traits.
@@ -169,7 +159,6 @@ impl StateComputer for ExecutionProxy {
             finality_proof.ledger_info().epoch(),
             finality_proof.ledger_info().round(),
         );
-        let block_timestamp = finality_proof.commit_info().timestamp_usecs();
 
         let payload_manager = self.payload_manager.lock().as_ref().unwrap().clone();
         let txn_shuffler = self.transaction_shuffler.lock().as_ref().unwrap().clone();
@@ -212,9 +201,7 @@ impl StateComputer for ExecutionProxy {
             .expect("Failed to send async state sync notification");
 
         *latest_logical_time = logical_time;
-        payload_manager
-            .notify_commit(block_timestamp, payloads)
-            .await;
+        payload_manager.notify_commit(logical_time, payloads).await;
         Ok(())
     }
 
@@ -223,13 +210,12 @@ impl StateComputer for ExecutionProxy {
         let mut latest_logical_time = self.write_mutex.lock().await;
         let logical_time =
             LogicalTime::new(target.ledger_info().epoch(), target.ledger_info().round());
-        let block_timestamp = target.commit_info().timestamp_usecs();
 
         // Before the state synchronization, we have to call finish() to free the in-memory SMT
         // held by BlockExecutor to prevent memory leak.
         self.executor.finish();
 
-        // The pipeline phase already committed beyond the target block timestamp, just return.
+        // The pipeline phase already committed beyond the target synced round, just return.
         if *latest_logical_time >= logical_time {
             warn!(
                 "State sync target {:?} is lower than already committed logical time {:?}",
@@ -244,7 +230,7 @@ impl StateComputer for ExecutionProxy {
         let maybe_payload_manager = self.payload_manager.lock().as_ref().cloned();
         if let Some(payload_manager) = maybe_payload_manager {
             payload_manager
-                .notify_commit(block_timestamp, Vec::new())
+                .notify_commit(logical_time, Vec::new())
                 .await;
         }
 

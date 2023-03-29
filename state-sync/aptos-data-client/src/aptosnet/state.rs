@@ -6,7 +6,7 @@ use crate::{
     AdvertisedData, GlobalDataSummary, OptimalChunkSizes, ResponseError,
 };
 use aptos_config::{
-    config::{AptosDataClientConfig, BaseConfig},
+    config::{BaseConfig, StorageServiceConfig},
     network_id::{NetworkId, PeerNetworkId},
 };
 use aptos_logger::prelude::*;
@@ -55,8 +55,8 @@ impl From<ResponseError> for ErrorType {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct PeerState {
+#[derive(Debug)]
+struct PeerState {
     /// The latest observed advertised data for this peer, or `None` if we
     /// haven't polled them yet.
     storage_summary: Option<StorageServerSummary>,
@@ -105,10 +105,11 @@ impl PeerState {
 
 /// Contains all of the unbanned peers' most recent [`StorageServerSummary`] data
 /// advertisements and data-client internal metadata for scoring.
+// TODO(philiphayes): this map needs to be garbage collected
 #[derive(Debug)]
 pub(crate) struct PeerStates {
     base_config: BaseConfig,
-    data_client_config: AptosDataClientConfig,
+    storage_service_config: StorageServiceConfig,
     peer_to_state: HashMap<PeerNetworkId, PeerState>,
     in_flight_priority_polls: HashSet<PeerNetworkId>, // The priority peers with in-flight polls
     in_flight_regular_polls: HashSet<PeerNetworkId>,  // The regular peers with in-flight polls
@@ -118,12 +119,12 @@ pub(crate) struct PeerStates {
 impl PeerStates {
     pub fn new(
         base_config: BaseConfig,
-        data_client_config: AptosDataClientConfig,
+        storage_service_config: StorageServiceConfig,
         peers_and_metadata: Arc<PeersAndMetadata>,
     ) -> Self {
         Self {
             base_config,
-            data_client_config,
+            storage_service_config,
             peer_to_state: HashMap::new(),
             in_flight_priority_polls: HashSet::new(),
             in_flight_regular_polls: HashSet::new(),
@@ -295,12 +296,6 @@ impl PeerStates {
             .update_storage_summary(summary);
     }
 
-    /// Garbage collects the peer states to remove data for disconnected peers
-    pub fn garbage_collect_peer_states(&mut self, connected_peers: Vec<PeerNetworkId>) {
-        self.peer_to_state
-            .retain(|peer_network_id, _| connected_peers.contains(peer_network_id));
-    }
-
     /// Calculates a global data summary using all known storage summaries
     pub fn calculate_aggregate_summary(&self) -> GlobalDataSummary {
         // Only include likely-not-malicious peers in the data summary aggregation
@@ -357,7 +352,7 @@ impl PeerStates {
 
         // Calculate optimal chunk sizes based on the advertised data
         let optimal_chunk_sizes = calculate_optimal_chunk_sizes(
-            &self.data_client_config,
+            &self.storage_service_config,
             max_epoch_chunk_sizes,
             max_state_chunk_sizes,
             max_transaction_chunk_sizes,
@@ -368,19 +363,13 @@ impl PeerStates {
             optimal_chunk_sizes,
         }
     }
-
-    #[cfg(test)]
-    /// Returns a copy of the peer to states map for test purposes
-    pub fn get_peer_to_states(&self) -> HashMap<PeerNetworkId, PeerState> {
-        self.peer_to_state.clone()
-    }
 }
 
 /// To calculate the optimal chunk size, we take the median for each
 /// chunk size parameter. This works well when we have an honest
 /// majority that mostly agrees on the same chunk sizes.
 pub(crate) fn calculate_optimal_chunk_sizes(
-    config: &AptosDataClientConfig,
+    config: &StorageServiceConfig,
     max_epoch_chunk_sizes: Vec<u64>,
     max_state_chunk_sizes: Vec<u64>,
     max_transaction_chunk_sizes: Vec<u64>,

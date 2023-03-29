@@ -40,42 +40,28 @@ AggregateSignatureWithRounds:
         SEQ: U64
 Batch:
   STRUCT:
+    - source:
+        TYPENAME: AccountAddress
     - batch_info:
         TYPENAME: BatchInfo
     - payload:
-        TYPENAME: BatchPayload
+        SEQ:
+          TYPENAME: SignedTransaction
 BatchId:
   STRUCT:
     - id: U64
     - nonce: U64
 BatchInfo:
   STRUCT:
-    - author:
-        TYPENAME: AccountAddress
-    - batch_id:
-        TYPENAME: BatchId
     - epoch: U64
-    - expiration: U64
     - digest:
         TYPENAME: HashValue
-    - num_txns: U64
-    - num_bytes: U64
-BatchMsg:
-  STRUCT:
-    - batch:
-        TYPENAME: Batch
-BatchPayload:
-  STRUCT:
-    - txns:
-        SEQ:
-          TYPENAME: SignedTransaction
 BatchRequest:
   STRUCT:
-    - epoch: U64
     - source:
         TYPENAME: AccountAddress
-    - digest:
-        TYPENAME: HashValue
+    - batch_info:
+        TYPENAME: BatchInfo
 BitVec:
   STRUCT:
     - inner: BYTES
@@ -229,21 +215,21 @@ ConsensusMsg:
         NEWTYPE:
           TYPENAME: CommitDecision
     9:
-      BatchMsg:
+      FragmentMsg:
         NEWTYPE:
-          TYPENAME: BatchMsg
+          TYPENAME: Fragment
     10:
       BatchRequestMsg:
         NEWTYPE:
           TYPENAME: BatchRequest
     11:
-      BatchResponse:
+      BatchMsg:
         NEWTYPE:
           TYPENAME: Batch
     12:
-      SignedBatchInfo:
+      SignedDigestMsg:
         NEWTYPE:
-          TYPENAME: SignedBatchInfo
+          TYPENAME: SignedDigest
     13:
       ProofOfStoreMsg:
         NEWTYPE:
@@ -297,6 +283,24 @@ EventKey:
     - creation_number: U64
     - account_address:
         TYPENAME: AccountAddress
+Fragment:
+  STRUCT:
+    - source:
+        TYPENAME: AccountAddress
+    - fragment_info:
+        TYPENAME: FragmentInfo
+FragmentInfo:
+  STRUCT:
+    - epoch: U64
+    - batch_id:
+        TYPENAME: BatchId
+    - fragment_id: U64
+    - payload:
+        SEQ:
+          TYPENAME: SerializedTransaction
+    - maybe_expiration:
+        OPTION:
+          TYPENAME: LogicalTime
 HashValue:
   STRUCT:
     - hash:
@@ -323,6 +327,10 @@ LedgerInfoWithV0:
         TYPENAME: LedgerInfo
     - signatures:
         TYPENAME: AggregateSignature
+LogicalTime:
+  STRUCT:
+    - epoch: U64
+    - round: U64
 Module:
   STRUCT:
     - code: BYTES
@@ -368,7 +376,7 @@ Payload:
 ProofOfStore:
   STRUCT:
     - info:
-        TYPENAME: BatchInfo
+        TYPENAME: SignedDigestInfo
     - multi_signature:
         TYPENAME: AggregateSignature
 ProofWithData:
@@ -411,16 +419,32 @@ Script:
     - args:
         SEQ:
           TYPENAME: TransactionArgument
+SerializedTransaction:
+  STRUCT:
+    - bytes: BYTES
 Signature:
   NEWTYPESTRUCT: BYTES
-SignedBatchInfo:
+SignedDigest:
   STRUCT:
-    - info:
-        TYPENAME: BatchInfo
+    - epoch: U64
     - signer:
         TYPENAME: AccountAddress
+    - info:
+        TYPENAME: SignedDigestInfo
     - signature:
         TYPENAME: Signature
+SignedDigestInfo:
+  STRUCT:
+    - batch_author:
+        TYPENAME: AccountAddress
+    - batch_id:
+        TYPENAME: BatchId
+    - digest:
+        TYPENAME: HashValue
+    - expiration:
+        TYPENAME: LogicalTime
+    - num_txns: U64
+    - num_bytes: U64
 SignedTransaction:
   STRUCT:
     - raw_txn:

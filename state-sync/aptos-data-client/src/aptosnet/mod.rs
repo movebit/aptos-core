@@ -14,7 +14,7 @@ use crate::{
     ResponseError, ResponseId, Result,
 };
 use aptos_config::{
-    config::{AptosDataClientConfig, BaseConfig},
+    config::{AptosDataClientConfig, BaseConfig, StorageServiceConfig},
     network_id::PeerNetworkId,
 };
 use aptos_id_generator::{IdGenerator, U64IdGenerator};
@@ -50,6 +50,9 @@ mod metrics;
 mod state;
 #[cfg(test)]
 mod tests;
+
+// TODO(joshlind): this code needs to be restructured. There are no clear APIs
+// and little separation between components.
 
 // Useful constants for the Aptos Data Client
 const GLOBAL_DATA_LOG_FREQ_SECS: u64 = 10;
@@ -95,6 +98,7 @@ impl AptosNetDataClient {
     pub fn new(
         data_client_config: AptosDataClientConfig,
         base_config: BaseConfig,
+        storage_service_config: StorageServiceConfig,
         time_service: TimeService,
         storage_service_client: StorageServiceClient<NetworkClient<StorageServiceMessage>>,
         runtime: Option<Handle>,
@@ -104,7 +108,7 @@ impl AptosNetDataClient {
             storage_service_client: storage_service_client.clone(),
             peer_states: Arc::new(RwLock::new(PeerStates::new(
                 base_config,
-                data_client_config,
+                storage_service_config,
                 storage_service_client.get_peers_and_metadata(),
             ))),
             global_summary_cache: Arc::new(RwLock::new(GlobalDataSummary::empty())),
@@ -139,30 +143,10 @@ impl AptosNetDataClient {
         self.peer_states.write().update_summary(peer, summary)
     }
 
-    /// Recompute and update the global data summary cache
-    fn update_global_summary_cache(&self) -> Result<(), Error> {
-        // Before calculating the summary, we should garbage collect
-        // the peer states (to handle disconnected peers).
-        self.garbage_collect_peer_states()?;
-
-        // Calculate the aggregate data summary
+    /// Recompute and update the global data summary cache.
+    fn update_global_summary_cache(&self) {
         let aggregate = self.peer_states.read().calculate_aggregate_summary();
         *self.global_summary_cache.write() = aggregate;
-
-        Ok(())
-    }
-
-    /// Garbage collects the peer states to remove data for disconnected peers
-    fn garbage_collect_peer_states(&self) -> Result<(), Error> {
-        // Get all connected peers
-        let all_connected_peers = self.get_all_connected_peers()?;
-
-        // Garbage collect the disconnected peers
-        self.peer_states
-            .write()
-            .garbage_collect_peer_states(all_connected_peers);
-
-        Ok(())
     }
 
     /// Choose a connected peer that can service the given request.
@@ -720,17 +704,7 @@ impl DataSummaryPoller {
             ticker.next().await;
 
             // Update the global storage summary
-            if let Err(error) = self.data_client.update_global_summary_cache() {
-                sample!(
-                    SampleRate::Duration(Duration::from_secs(POLLER_LOG_FREQ_SECS)),
-                    warn!(
-                        (LogSchema::new(LogEntry::DataSummaryPoller)
-                            .event(LogEvent::AggregateSummary)
-                            .message("Unable to update global summary cache!")
-                            .error(&error))
-                    );
-                );
-            }
+            self.data_client.update_global_summary_cache();
 
             // Fetch the prioritized and regular peers to poll (if any)
             let prioritized_peer = self.try_fetch_peer(true);
@@ -741,7 +715,7 @@ impl DataSummaryPoller {
                 sample!(
                     SampleRate::Duration(Duration::from_secs(POLLER_LOG_FREQ_SECS)),
                     debug!(
-                        (LogSchema::new(LogEntry::DataSummaryPoller)
+                        (LogSchema::new(LogEntry::StorageSummaryRequest)
                             .event(LogEvent::NoPeersToPoll)
                             .message("No prioritized or regular peers to poll this round!"))
                     );

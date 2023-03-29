@@ -15,8 +15,6 @@ APTs
 AUTH
 AWS
 Ait
-AlertManager
-Ansible
 ApiExplorer
 Aptos
 AptosAccount
@@ -121,10 +119,10 @@ Grafana
 GraphQL
 HSM
 Homebrew
-hotfix
 HotStuff
 IDE
 IDEs
+ide
 IMCODING
 IOPS
 IPFS
@@ -148,7 +146,6 @@ Modularity
 Monterey
 MoonCoin
 MoveVM
-MSVC
 MultiEd
 Multinode
 Multisignature
@@ -160,7 +157,6 @@ NPM
 NetworkAddress
 Newtonsoft
 NoAvailablePeers
-NodeExporter
 ORM
 Octa
 Octas
@@ -175,7 +171,6 @@ Parallelization
 Petra
 Pontem
 Postgres
-PowerShell
 PropertyMap
 PropertyMap
 Prover
@@ -283,7 +278,6 @@ bool
 boolean
 broadcasted
 bytecode
-cAdvisor
 cancelled
 cfg
 changeset
@@ -338,7 +332,6 @@ haproxy
 hardcoded
 href
 http
-ide
 ie
 img
 init
@@ -388,9 +381,9 @@ npm
 npmjs
 octa
 octas
-offchain
 on-chain
 onboarding
+offchain
 onchain
 onwards
 orderbook
@@ -398,7 +391,6 @@ overline
 parallelizable
 parallelization
 param
-Paymagic
 pdf
 performant
 permissioned

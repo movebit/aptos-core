@@ -455,6 +455,7 @@ module aptos_framework::delegation_pool {
 
         // save delegation pool ownership and resource account address (inner stake pool address) on `owner`
         move_to(owner, DelegationPoolOwnership { pool_address });
+        
     }
 
     fun assert_owner_cap_exists(owner: address) {
@@ -637,7 +638,7 @@ module aptos_framework::delegation_pool {
         // --------------- for spec only ------------------
     }
 
-    /// Unlock `amount` from the active + pending_active stake of `delegator` or
+    /// Unlock `amount` from the active + pending_active stake of `de legator` or
     /// at most how much active stake there is on the stake pool.
     public entry fun unlock(delegator: &signer, pool_address: address, amount: u64) acquires DelegationPool {
         // short-circuit if amount to unlock is 0 so no event is emitted
@@ -686,6 +687,16 @@ module aptos_framework::delegation_pool {
         let pool = borrow_global_mut<DelegationPool>(pool_address);
         let delegator_address = signer::address_of(delegator);
 
+        //----------------------for spec only---------------------------
+        let gc1 = pool_u64::balance(table::borrow(&pool.inactive_shares, pool.observed_lockup_cycle),delegator_address);
+        let gc2 = pool_u64::balance(&pool.active_shares,delegator_address);
+        spec{
+        //assume ghost_source_pool == table::borrow(pool.inactive_shares, pool.observed_lockup_cycle);
+        assume ghost_coin_1 == gc1;
+        assume ghost_coin_2 == gc2;
+        };
+        //----------------------for spec only---------------------------
+
         amount = coins_to_transfer_to_ensure_min_stake(
             pending_inactive_shares_pool(pool),
             &pool.active_shares,
@@ -693,10 +704,25 @@ module aptos_framework::delegation_pool {
             amount,
         );
         let observed_lockup_cycle = pool.observed_lockup_cycle;
+
+        //----------------------for spec only---------------------------
+        let ghost_p_share_source_ = pool_u64::shares(table::borrow(&pool.inactive_shares, pool.observed_lockup_cycle),delegator_address);
+        spec{
+        //assume ghost_source_pool == table::borrow(pool.inactive_shares, pool.observed_lockup_cycle);
+        assume ghost_p_share_source == ghost_p_share_source_;
+        };
+        //----------------------for spec only---------------------------
         amount = redeem_inactive_shares(pool, delegator_address, amount, observed_lockup_cycle);
 
         stake::reactivate_stake(&retrieve_stake_pool_owner(pool), amount);
 
+        //----------------------for spec only---------------------------
+        let ghost_p_share_dest_ = pool_u64::shares(&pool.active_shares, delegator_address);
+        spec{
+        //assume ghost_dest_pool == pool.active_shares;
+        assume ghost_p_share_dest == ghost_p_share_dest_;
+        };
+        //----------------------for spec only---------------------------
         pool_u64::buy_in(&mut pool.active_shares, delegator_address, amount);
         assert_min_active_balance(pool, delegator_address);
 
@@ -708,6 +734,18 @@ module aptos_framework::delegation_pool {
                 amount_reactivated: amount,
             },
         );
+        //----------------------for spec only---------------------------
+        let ghost_share_source_p_ = pool_u64::shares(table::borrow(&pool.inactive_shares, pool.observed_lockup_cycle),delegator_address);
+        let ghost_share_dest_p_ = pool_u64::shares(&pool.active_shares, delegator_address);
+        let gc3 = pool_u64::balance(table::borrow(&pool.inactive_shares, pool.observed_lockup_cycle),delegator_address);
+        let gc4 = pool_u64::balance(&pool.active_shares,delegator_address);
+        spec{
+        assume ghost_share_source_p == ghost_share_source_p_;
+        assume ghost_share_dest_p == ghost_share_dest_p_;
+        assume ghost_coin_3 == gc3;
+        assume ghost_coin_4 == gc4;
+        };
+        //----------------------for spec only---------------------------
     }
 
     /// Withdraw `amount` of owned inactive stake from the delegation pool at `pool_address`.

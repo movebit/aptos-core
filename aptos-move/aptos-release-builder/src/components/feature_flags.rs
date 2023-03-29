@@ -28,9 +28,7 @@ pub enum FeatureFlag {
     ResourceGroups,
     MultisigAccounts,
     DelegationPools,
-    CryptographyAlgebraNatives,
-    Bls12381Structures,
-    Ed25519PubkeyValidateReturnFalseWrongLength,
+    Bls12381BasicOperations,
 }
 
 fn generate_features_blob(writer: &CodeWriter, data: &[u64]) {
@@ -131,13 +129,7 @@ impl From<FeatureFlag> for AptosFeatureFlag {
             FeatureFlag::ResourceGroups => AptosFeatureFlag::RESOURCE_GROUPS,
             FeatureFlag::MultisigAccounts => AptosFeatureFlag::MULTISIG_ACCOUNTS,
             FeatureFlag::DelegationPools => AptosFeatureFlag::DELEGATION_POOLS,
-            FeatureFlag::CryptographyAlgebraNatives => {
-                AptosFeatureFlag::CRYPTOGRAPHY_ALGEBRA_NATIVES
-            },
-            FeatureFlag::Bls12381Structures => AptosFeatureFlag::BLS12_381_STRUCTURES,
-            FeatureFlag::Ed25519PubkeyValidateReturnFalseWrongLength => {
-                AptosFeatureFlag::ED25519_PUBKEY_VALIDATE_RETURN_FALSE_WRONG_LENGTH
-            },
+            FeatureFlag::Bls12381BasicOperations => AptosFeatureFlag::BLS12381_BASIC_OPERATIONS,
         }
     }
 }
@@ -163,13 +155,7 @@ impl From<AptosFeatureFlag> for FeatureFlag {
             AptosFeatureFlag::RESOURCE_GROUPS => FeatureFlag::ResourceGroups,
             AptosFeatureFlag::MULTISIG_ACCOUNTS => FeatureFlag::MultisigAccounts,
             AptosFeatureFlag::DELEGATION_POOLS => FeatureFlag::DelegationPools,
-            AptosFeatureFlag::CRYPTOGRAPHY_ALGEBRA_NATIVES => {
-                FeatureFlag::CryptographyAlgebraNatives
-            },
-            AptosFeatureFlag::BLS12_381_STRUCTURES => FeatureFlag::Bls12381Structures,
-            AptosFeatureFlag::ED25519_PUBKEY_VALIDATE_RETURN_FALSE_WRONG_LENGTH => {
-                FeatureFlag::Ed25519PubkeyValidateReturnFalseWrongLength
-            },
+            AptosFeatureFlag::BLS12381_BASIC_OPERATIONS => FeatureFlag::Bls12381BasicOperations,
         }
     }
 }

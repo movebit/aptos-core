@@ -721,10 +721,8 @@ impl EpochManager {
             block_store.clone(),
             Arc::new(payload_client),
             self.time_service.clone(),
-            self.config
-                .max_sending_block_txns(self.quorum_store_enabled),
-            self.config
-                .max_sending_block_bytes(self.quorum_store_enabled),
+            self.config.max_sending_block_txns,
+            self.config.max_sending_block_bytes,
             onchain_consensus_config.max_failed_authors_to_store(),
             chain_health_backoff_config,
             self.quorum_store_enabled,
@@ -798,7 +796,10 @@ impl EpochManager {
             LivenessStorageData::FullRecoveryData(initial_data) => {
                 let consensus_config = onchain_consensus_config.unwrap_or_default();
                 let execution_config = onchain_execution_config.unwrap_or_default();
-                self.quorum_store_enabled = self.enable_quorum_store(&consensus_config);
+                self.quorum_store_enabled = self.enable_quourum_store(&consensus_config);
+                if self.quorum_store_enabled {
+                    self.config.apply_quorum_store_overrides();
+                }
                 self.start_round_manager(
                     initial_data,
                     epoch_state,
@@ -813,7 +814,7 @@ impl EpochManager {
         }
     }
 
-    fn enable_quorum_store(&mut self, onchain_config: &OnChainConsensusConfig) -> bool {
+    fn enable_quourum_store(&mut self, onchain_config: &OnChainConsensusConfig) -> bool {
         fail_point!("consensus::start_new_epoch::disable_qs", |_| false);
         onchain_config.quorum_store_enabled()
     }
@@ -893,9 +894,10 @@ impl EpochManager {
             | ConsensusMsg::VoteMsg(_)
             | ConsensusMsg::CommitVoteMsg(_)
             | ConsensusMsg::CommitDecisionMsg(_)
-            | ConsensusMsg::BatchMsg(_)
+            | ConsensusMsg::FragmentMsg(_)
             | ConsensusMsg::BatchRequestMsg(_)
-            | ConsensusMsg::SignedBatchInfo(_)
+            | ConsensusMsg::BatchMsg(_)
+            | ConsensusMsg::SignedDigestMsg(_)
             | ConsensusMsg::ProofOfStoreMsg(_) => {
                 let event: UnverifiedEvent = msg.into();
                 if event.epoch() == self.epoch() {
@@ -948,8 +950,8 @@ impl EpochManager {
         event: &UnverifiedEvent,
     ) -> anyhow::Result<()> {
         match event {
-            UnverifiedEvent::BatchMsg(_)
-            | UnverifiedEvent::SignedBatchInfo(_)
+            UnverifiedEvent::FragmentMsg(_)
+            | UnverifiedEvent::SignedDigestMsg(_)
             | UnverifiedEvent::ProofOfStoreMsg(_) => {
                 if self.quorum_store_enabled {
                     Ok(())
@@ -992,9 +994,9 @@ impl EpochManager {
             );
         }
         if let Err(e) = match event {
-            quorum_store_event @ (VerifiedEvent::SignedBatchInfo(_)
+            quorum_store_event @ (VerifiedEvent::SignedDigestMsg(_)
             | VerifiedEvent::ProofOfStoreMsg(_)
-            | VerifiedEvent::BatchMsg(_)) => {
+            | VerifiedEvent::FragmentMsg(_)) => {
                 Self::forward_event_to(quorum_store_msg_tx, peer_id, quorum_store_event)
                     .context("quorum store sender")
             },

@@ -10,6 +10,7 @@ use crate::{
     round_manager::VerifiedEvent,
 };
 use aptos_channels::aptos_channel;
+use aptos_consensus_types::proof_of_store::LogicalTime;
 use aptos_crypto::HashValue;
 use aptos_logger::prelude::*;
 use aptos_types::{account_address::AccountAddress, PeerId};
@@ -17,7 +18,7 @@ use futures::StreamExt;
 use tokio::sync::{mpsc, oneshot};
 
 pub enum CoordinatorCommand {
-    CommitNotification(u64, Vec<HashValue>),
+    CommitNotification(LogicalTime, Vec<HashValue>),
     Shutdown(futures_channel::oneshot::Sender<()>),
 }
 
@@ -53,10 +54,10 @@ impl QuorumStoreCoordinator {
         while let Some(cmd) = rx.next().await {
             monitor!("quorum_store_coordinator_loop", {
                 match cmd {
-                    CoordinatorCommand::CommitNotification(block_timestamp, digests) => {
+                    CoordinatorCommand::CommitNotification(logical_time, digests) => {
                         self.proof_manager_cmd_tx
                             .send(ProofManagerCommand::CommitNotification(
-                                block_timestamp,
+                                logical_time,
                                 digests,
                             ))
                             .await
@@ -64,7 +65,7 @@ impl QuorumStoreCoordinator {
                         // TODO: need a callback or not?
 
                         self.batch_generator_cmd_tx
-                            .send(BatchGeneratorCommand::CommitNotification(block_timestamp))
+                            .send(BatchGeneratorCommand::CommitNotification(logical_time))
                             .await
                             .expect("Failed to send to BatchGenerator");
                     },

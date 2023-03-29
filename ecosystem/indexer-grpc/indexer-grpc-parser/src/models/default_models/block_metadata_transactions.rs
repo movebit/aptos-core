@@ -6,10 +6,7 @@
 #![allow(clippy::unused_unit)]
 
 use super::transactions::{Transaction, TransactionQuery};
-use crate::{
-    schema::block_metadata_transactions,
-    utils::util::{parse_timestamp, standardize_address},
-};
+use crate::{schema::block_metadata_transactions, utils::util::parse_timestamp};
 use aptos_protos::{
     transaction::testing1::v1::BlockMetadataTransaction as BlockMetadataTransactionPB,
     util::timestamp::Timestamp,
@@ -69,7 +66,7 @@ impl BlockMetadataTransaction {
             id: txn.id.to_string(),
             epoch,
             round: txn.round as i64,
-            proposer: standardize_address(txn.proposer.as_str()),
+            proposer: txn.proposer.clone(),
             failed_proposer_indices: serde_json::to_value(&txn.failed_proposer_indices).unwrap(),
             previous_block_votes_bitvec: serde_json::to_value(&txn.previous_block_votes_bitvec)
                 .unwrap(),

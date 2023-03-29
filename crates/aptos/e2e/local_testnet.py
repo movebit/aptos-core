@@ -69,8 +69,9 @@ def wait_for_startup(container_name: str, timeout: int):
             api_response = requests.get(f"http://127.0.0.1:{NODE_PORT}/v1")
             # Try to query the legacy faucet health endpoint first. TODO: Remove this
             # once all local testnet images we use have the new faucet in them.
-            faucet_response = requests.get(f"http://127.0.0.1:{FAUCET_PORT}/health")
-            if faucet_response.status_code == 404:
+            try:
+                faucet_response = requests.get(f"http://127.0.0.1:{FAUCET_PORT}/health")
+            except:
                 # If that fails, try the new faucet health endpoint.
                 faucet_response = requests.get(f"http://127.0.0.1:{FAUCET_PORT}/")
             if api_response.status_code != 200 or faucet_response.status_code != 200:

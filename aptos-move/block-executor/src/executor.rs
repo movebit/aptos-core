@@ -10,21 +10,15 @@ use crate::{
     },
     errors::*,
     output_delta_resolver::OutputDeltaResolver,
-    scheduler::{Scheduler, SchedulerTask, Wave},
+    scheduler::{Scheduler, SchedulerTask, Version, Wave},
     task::{ExecutionStatus, ExecutorTask, Transaction, TransactionOutput},
     txn_last_input_output::TxnLastInputOutput,
     view::{LatestView, MVHashMapView},
 };
 use aptos_logger::debug;
-use aptos_mvhashmap::{
-    types::{MVDataError, MVDataOutput, TxnIndex, Version},
-    MVHashMap,
-};
+use aptos_mvhashmap::{MVHashMap, MVHashMapError, MVHashMapOutput};
 use aptos_state_view::TStateView;
-use aptos_types::{
-    executable::ExecutableTestType, // TODO: fix up with the proper generics.
-    write_set::WriteOp,
-};
+use aptos_types::write_set::WriteOp;
 use aptos_vm_logging::{clear_speculative_txn_logs, init_speculative_logs};
 use num_cpus;
 use once_cell::sync::Lazy;
@@ -74,16 +68,16 @@ where
         version: Version,
         signature_verified_block: &[T],
         last_input_output: &TxnLastInputOutput<T::Key, E::Output, E::Error>,
-        versioned_cache: &MVHashMap<T::Key, T::Value, ExecutableTestType>,
+        versioned_data_cache: &MVHashMap<T::Key, T::Value>,
         scheduler: &Scheduler,
         executor: &E,
         base_view: &S,
     ) -> SchedulerTask {
         let _timer = TASK_EXECUTE_SECONDS.start_timer();
         let (idx_to_execute, incarnation) = version;
-        let txn = &signature_verified_block[idx_to_execute as usize];
+        let txn = &signature_verified_block[idx_to_execute];
 
-        let speculative_view = MVHashMapView::new(versioned_cache, scheduler);
+        let speculative_view = MVHashMapView::new(versioned_data_cache, scheduler);
 
         // VM execution.
         let execute_result = executor.execute_transaction(
@@ -103,7 +97,7 @@ where
                 if !prev_modified_keys.remove(&k) {
                     updates_outside = true;
                 }
-                versioned_cache.write(&k, write_version, v);
+                versioned_data_cache.add_write(&k, write_version, v);
             }
 
             // Then, apply deltas.
@@ -111,7 +105,7 @@ where
                 if !prev_modified_keys.remove(&k) {
                     updates_outside = true;
                 }
-                versioned_cache.add_delta(&k, idx_to_execute, d);
+                versioned_data_cache.add_delta(&k, idx_to_execute, d);
             }
         };
 
@@ -138,7 +132,7 @@ where
 
         // Remove entries from previous write/delta set that were not overwritten.
         for k in prev_modified_keys {
-            versioned_cache.delete(&k, idx_to_execute);
+            versioned_data_cache.delete(&k, idx_to_execute);
         }
 
         last_input_output.record(idx_to_execute, speculative_view.take_reads(), result);
@@ -150,11 +144,11 @@ where
         version_to_validate: Version,
         validation_wave: Wave,
         last_input_output: &TxnLastInputOutput<T::Key, E::Output, E::Error>,
-        versioned_cache: &MVHashMap<T::Key, T::Value, ExecutableTestType>,
+        versioned_data_cache: &MVHashMap<T::Key, T::Value>,
         scheduler: &Scheduler,
     ) -> SchedulerTask {
-        use MVDataError::*;
-        use MVDataOutput::*;
+        use MVHashMapError::*;
+        use MVHashMapOutput::*;
 
         let _timer = TASK_VALIDATE_SECONDS.start_timer();
         let (idx_to_validate, incarnation) = version_to_validate;
@@ -163,8 +157,8 @@ where
             .expect("Prior read-set must be recorded");
 
         let valid = read_set.iter().all(|r| {
-            match versioned_cache.fetch_data(r.path(), idx_to_validate) {
-                Ok(Versioned(version, _)) => r.validate_version(version),
+            match versioned_data_cache.read(r.path(), idx_to_validate) {
+                Ok(Version(version, _)) => r.validate_version(version),
                 Ok(Resolved(value)) => r.validate_resolved(value),
                 Err(Dependency(_)) => false, // Dependency implies a validation failure.
                 Err(Unresolved(delta)) => r.validate_unresolved(delta),
@@ -185,11 +179,11 @@ where
             counters::SPECULATIVE_ABORT_COUNT.inc();
 
             // Any logs from the aborted execution should be cleared and not reported.
-            clear_speculative_txn_logs(idx_to_validate as usize);
+            clear_speculative_txn_logs(idx_to_validate);
 
             // Not valid and successfully aborted, mark the latest write/delta sets as estimates.
             for k in last_input_output.modified_keys(idx_to_validate) {
-                versioned_cache.mark_estimate(&k, idx_to_validate);
+                versioned_data_cache.mark_estimate(&k, idx_to_validate);
             }
 
             scheduler.finish_abort(idx_to_validate, incarnation)
@@ -204,7 +198,7 @@ where
         executor_arguments: &E::Argument,
         block: &[T],
         last_input_output: &TxnLastInputOutput<T::Key, E::Output, E::Error>,
-        versioned_cache: &MVHashMap<T::Key, T::Value, ExecutableTestType>,
+        versioned_data_cache: &MVHashMap<T::Key, T::Value>,
         scheduler: &Scheduler,
         base_view: &S,
         committing: bool,
@@ -221,7 +215,7 @@ where
             if committing {
                 // Keep committing txns until there is no more that can be committed now.
                 while let Some(txn_idx) = scheduler.try_commit() {
-                    if txn_idx as usize + 1 == block.len() {
+                    if txn_idx + 1 == block.len() {
                         // Committed the last transaction / everything.
                         scheduler_task = SchedulerTask::Done;
                         break;
@@ -233,14 +227,14 @@ where
                     version_to_validate,
                     wave,
                     last_input_output,
-                    versioned_cache,
+                    versioned_data_cache,
                     scheduler,
                 ),
                 SchedulerTask::ExecutionTask(version_to_execute, None) => self.execute(
                     version_to_execute,
                     block,
                     last_input_output,
-                    versioned_cache,
+                    versioned_data_cache,
                     scheduler,
                     &executor,
                     base_view,
@@ -271,13 +265,13 @@ where
         let _timer = PARALLEL_EXECUTION_SECONDS.start_timer();
         assert!(self.concurrency_level > 1, "Must use sequential execution");
 
-        let versioned_cache = MVHashMap::new(None);
+        let versioned_data_cache = MVHashMap::new();
 
         if signature_verified_block.is_empty() {
             return Ok(vec![]);
         }
 
-        let num_txns = signature_verified_block.len() as u32;
+        let num_txns = signature_verified_block.len();
         let last_input_output = TxnLastInputOutput::new(num_txns);
         let committing = AtomicBool::new(true);
         let scheduler = Scheduler::new(num_txns);
@@ -290,7 +284,7 @@ where
                         &executor_initial_arguments,
                         signature_verified_block,
                         &last_input_output,
-                        &versioned_cache,
+                        &versioned_data_cache,
                         &scheduler,
                         base_view,
                         committing.swap(false, Ordering::SeqCst),
@@ -300,7 +294,6 @@ where
         });
         drop(timer);
 
-        let num_txns = num_txns as usize;
         // TODO: for large block sizes and many cores, extract outputs in parallel.
         let mut final_results = Vec::with_capacity(num_txns);
 
@@ -310,7 +303,7 @@ where
         } else {
             let mut ret = None;
             for idx in 0..num_txns {
-                match last_input_output.take_output(idx as TxnIndex) {
+                match last_input_output.take_output(idx) {
                     ExecutionStatus::Success(t) => final_results.push(t),
                     ExecutionStatus::SkipRest(t) => {
                         final_results.push(t);
@@ -335,9 +328,8 @@ where
             Some(err) => Err(err),
             None => {
                 final_results.resize_with(num_txns, E::Output::skip_output);
-                let (mv_data_cache, _mv_code_cache) = versioned_cache.take();
                 let delta_resolver: OutputDeltaResolver<T> =
-                    OutputDeltaResolver::new(mv_data_cache);
+                    OutputDeltaResolver::new(versioned_data_cache);
                 // TODO: parallelize when necessary.
                 Ok(final_results
                     .into_iter()
@@ -360,9 +352,9 @@ where
         let mut ret = Vec::with_capacity(num_txns);
         for (idx, txn) in signature_verified_block.iter().enumerate() {
             let res = executor.execute_transaction(
-                &LatestView::<T, S>::new_btree_view(base_view, &data_map, idx as TxnIndex),
+                &LatestView::<T, S>::new_btree_view(base_view, &data_map, idx),
                 txn,
-                idx as TxnIndex,
+                idx,
                 true,
             );
 

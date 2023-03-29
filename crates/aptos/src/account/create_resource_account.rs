@@ -1,10 +1,7 @@
 // Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    account::derive_resource_account::ResourceAccountSeed,
-    common::types::{CliCommand, CliTypedResult, TransactionOptions, TransactionSummary},
-};
+use crate::common::types::{CliCommand, CliTypedResult, TransactionOptions, TransactionSummary};
 use aptos_cached_packages::aptos_stdlib::resource_account_create_resource_account;
 use aptos_rest_client::{
     aptos_api_types::{WriteResource, WriteSetChange},
@@ -22,12 +19,17 @@ use std::str::FromStr;
 /// not controlled directly by one account.
 #[derive(Debug, Parser)]
 pub struct CreateResourceAccount {
+    /// Resource account seed
+    ///
+    /// Seed used in generation of the AccountId of the resource account
+    /// The seed will be converted to bytes using `BCS`
+    #[clap(long)]
+    pub(crate) seed: String,
+
     /// Optional Resource Account authentication key.
     #[clap(long, parse(try_from_str = AuthenticationKey::from_str))]
     pub(crate) authentication_key: Option<AuthenticationKey>,
 
-    #[clap(flatten)]
-    pub(crate) seed_args: ResourceAccountSeed,
     #[clap(flatten)]
     pub(crate) txn_options: TransactionOptions,
 }
@@ -82,7 +84,7 @@ impl CliCommand<CreateResourceAccountSummary> for CreateResourceAccount {
         };
         self.txn_options
             .submit_transaction(resource_account_create_resource_account(
-                self.seed_args.seed()?,
+                bcs::to_bytes(&self.seed)?,
                 authentication_key,
             ))
             .await

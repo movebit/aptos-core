@@ -467,7 +467,7 @@ module aptos_framework::stake {
         operator: address,
         voter: address,
     ) acquires AllowedValidators, OwnerCapability, StakePool, ValidatorSet {
-        initialize_owner(owner);
+        initialize_owner(owner); 
         move_to(owner, ValidatorConfig {
             consensus_pubkey: vector::empty(),
             network_addresses: vector::empty(),
@@ -550,7 +550,6 @@ module aptos_framework::stake {
         move_from<OwnerCapability>(owner_address)
     }
 
-    /// For Spec ONLY
     public fun get_owner_cap_address(owner: &signer): address acquires OwnerCapability {
         let owner_address = signer::address_of(owner);
         assert_owner_cap_exists(owner_address);

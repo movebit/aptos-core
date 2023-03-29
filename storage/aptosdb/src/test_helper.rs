@@ -64,21 +64,18 @@ pub(crate) fn update_store(
             )
             .unwrap();
         let ledger_batch = SchemaBatch::new();
-        let sharded_state_kv_batches = arr![SchemaBatch::new(); 256];
+        let state_kv_batch = SchemaBatch::new();
         store
             .put_value_sets(
                 vec![&value_state_set],
                 version,
                 StateStorageUsage::new_untracked(),
                 &ledger_batch,
-                &sharded_state_kv_batches,
+                &state_kv_batch,
             )
             .unwrap();
         store.ledger_db.write_schemas(ledger_batch).unwrap();
-        store
-            .state_kv_db
-            .commit(version, sharded_state_kv_batches)
-            .unwrap();
+        store.state_kv_db.commit(version, state_kv_batch).unwrap();
     }
     root_hash
 }

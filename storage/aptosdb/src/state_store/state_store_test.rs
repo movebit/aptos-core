@@ -16,7 +16,6 @@ use aptos_temppath::TempPath;
 use aptos_types::{
     access_path::AccessPath, account_address::AccountAddress, state_store::state_key::StateKeyTag,
 };
-use arr_macro::arr;
 use proptest::{collection::hash_map, prelude::*};
 
 fn put_value_set(
@@ -35,20 +34,20 @@ fn put_value_set(
         .merklize_value_set(jmt_update_refs(&jmt_updates), None, version, base_version)
         .unwrap();
     let ledger_batch = SchemaBatch::new();
-    let sharded_state_kv_batches = arr![SchemaBatch::new(); 256];
+    let state_kv_batch = SchemaBatch::new();
     state_store
         .put_value_sets(
             vec![&value_set],
             version,
             StateStorageUsage::new_untracked(),
             &ledger_batch,
-            &sharded_state_kv_batches,
+            &state_kv_batch,
         )
         .unwrap();
     state_store.ledger_db.write_schemas(ledger_batch).unwrap();
     state_store
         .state_kv_db
-        .commit(version, sharded_state_kv_batches)
+        .commit(version, state_kv_batch)
         .unwrap();
     root
 }

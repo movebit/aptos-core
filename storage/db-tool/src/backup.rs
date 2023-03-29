@@ -19,6 +19,8 @@ use aptos_backup_cli::{
         ConcurrentDownloadsOpt, GlobalBackupOpt, TrustedWaypointOpt,
     },
 };
+use aptos_logger::{Level, Logger};
+use aptos_push_metrics::MetricsPusher;
 use clap::{Parser, Subcommand};
 use std::sync::Arc;
 
@@ -133,6 +135,8 @@ pub struct VerifyOpt {
 
 impl Command {
     pub async fn run(self) -> Result<()> {
+        Logger::new().level(Level::Info).init();
+        let _mp = MetricsPusher::start(vec![]);
         match self {
             Command::Oneoff(opt) => {
                 let client = Arc::new(BackupServiceClient::new_with_opt(opt.client));

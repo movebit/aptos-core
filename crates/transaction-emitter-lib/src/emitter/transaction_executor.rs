@@ -3,7 +3,7 @@
 
 use super::RETRY_POLICY;
 use crate::transaction_generator::TransactionExecutor;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use aptos_logger::{sample, sample::SampleRate, warn};
 use aptos_rest_client::Client as RestClient;
 use aptos_sdk::{
@@ -18,7 +18,6 @@ use std::{sync::atomic::AtomicUsize, time::Duration};
 pub struct RestApiTransactionExecutor {
     pub rest_clients: Vec<RestClient>,
     pub max_retries: usize,
-    pub retry_after: Duration,
 }
 
 impl RestApiTransactionExecutor {
@@ -55,7 +54,6 @@ impl RestApiTransactionExecutor {
             if submit_and_check(
                 rest_client,
                 txn,
-                self.retry_after,
                 &failure_counter[(i * 2).min(failure_counter.len() - 1)],
                 &failure_counter[(i * 2 + 1).min(failure_counter.len() - 1)],
             )
@@ -78,7 +76,6 @@ impl RestApiTransactionExecutor {
 async fn submit_and_check(
     rest_client: &RestClient,
     txn: &SignedTransaction,
-    wait_duration: Duration,
     submit_failure_counter: &AtomicUsize,
     wait_failure_counter: &AtomicUsize,
 ) -> Result<()> {
@@ -99,7 +96,7 @@ async fn submit_and_check(
             txn.clone().committed_hash(),
             txn.expiration_timestamp_secs(),
             None,
-            Some(wait_duration),
+            Some(Duration::from_secs(10)),
         )
         .await
     {
@@ -156,14 +153,7 @@ impl TransactionExecutor for RestApiTransactionExecutor {
         )
         .await
         .into_iter()
-        .collect::<Result<Vec<()>, anyhow::Error>>()
-        .with_context(|| {
-            format!(
-                "Tried executing {} txns, failed by call by retry: {:?}",
-                txns.len(),
-                failure_counter
-            )
-        })?;
+        .collect::<Result<Vec<()>, anyhow::Error>>()?;
 
         Ok(())
     }

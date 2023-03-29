@@ -22,7 +22,7 @@ use crate::{
     network_interface::ConsensusMsg,
     pending_votes::VoteReceptionResult,
     persistent_liveness_storage::PersistentLivenessStorage,
-    quorum_store::types::BatchMsg,
+    quorum_store::types::Fragment,
 };
 use anyhow::{bail, ensure, Context, Result};
 use aptos_channels::aptos_channel;
@@ -31,7 +31,7 @@ use aptos_consensus_types::{
     block::Block,
     common::{Author, Round},
     experimental::{commit_decision::CommitDecision, commit_vote::CommitVote},
-    proof_of_store::{ProofOfStore, SignedBatchInfo},
+    proof_of_store::{ProofOfStore, SignedDigest},
     proposal_msg::ProposalMsg,
     quorum_cert::QuorumCert,
     sync_info::SyncInfo,
@@ -68,8 +68,8 @@ pub enum UnverifiedEvent {
     SyncInfo(Box<SyncInfo>),
     CommitVote(Box<CommitVote>),
     CommitDecision(Box<CommitDecision>),
-    BatchMsg(Box<BatchMsg>),
-    SignedBatchInfo(Box<SignedBatchInfo>),
+    FragmentMsg(Box<Fragment>),
+    SignedDigestMsg(Box<SignedDigest>),
     ProofOfStoreMsg(Box<ProofOfStore>),
 }
 
@@ -111,17 +111,17 @@ impl UnverifiedEvent {
                 }
                 VerifiedEvent::CommitDecision(cd)
             },
-            UnverifiedEvent::BatchMsg(b) => {
+            UnverifiedEvent::FragmentMsg(f) => {
                 if !self_message {
-                    b.verify(peer_id)?;
+                    f.verify(peer_id)?;
                 }
-                VerifiedEvent::BatchMsg(b)
+                VerifiedEvent::FragmentMsg(f)
             },
-            UnverifiedEvent::SignedBatchInfo(sd) => {
+            UnverifiedEvent::SignedDigestMsg(sd) => {
                 if !self_message {
                     sd.verify(peer_id, validator)?;
                 }
-                VerifiedEvent::SignedBatchInfo(sd)
+                VerifiedEvent::SignedDigestMsg(sd)
             },
             UnverifiedEvent::ProofOfStoreMsg(p) => {
                 if !self_message {
@@ -139,8 +139,8 @@ impl UnverifiedEvent {
             UnverifiedEvent::SyncInfo(s) => s.epoch(),
             UnverifiedEvent::CommitVote(cv) => cv.epoch(),
             UnverifiedEvent::CommitDecision(cd) => cd.epoch(),
-            UnverifiedEvent::BatchMsg(b) => b.epoch(),
-            UnverifiedEvent::SignedBatchInfo(sd) => sd.epoch(),
+            UnverifiedEvent::FragmentMsg(f) => f.epoch(),
+            UnverifiedEvent::SignedDigestMsg(sd) => sd.epoch(),
             UnverifiedEvent::ProofOfStoreMsg(p) => p.epoch(),
         }
     }
@@ -154,8 +154,8 @@ impl From<ConsensusMsg> for UnverifiedEvent {
             ConsensusMsg::SyncInfo(m) => UnverifiedEvent::SyncInfo(m),
             ConsensusMsg::CommitVoteMsg(m) => UnverifiedEvent::CommitVote(m),
             ConsensusMsg::CommitDecisionMsg(m) => UnverifiedEvent::CommitDecision(m),
-            ConsensusMsg::BatchMsg(m) => UnverifiedEvent::BatchMsg(m),
-            ConsensusMsg::SignedBatchInfo(m) => UnverifiedEvent::SignedBatchInfo(m),
+            ConsensusMsg::FragmentMsg(m) => UnverifiedEvent::FragmentMsg(m),
+            ConsensusMsg::SignedDigestMsg(m) => UnverifiedEvent::SignedDigestMsg(m),
             ConsensusMsg::ProofOfStoreMsg(m) => UnverifiedEvent::ProofOfStoreMsg(m),
             _ => unreachable!("Unexpected conversion"),
         }
@@ -171,8 +171,8 @@ pub enum VerifiedEvent {
     UnverifiedSyncInfo(Box<SyncInfo>),
     CommitVote(Box<CommitVote>),
     CommitDecision(Box<CommitDecision>),
-    BatchMsg(Box<BatchMsg>),
-    SignedBatchInfo(Box<SignedBatchInfo>),
+    FragmentMsg(Box<Fragment>),
+    SignedDigestMsg(Box<SignedDigest>),
     ProofOfStoreMsg(Box<ProofOfStore>),
     // local messages
     LocalTimeout(Round),
@@ -641,25 +641,17 @@ impl RoundManager {
         let payload_len = proposal.payload().map_or(0, |payload| payload.len());
         let payload_size = proposal.payload().map_or(0, |payload| payload.size());
         ensure!(
-            payload_len as u64
-                <= self
-                    .local_config
-                    .max_receiving_block_txns(self.onchain_config.quorum_store_enabled()),
+            payload_len as u64 <= self.local_config.max_receiving_block_txns,
             "Payload len {} exceeds the limit {}",
             payload_len,
-            self.local_config
-                .max_receiving_block_txns(self.onchain_config.quorum_store_enabled()),
+            self.local_config.max_receiving_block_txns,
         );
 
         ensure!(
-            payload_size as u64
-                <= self
-                    .local_config
-                    .max_receiving_block_bytes(self.onchain_config.quorum_store_enabled()),
+            payload_size as u64 <= self.local_config.max_receiving_block_bytes,
             "Payload size {} exceeds the limit {}",
             payload_size,
-            self.local_config
-                .max_receiving_block_bytes(self.onchain_config.quorum_store_enabled()),
+            self.local_config.max_receiving_block_bytes,
         );
 
         ensure!(
