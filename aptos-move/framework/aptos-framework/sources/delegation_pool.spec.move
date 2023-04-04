@@ -6,39 +6,38 @@ spec aptos_framework::delegation_pool {
         invariant forall addr: address: exists<DelegationPool>(addr) ==> exists<stake::StakePool>(addr);
 
         // 2 timeout
-        // invariant forall addr: address: global<DelegationPool>(addr).stake_pool_signer_cap.account == addr;
+        invariant forall addr: address: global<DelegationPool>(addr).stake_pool_signer_cap.account == addr;
 
         // 3 difficult
 
-        // 4 prover error
-        // invariant forall delegator: address where exists<DelegationPool>(delegator):
-        //     forall i in 0..global<DelegationPool>(delegator).observed_lockup_cycle.index,j in 0..global<DelegationPool>(delegator).observed_lockup_cycle.index:
-        //         pool_u64::shares(table::spec_get(global<DelegationPool>(delegator).inactive_shares,ObservedLockupCycle{index: i}), delegator) != 0 &&
-        //         pool_u64::shares(table::spec_get(global<DelegationPool>(delegator).inactive_shares,ObservedLockupCycle{index: j}), delegator) != 0 ==> i == j;
+        // 4 timeout
+        invariant forall delegator: address where exists<DelegationPool>(delegator):
+            forall i in 0..global<DelegationPool>(delegator).observed_lockup_cycle.index,j in 0..global<DelegationPool>(delegator).observed_lockup_cycle.index:
+                pool_u64::spec_shares(table::spec_get(global<DelegationPool>(delegator).inactive_shares,ObservedLockupCycle{index: i}), delegator) != 0 &&
+                pool_u64::spec_shares(table::spec_get(global<DelegationPool>(delegator).inactive_shares,ObservedLockupCycle{index: j}), delegator) != 0 ==> i == j;
 
-        // 5 prover error
-        // invariant forall delegator: address where exists<DelegationPool>(delegator): forall i in 0..global<DelegationPool>(delegator).observed_lockup_cycle.index:
-        //     pool_u64::shares(table::spec_get(global<DelegationPool>(delegator).inactive_shares,ObservedLockupCycle{index: i}), delegator) != 0 ==> table::spec_contains(global<DelegationPool>(delegator).pending_withdrawals, delegator) &&
-        //     table::spec_get(global<DelegationPool>(delegator).pending_withdrawals,delegator).index == i;
+        // 5 timeout
+        invariant forall delegator: address where exists<DelegationPool>(delegator): forall i in 0..global<DelegationPool>(delegator).observed_lockup_cycle.index:
+            pool_u64::spec_shares(table::spec_get(global<DelegationPool>(delegator).inactive_shares,ObservedLockupCycle{index: i}), delegator) != 0 ==> table::spec_contains(global<DelegationPool>(delegator).pending_withdrawals, delegator) &&
+            table::spec_get(global<DelegationPool>(delegator).pending_withdrawals,delegator).index == i;
 
-        // 6 prover error
-        // invariant forall delegator: address where exists<DelegationPool>(delegator):
-        //     table::spec_contains(global<DelegationPool>(delegator).pending_withdrawals, delegator) ==> pool_u64::shares(table::spec_get(global<DelegationPool>(delegator).inactive_shares,ObservedLockupCycle{index: table::spec_get(global<DelegationPool>(delegator).pending_withdrawals,delegator).index}), delegator) != 0;
+        // 6 pass
+        invariant forall delegator: address where exists<DelegationPool>(delegator):
+            table::spec_contains(global<DelegationPool>(delegator).pending_withdrawals, delegator) ==> pool_u64::spec_shares(table::spec_get(global<DelegationPool>(delegator).inactive_shares,ObservedLockupCycle{index: table::spec_get(global<DelegationPool>(delegator).pending_withdrawals,delegator).index}), delegator) != 0;
 
-        // 7 pass
+        // // 7 pass
         invariant forall addr: address where exists<DelegationPool>(addr): table::spec_contains(global<DelegationPool>(addr).inactive_shares,global<DelegationPool>(addr).observed_lockup_cycle);
 
-        // 8 pass
+        // // 8 pass
         invariant forall addr: address where exists<DelegationPool>(addr): forall i in 0..global<DelegationPool>(addr).observed_lockup_cycle.index: table::spec_contains(global<DelegationPool>(addr).inactive_shares,ObservedLockupCycle{index:i}) ==> table::spec_get(global<DelegationPool>(addr).inactive_shares,ObservedLockupCycle{index:i}).total_coins != 0;
 
-        // 9 pass
+        // // 9 pass
         invariant forall delegator: address where exists<DelegationPool>(delegator): table::spec_get(global<DelegationPool>(delegator).pending_withdrawals,delegator).index <= global<DelegationPool>(delegator).observed_lockup_cycle.index;
 
         // 10 todo
 
         // 11 timeout
         // invariant forall addr: address: global<DelegationPool>(addr).total_coins_inactive <= global<stake::StakePool>(addr).inactive.value;
-        // invariant forall addr: address where exists<DelegationPool>(addr): global<DelegationPool>(addr).total_coins_inactive <= global<stake::StakePool>(addr).inactive.value;
 
         // 12 todo
     }
