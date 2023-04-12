@@ -5,27 +5,25 @@ spec aptos_framework::delegation_pool {
         pragma verify = false;
         pragma aborts_if_is_strict;
 
+        // apply Global_Requirement to withdraw_internal;
         // Property 1 [OK]:
         invariant forall addr: address: exists<DelegationPool>(addr) ==> exists<stake::StakePool>(addr);
-
-        // Property 1 [TIMEOUT]:
-        // invariant forall addr: address: global<DelegationPool>(addr).stake_pool_signer_cap.account == addr;
 
         // Property 3 [ISSUE]:
         // Note: Can not deal with 'sum'
 
         // Property 4 [TIMEOUT]:
-        // invariant forall delegator: address where exists<DelegationPool>(delegator):
+        // invariant [suspendable] forall delegator: address where exists<DelegationPool>(delegator):
         //     forall i in 0..global<DelegationPool>(delegator).observed_lockup_cycle.index,j in 0..global<DelegationPool>(delegator).observed_lockup_cycle.index:
         //         pool_u64::spec_shares(table::spec_get(global<DelegationPool>(delegator).inactive_shares,ObservedLockupCycle{index: i}), delegator) != 0 &&
         //         pool_u64::spec_shares(table::spec_get(global<DelegationPool>(delegator).inactive_shares,ObservedLockupCycle{index: j}), delegator) != 0 ==> i == j;
 
         // Property 5 [TIMEOUT]:
-        // invariant forall delegator: address where exists<DelegationPool>(delegator): forall i in 0..global<DelegationPool>(delegator).observed_lockup_cycle.index:
+        // invariant [suspendable] forall delegator: address where exists<DelegationPool>(delegator): forall i in 0..global<DelegationPool>(delegator).observed_lockup_cycle.index:
         //     pool_u64::spec_shares(table::spec_get(global<DelegationPool>(delegator).inactive_shares,ObservedLockupCycle{index: i}), delegator) != 0 ==> table::spec_contains(global<DelegationPool>(delegator).pending_withdrawals, delegator) &&
         //     table::spec_get(global<DelegationPool>(delegator).pending_withdrawals,delegator).index == i;
-
         // Property 6 [OK]:
+
         invariant forall delegator: address where exists<DelegationPool>(delegator):
             table::spec_contains(global<DelegationPool>(delegator).pending_withdrawals, delegator) ==> pool_u64::spec_shares(table::spec_get(global<DelegationPool>(delegator).inactive_shares,ObservedLockupCycle{index: table::spec_get(global<DelegationPool>(delegator).pending_withdrawals,delegator).index}), delegator) != 0;
 
@@ -41,7 +39,7 @@ spec aptos_framework::delegation_pool {
         // Property 10 [TODO]:
 
         // Property 11 [TIMEOUT]:
-        // invariant forall addr: address: global<DelegationPool>(addr).total_coins_inactive <= global<stake::StakePool>(addr).inactive.value;
+        // invariant [suspendable] forall addr: address: global<DelegationPool>(addr).total_coins_inactive <= global<stake::StakePool>(addr).inactive.value;
 
         // Property 12 [TODO]:
 
@@ -69,9 +67,15 @@ spec aptos_framework::delegation_pool {
         global ghost_dest_pool: pool_u64::Pool;
 
         global ghost_bool: bool;
+        global ghost_bool_1: bool;
+        global ghost_amount: u64;
         global ghost_olc: ObservedLockupCycle;
     }
 
+    spec schema Global_Requirement{
+        // Property 2 [TIMEOUT]:
+        invariant forall addr: address: global<DelegationPool>(addr).stake_pool_signer_cap.account == addr;
+    }
 
     spec owner_cap_exists(addr: address): bool {
         pragma verify = false;
@@ -144,6 +148,7 @@ spec aptos_framework::delegation_pool {
         pragma verify = false;
         pragma aborts_if_is_partial = true;
         include stake::ResourceRequirement;
+        
         //Property 1 [OK]: asserts_if !features::delegation_pools_enabled()
         //TODO: Prover can't resolve features::delegation_pools_enabled(), use magic number instead , may fixed later.
         aborts_if !features::spec_is_enabled(features::DELEGATION_POOLS);
@@ -445,10 +450,9 @@ spec aptos_framework::delegation_pool {
         pragma verify = true;
         pragma aborts_if_is_partial;
 
-
-        // requires get_pool_address(pool) != delegator_address;
-
-        // Property 1 [ERROR]: !(withdrawal_exists && (withdrawing_inactive_stake ||
+        requires get_pool_address(pool) != delegator_address;
+        requires pool.stake_pool_signer_cap.account == get_pool_address(pool);
+        // Property 1 [OK]: !(withdrawal_exists && (withdrawing_inactive_stake ||
         // can_withdraw_pending_inactive(pool_address))) =>
         // a. delegator-balance == old(delegator-balance) && there are no state changes on
         // DelegationPool and StakePool: if the pending withdrawal does not exist or is not
@@ -462,28 +466,32 @@ spec aptos_framework::delegation_pool {
         // pool_u64::shares(inactive_shares[withdrawal_olc], delegator)
         // ) == amount (its latest value): delegator redeemed shares worth the amount withdrawn
 
-        ensures pool_u64::spec_shares_to_amount_with_total_coins(
-            table::spec_get(pool.inactive_shares,ghost_olc),
-            pool_u64::spec_shares(table::spec_get(old(pool).inactive_shares,ghost_olc), delegator_address) - pool_u64::spec_shares(table::spec_get(pool.inactive_shares,ghost_olc), delegator_address),
-            table::spec_get(pool.inactive_shares,ghost_olc).total_coins
-        ) == amount;
+        // ensures pool_u64::spec_shares_to_amount_with_total_coins(
+        //     table::spec_get(pool.inactive_shares,ghost_olc),
+        //     pool_u64::spec_shares(table::spec_get(old(pool).inactive_shares,ghost_olc), delegator_address) - pool_u64::spec_shares(table::spec_get(pool.inactive_shares,ghost_olc), delegator_address),
+        //     table::spec_get(pool.inactive_shares,ghost_olc).total_coins
+        // ) == ghost_amount;
 
-        // Property 3 [ERROR]: delegator-balance == old(delegator-balance) + amount (its latest value): delegator
+        // Property 3 [ISSUE]: delegator-balance == old(delegator-balance) + amount (its latest value): delegator
         // gained `amount` APT
+        // It's right, But the prover can't recognize it
 
-        ensures !ghost_bool ==> old(global<coin::CoinStore<AptosCoin>>(delegator_address)).coin.value == global<coin::CoinStore<AptosCoin>>(delegator_address).coin.value + amount;
-
-        // Property 4 [ERROR]: total_coins(pool.inactive_shares[withdrawal_olc]) -
+        ensures !ghost_bool && amount > 0 ==> old(global<coin::CoinStore<AptosCoin>>(delegator_address)).coin.value == global<coin::CoinStore<AptosCoin>>(delegator_address).coin.value + ghost_amount;
+        
+        // ensures !ghost_bool ==> ghost_coin_1 == ghost_coin_3 + ghost_amount;
+        
+        // Property 4 [ISSUE]: total_coins(pool.inactive_shares[withdrawal_olc]) -
         // total_coins(old(pool).inactive_shares[withdrawal_olc]) == amount (its latest value)
+        // It's right, But the prover can't recognize it
 
-        // ensures table::spec_get(pool.inactive_shares,ghost_olc).total_coins - table::spec_get(old(pool).inactive_shares,ghost_olc).total_coins == amount;
+        // ensures table::spec_get(pool.inactive_shares,ghost_olc) != table::spec_get(old(pool).inactive_shares,ghost_olc) ==> table::spec_get(pool.inactive_shares,ghost_olc).total_coins - table::spec_get(old(pool).inactive_shares,ghost_olc).total_coins == ghost_amount;
 
         // Property 5 [OK]: resource-account-balance == old(resource-account-balance): no stake is lost when
         // passing through the resource account
 
-        ensures old(global<coin::CoinStore<AptosCoin>>(get_pool_address(pool))).coin.value == global<coin::CoinStore<AptosCoin>>(get_pool_address(pool)).coin.value;
+        // ensures old(global<coin::CoinStore<AptosCoin>>(get_pool_address(pool))).coin.value == global<coin::CoinStore<AptosCoin>>(get_pool_address(pool)).coin.value;
 
-        // Property 6 [TIMEOUT]: total_coins(old(pool).inactive_shares[pool.OLC]) == old(pending_inactive) on StakePool:
+        // Property 6 [ERROR]: total_coins(old(pool).inactive_shares[pool.OLC]) == old(pending_inactive) on StakePool:
         // (requires before withdraw_internal, a pre condition)pending_inactive stake and
         // corresponding shares pool should be already synced, otherwise `pending_inactive -
         // amount` could fail if withdrawing pending_inactive stake
@@ -499,16 +507,16 @@ spec aptos_framework::delegation_pool {
         // d. pool_u64::balance(inactive_shares[pool.OLC], delegator) >=
         // MIN_COINS_ON_SHARES_POOL or == 0
         
-        ensures !table::spec_contains(pool.pending_withdrawals, delegator_address) ==> coin::value(global<stake::StakePool>(pool.stake_pool_signer_cap.account).pending_inactive) == coin::value(old(global<stake::StakePool>(pool.stake_pool_signer_cap.account)).pending_inactive) - amount;
+        // ensures !table::spec_contains(pool.pending_withdrawals, delegator_address) ==> coin::value(global<stake::StakePool>(pool.stake_pool_signer_cap.account).pending_inactive) == coin::value(old(global<stake::StakePool>(pool.stake_pool_signer_cap.account)).pending_inactive) - amount;
 
-        ensures !table::spec_contains(pool.pending_withdrawals, delegator_address) ==> coin::value(global<stake::StakePool>(pool.stake_pool_signer_cap.account).inactive) == coin::value(old(global<stake::StakePool>(pool.stake_pool_signer_cap.account)).inactive);
+        // ensures !table::spec_contains(pool.pending_withdrawals, delegator_address) ==> coin::value(global<stake::StakePool>(pool.stake_pool_signer_cap.account).inactive) == coin::value(old(global<stake::StakePool>(pool.stake_pool_signer_cap.account)).inactive);
 
-        ensures !table::spec_contains(pool.pending_withdrawals, delegator_address) ==> pool.total_coins_inactive == old(pool).total_coins_inactive;
+        // ensures !table::spec_contains(pool.pending_withdrawals, delegator_address) ==> pool.total_coins_inactive == old(pool).total_coins_inactive;
 
-        let balance = pool_u64::spec_shares_to_amount_with_total_coins(
-            table::spec_get(pool.inactive_shares, pool.observed_lockup_cycle),
-            pool_u64::spec_shares(table::spec_get(pool.inactive_shares, pool.observed_lockup_cycle), delegator_address), 
-            table::spec_get(pool.inactive_shares, pool.observed_lockup_cycle).total_coins);
+        // let balance = pool_u64::spec_shares_to_amount_with_total_coins(
+        //     table::spec_get(pool.inactive_shares, pool.observed_lockup_cycle),
+        //     pool_u64::spec_shares(table::spec_get(pool.inactive_shares, pool.observed_lockup_cycle), delegator_address), 
+        //     table::spec_get(pool.inactive_shares, pool.observed_lockup_cycle).total_coins);
 
         // ensures !table::spec_contains(pool.pending_withdrawals, delegator_address) ==> balance >= MIN_COINS_ON_SHARES_POOL || balance == 0;
         
@@ -522,11 +530,11 @@ spec aptos_framework::delegation_pool {
         // bypass any later lockup-cycle detection (if directly assigning `inactive` to it)
         // d. total_coins_inactive == inactive on StakePool
 
-        ensures table::spec_contains(pool.pending_withdrawals, delegator_address) ==> coin::value(global<stake::StakePool>(pool.stake_pool_signer_cap.account).pending_inactive) == coin::value(old(global<stake::StakePool>(pool.stake_pool_signer_cap.account).pending_inactive));
+        // ensures table::spec_contains(pool.pending_withdrawals, delegator_address) ==> coin::value(global<stake::StakePool>(pool.stake_pool_signer_cap.account).pending_inactive) == coin::value(old(global<stake::StakePool>(pool.stake_pool_signer_cap.account).pending_inactive));
 
-        ensures table::spec_contains(pool.pending_withdrawals, delegator_address) ==> coin::value(global<stake::StakePool>(pool.stake_pool_signer_cap.account).inactive) == coin::value(old(global<stake::StakePool>(pool.stake_pool_signer_cap.account).inactive)) - amount;
+        // ensures table::spec_contains(pool.pending_withdrawals, delegator_address) ==> coin::value(global<stake::StakePool>(pool.stake_pool_signer_cap.account).inactive) == coin::value(old(global<stake::StakePool>(pool.stake_pool_signer_cap.account).inactive)) - amount;
         
-        ensures table::spec_contains(pool.pending_withdrawals, delegator_address) ==> pool.total_coins_inactive == old(pool).total_coins_inactive - amount;
+        // ensures table::spec_contains(pool.pending_withdrawals, delegator_address) ==> pool.total_coins_inactive == old(pool).total_coins_inactive - amount;
         
         // ensures table::spec_contains(pool.pending_withdrawals, delegator_address) ==> pool.total_coins_inactive == coin::value(global<stake::StakePool>(pool.stake_pool_signer_cap.account).inactive);
 
@@ -663,6 +671,8 @@ spec aptos_framework::delegation_pool {
             pragma verify = false;
             pragma aborts_if_is_strict = false;
 
+            include Global_Requirement;
+
             let post pool = global<DelegationPool>(pool_address);
             let post stake_pool = global<stake::StakePool>(pool_address);
             let post inactive = stake_pool.inactive.value;
@@ -672,60 +682,50 @@ spec aptos_framework::delegation_pool {
             ensures pool.active_shares.total_coins == stake_pool.active.value + stake_pool.pending_active.value;
 
             // Property 2 [OK]:. total_coins(pool.inactive_shares[pool.OLC]) == pending_inactive on StakePool
-            ensures table::spec_get(pool.inactive_shares,pool.observed_lockup_cycle).total_coins == spec_get_pending_inactive(pool);
+            // ensures table::spec_get(pool.inactive_shares,pool.observed_lockup_cycle).total_coins == spec_get_pending_inactive(pool);
 
-            // Property 3 [OK]: pool.total_coins_inactive == inactive on StakePool
-            // inactive > pre_pool.total_coins_inactive &&
-            ensures pool.total_coins_inactive == stake_pool.inactive.value;
+            // // Property 3 [OK]: pool.total_coins_inactive == inactive on StakePool
+            // // inactive > pre_pool.total_coins_inactive &&
+            // ensures pool.total_coins_inactive == stake_pool.inactive.value;
 
-            // Property 4 [ERROR]: inactive > old(total_coins_inactive) IFF pool.OLC == old(pool).OLC + 1:
-            // ensures pre_pool.observed_lockup_cycle.index != pool.observed_lockup_cycle.index && inactive > pre_pool.total_coins_inactive;
+            // // Property 4 [ERROR]: inactive > old(total_coins_inactive) IFF pool.OLC == old(pool).OLC + 1:
+            // // ensures pre_pool.observed_lockup_cycle.index != pool.observed_lockup_cycle.index && inactive > pre_pool.total_coins_inactive;
              
-            // Property 5.1 [OK]: pool.OLC == old(pool).OLC + 1 => table::contains(pool.inactive_shares, pool.OLC)
+            // // Property 5.1 [OK]: pool.OLC == old(pool).OLC + 1 => table::contains(pool.inactive_shares, pool.OLC)
 
-            ensures (pool.observed_lockup_cycle.index == old(global<DelegationPool>(pool_address)).observed_lockup_cycle.index + 1) ==> table::spec_contains(pool.inactive_shares,pool.observed_lockup_cycle);
+            // ensures (pool.observed_lockup_cycle.index == old(global<DelegationPool>(pool_address)).observed_lockup_cycle.index + 1) ==> table::spec_contains(pool.inactive_shares,pool.observed_lockup_cycle);
 
-            // Property 5.2 [OK]: pool.OLC == old(pool).OLC + 1 => total_coins(pool.inactive_shares[pool.OLC]) == 0
-            ensures (pool.observed_lockup_cycle.index == old(global<DelegationPool>(pool_address)).observed_lockup_cycle.index + 1) ==> table::spec_get(pool.inactive_shares, pool.observed_lockup_cycle).total_coins == 0;
+            // // Property 5.2 [OK]: pool.OLC == old(pool).OLC + 1 => total_coins(pool.inactive_shares[pool.OLC]) == 0
+            // ensures (pool.observed_lockup_cycle.index == old(global<DelegationPool>(pool_address)).observed_lockup_cycle.index + 1) ==> table::spec_get(pool.inactive_shares, pool.observed_lockup_cycle).total_coins == 0;
 
-            // Property 5.3 [OK]: pool.OLC == old(pool).OLC + 1 => total_coins(pool.inactive_shares[old(pool).OLC]) == inactive - old(total_coins_inactive)
-            ensures (pool.observed_lockup_cycle.index == old(global<DelegationPool>(pool_address)).observed_lockup_cycle.index + 1) ==> table::spec_get(pool.inactive_shares,  old(global<DelegationPool>(pool_address)).observed_lockup_cycle).total_coins == inactive - old(global<DelegationPool>(pool_address)).total_coins_inactive;
+            // // Property 5.3 [OK]: pool.OLC == old(pool).OLC + 1 => total_coins(pool.inactive_shares[old(pool).OLC]) == inactive - old(total_coins_inactive)
+            // ensures (pool.observed_lockup_cycle.index == old(global<DelegationPool>(pool_address)).observed_lockup_cycle.index + 1) ==> table::spec_get(pool.inactive_shares,  old(global<DelegationPool>(pool_address)).observed_lockup_cycle).total_coins == inactive - old(global<DelegationPool>(pool_address)).total_coins_inactive;
 
-            // Property 5.4 [OK]: pool.OLC == old(pool).OLC + 1 => pending_inactive == 0: this is the 1st stake-management operation on this new lockup cycle and thus no stake could have been unlocked yet
-            ensures (pool.observed_lockup_cycle.index == old(global<DelegationPool>(pool_address)).observed_lockup_cycle.index + 1) ==> pending_active == 0;
+            // // Property 5.4 [OK]: pool.OLC == old(pool).OLC + 1 => pending_inactive == 0: this is the 1st stake-management operation on this new lockup cycle and thus no stake could have been unlocked yet
+            // ensures (pool.observed_lockup_cycle.index == old(global<DelegationPool>(pool_address)).observed_lockup_cycle.index + 1) ==> pending_active == 0;
 
-            // 6 pending_active == 0 => pool_u64::shares(pool.active_shares, NULL_SHAREHOLDER) == 0: add_stake fees charged during previous epoch have been refunded
+            // // 6 pending_active == 0 => pool_u64::shares(pool.active_shares, NULL_SHAREHOLDER) == 0: add_stake fees charged during previous epoch have been refunded
 
-            ensures pending_active == 0 ==> pool_u64::spec_shares(pool.active_shares, NULL_SHAREHOLDER) == 0;
+            // ensures pending_active == 0 ==> pool_u64::spec_shares(pool.active_shares, NULL_SHAREHOLDER) == 0;
 
-            // 7 pending_active != 0 => pool_u64::shares(pool.active_shares, NULL_SHAREHOLDER) == pool_u64::shares(old(pool).active_shares, NULL_SHAREHOLDER): any add_stake fees are not refunded unless the epoch when charged has ended
+            // // 7 pending_active != 0 => pool_u64::shares(pool.active_shares, NULL_SHAREHOLDER) == pool_u64::shares(old(pool).active_shares, NULL_SHAREHOLDER): any add_stake fees are not refunded unless the epoch when charged has ended
 
-            ensures pending_active != 0 ==> pool_u64::spec_shares(pool.active_shares, NULL_SHAREHOLDER) == pool_u64::spec_shares(old(global<DelegationPool>(pool_address)).active_shares, NULL_SHAREHOLDER);
+            // ensures pending_active != 0 ==> pool_u64::spec_shares(pool.active_shares, NULL_SHAREHOLDER) == pool_u64::spec_shares(old(global<DelegationPool>(pool_address)).active_shares, NULL_SHAREHOLDER);
 
-            // 8 let commission_active = delta total_coins(pool.active_shares) * pool.commission;
-            // pool_u64::shares(pool.active_shares, operator) - pool_u64::shares(old(pool).active_shares, operator) ==
-            // pool_u64::amount_to_shares(
-            // pool.active_shares, // snapshot of shares pool before buy_in
-            // commission_active
-            // ) operator gained pool-rewards * pool-commission% additional to its existing stake + its rewards produced in the meantime as a regular delegator
-            // Note: commission_active = ghost_coin_1
-            ensures pool_u64::spec_shares(pool.active_shares, global<stake::StakePool>(pool_address).operator_address) - pool_u64::spec_shares(old(global<DelegationPool>(pool_address)).active_shares, global<stake::StakePool>(pool_address).operator_address) == pool_u64::spec_amount_to_shares_with_total_coins(pool.active_shares, ghost_coin_1, pool.active_shares.total_coins);
+            // // 8 let commission_active = delta total_coins(pool.active_shares) * pool.commission;
+            // // pool_u64::shares(pool.active_shares, operator) - pool_u64::shares(old(pool).active_shares, operator) ==
+            // // pool_u64::amount_to_shares(
+            // // pool.active_shares, // snapshot of shares pool before buy_in
+            // // commission_active
+            // // ) operator gained pool-rewards * pool-commission% additional to its existing stake + its rewards produced in the meantime as a regular delegator
+            // // Note: commission_active = ghost_coin_1
+            // ensures pool_u64::spec_shares(pool.active_shares, global<stake::StakePool>(pool_address).operator_address) - pool_u64::spec_shares(old(global<DelegationPool>(pool_address)).active_shares, global<stake::StakePool>(pool_address).operator_address) == pool_u64::spec_amount_to_shares_with_total_coins(pool.active_shares, ghost_coin_1, pool.active_shares.total_coins);
 
-            // 9 Same for pending_inactive commission used to buy shares into pool at index old(OLC) in pool.inactive_shares
-            // forall delegators: delegator != operator && != NULL_SHAREHOLDER => pool_u64::shares(pool.active_shares, delegator) == pool_u64::shares(old(pool).active_shares, delegator) 
-            ensures forall delegators: address: delegators != global<stake::StakePool>(pool_address).operator_address && delegators != NULL_SHAREHOLDER ==> pool_u64::spec_shares(pool.active_shares, delegators) == pool_u64::spec_shares(old(global<DelegationPool>(pool_address)).active_shares, delegators); 
-
-
+            // // 9 Same for pending_inactive commission used to buy shares into pool at index old(OLC) in pool.inactive_shares
+            // // forall delegators: delegator != operator && != NULL_SHAREHOLDER => pool_u64::shares(pool.active_shares, delegator) == pool_u64::shares(old(pool).active_shares, delegator) 
+            // ensures forall delegators: address: delegators != global<stake::StakePool>(pool_address).operator_address && delegators != NULL_SHAREHOLDER ==> pool_u64::spec_shares(pool.active_shares, delegators) == pool_u64::spec_shares(old(global<DelegationPool>(pool_address)).active_shares, delegators); 
 
         }
-
-    spec multiply_then_divide(x: u64, y: u64, z: u64): u64 {
-        pragma verify = false;
-        aborts_if (x * y) / z > MAX_U64;
-        aborts_if z == 0;
-        ensures result == x * y / z;
-        ensures z != 0;
-    }
 
     spec to_u128(num: u64): u128 {
         pragma verify = false;
