@@ -7,7 +7,7 @@ slug: "delegation-pool-operations"
 
 > Beta: This documentation is in experimental, beta mode. Supply feedback by [requesting document changes](../../../community/site-updates.md#request-docs-changes). See also the related [Staking Pool Operations](./staking-pool-operations.md) instructions.
 
-Validator operators should follow these instructions to carry out delegation pool operations for [staking](../../../concepts/staking.md). You may delegate as little as 10 APT. Note that your validator will become part of the *Active Validator Set* only when the delegation pool satisfies the minimum cumulative [staking requirement of 1 million APT](./staking-pool-operations.md).
+Validator operators should follow these instructions to carry out delegation pool operations for [staking](../../../concepts/staking.md). You may delegate as little as 10 APT plus a small add stake fee that will be mostly refunded as rewards at the end of the current 2-hour epoch. You might notice that some UIs might use 11 APT as the minimum for a round number. Note that your validator will become part of the *Active Validator Set* only when the delegation pool satisfies the minimum cumulative [staking requirement of 1 million APT](./staking-pool-operations.md).
 
 Once the delegation pool attains 1 million APT, the pool's owner who initiates the delegation pool should set an operator for the pool via the `set_operator` function described in the [Perform pool owner operations](#perform-pool-owner-operations) section. The operator should then start their own Aptos node, as it is a best practice to have a different account for owner and operator. The operator should now [join in the active set of validators](./staking-pool-operations.md#joining-validator-set).
 
@@ -166,8 +166,8 @@ Use this formula to calculate *rewards earned* for `active` and `pending_inactiv
 1. Get the amount of `active` and `pending_inactive` staking from the [`get_stake`](https://github.com/aptos-labs/aptos-core/blob/ed63ab756cda61439287304ed89bbb156fcbeaed/aptos-move/framework/aptos-framework/sources/delegation_pool.move#L321) view function.
 
 2. Calculate principal:
-    - "active principal" = **AddStakeEvent** - **UnlockStakeEvent** + **ReactivateStakeEvent**. If at any point during the iteration, "active principal" < 0, reset to 0. Negative principal could happen when the amount users `unlock` or `reactivate` include rewards earned from staking.
-    - "pending inactive principal" = **UnlockStakeEvent** - **ReactivateStakeEvent**. If at any point during the iteration, "pending inactive principal" < 0, reset to 0. Negative principal could happen when the amount users `unlock` or `reactivate` include rewards earned from staking.
+    - "active principal" = **AddStakeEvent** - **UnlockStakeEvent** + **ReactivateStakeEvent**. If at any point during the iteration, "active principal" < 0, reset to 0. Negative principal could happen when the amount users `unlock` include rewards earned from staking.
+    - "pending inactive principal" = **UnlockStakeEvent** - **ReactivateStakeEvent**. If at any point during the iteration, "pending inactive principal" < 0, reset to 0. Negative principal could happen when the amount users `reactivate` include rewards earned from staking.
 
 3. Compute rewards earned:
     - active_rewards = `active` - *active principal*.
