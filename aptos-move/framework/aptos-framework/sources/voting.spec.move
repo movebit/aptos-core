@@ -120,12 +120,11 @@ spec aptos_framework::voting {
         
         use aptos_framework::chain_status;
         
-        requires chain_status::is_operating(); // Ensures existence of Timestamp
+        // Ensures existence of Timestamp
+        requires chain_status::is_operating(); 
         include AbortsIfNotContainProposalID<ProposalType>;
-        // If the proposal is not resolvable, this function aborts.
         
-        // TODO: Find a way to specify when it will abort. The opaque with spec fun doesn't work.
-        
+        // Use ghost var to get state
         aborts_if ghost_state != PROPOSAL_STATE_SUCCEEDED;
 
         let voting_forum =  global<VotingForum<ProposalType>>(voting_forum_address);
@@ -133,16 +132,11 @@ spec aptos_framework::voting {
 
         aborts_if proposal.is_resolved;
 
+        // Check all assert statemtn
         aborts_if !std::string::spec_internal_check_utf8(RESOLVABLE_TIME_METADATA_KEY);
-
         aborts_if !simple_map::spec_contains_key(proposal.metadata, std::string::spec_utf8(RESOLVABLE_TIME_METADATA_KEY));
-
         aborts_if !from_bcs::deserializable<u64>(simple_map::spec_get(proposal.metadata, std::string::spec_utf8(RESOLVABLE_TIME_METADATA_KEY)));
-        // aborts_if !std::string::spec_internal_check_utf8(RESOLVABLE_TIME_METADATA_KEY);
-        // aborts_if from_bcs::deserializable<u64>(simple_map::spec_get(proposal.metadata, utf8(RESOLVABLE_TIME_METADATA_KEY)));
-        
         aborts_if timestamp::spec_now_seconds() <= ghost_time;
-        
         aborts_if transaction_context::spec_get_script_hash() != proposal.execution_hash;
             
     }
