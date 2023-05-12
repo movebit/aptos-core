@@ -365,7 +365,7 @@ module aptos_framework::voting {
     ) acquires VotingForum {
         let proposal_state = get_proposal_state<ProposalType>(voting_forum_address, proposal_id);
 
-        spec{
+        spec {
             assume ghost_state == proposal_state;
         };
         
