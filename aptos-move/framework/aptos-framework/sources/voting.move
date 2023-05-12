@@ -380,7 +380,7 @@ module aptos_framework::voting {
 
         let resolvable_time = to_u64(*simple_map::borrow(&proposal.metadata, &utf8(RESOLVABLE_TIME_METADATA_KEY)));
 
-        spec{
+        spec {
             assume ghost_time == resolvable_time;
         };
 
