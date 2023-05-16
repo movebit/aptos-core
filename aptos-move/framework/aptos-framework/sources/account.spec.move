@@ -1,7 +1,13 @@
 spec aptos_framework::account {
+    spec fun spec_assert_valid_rotation_proof_signature_and_get_auth_key(scheme: u8, public_key_bytes: vector<u8>, signature: vector<u8>, challenge: RotationProofChallenge): vector<u8>;
+
     spec module {
         pragma verify = true;
         pragma aborts_if_is_strict;
+
+        axiom forall s: u8, b: vector<u8>, t:vector<u8>, c:RotationProofChallenge:
+            from_bcs::deserializable<address>(spec_assert_valid_rotation_proof_signature_and_get_auth_key(s, b, t, c));// &&
+            //from_bcs::deserialize<address>(spec_assert_valid_rotation_proof_signature_and_get_auth_key(s, b, t, c)) != c.current_auth_key;
     }
 
     /// Only the address `@aptos_framework` can call.
@@ -73,12 +79,11 @@ spec aptos_framework::account {
         ensures account_resource.authentication_key == new_auth_key;
     }
 
-    spec fun spec_assert_valid_rotation_proof_signature_and_get_auth_key(scheme: u8, public_key_bytes: vector<u8>, signature: vector<u8>, challenge: RotationProofChallenge): vector<u8>;
-
     spec assert_valid_rotation_proof_signature_and_get_auth_key(scheme: u8, public_key_bytes: vector<u8>, signature: vector<u8>, challenge: &RotationProofChallenge): vector<u8> {
         pragma opaque;
         include AssertValidRotationProofSignatureAndGetAuthKeyAbortsIf;
         ensures [abstract] result == spec_assert_valid_rotation_proof_signature_and_get_auth_key(scheme, public_key_bytes, signature, challenge);
+        //ensures from_
     }
     spec schema AssertValidRotationProofSignatureAndGetAuthKeyAbortsIf {
         scheme: u8;
@@ -195,10 +200,30 @@ spec aptos_framework::account {
             signature: cap_update_table,
             challenge: challenge,
         };
-        // let new_auth_key = spec_assert_valid_rotation_proof_signature_and_get_auth_key(new_scheme, new_public_key_bytes, cap_update_table, challenge);
-        // TODO: Need to investigate the issue of including UpdateAuthKeyAndOriginatingAddressTableAbortsIf here.
-        // TODO: boogie error: Error: invalid type for argument 0 in application of $1_from_bcs_deserializable'address': int (expected: Vec int).
+        let new_key_vec = spec_assert_valid_rotation_proof_signature_and_get_auth_key(new_scheme, new_public_key_bytes, cap_update_table, challenge);
+        let new_key = from_bcs::deserialize<address>(new_key_vec);
         pragma aborts_if_is_partial;
+
+        // modifies global<OriginatingAddress>(@aptos_framework);
+        //include UpdateAuthKeyAndOriginatingAddressTableAbortsIf{
+        //    originating_addr: rotation_cap_offerer_address,
+        //    account_resource: offerer_account_resource,
+        //    new_auth_key_vector: new_key_vec,
+        //};
+
+        // Replicate the spec schema line by line
+        let address_map = global<OriginatingAddress>(@aptos_framework).address_map;
+        let post address_map_p = global<OriginatingAddress>(@aptos_framework).address_map;
+        aborts_if !exists<OriginatingAddress>(@aptos_framework);
+        aborts_if !from_bcs::deserializable<address>(offerer_account_resource.authentication_key);
+        aborts_if table::spec_contains(address_map, curr_auth_key) &&
+           table::spec_get(address_map, curr_auth_key) != rotation_cap_offerer_address;
+        aborts_if !from_bcs::deserializable<address>(new_key_vec);
+
+        // TODO: uncomment this line triggers an error "function doesn't abort under this condition"
+        // aborts_if curr_auth_key != new_key && table::spec_contains(address_map, new_key);
+        // ensures table::spec_get(address_map_p, new_key) == rotation_cap_offerer_address
+        // && address_map == address_map && curr_auth_key==curr_auth_key;
     }
 
     spec offer_rotation_capability(
@@ -459,6 +484,9 @@ spec aptos_framework::account {
     ) {
         modifies global<OriginatingAddress>(@aptos_framework);
         include UpdateAuthKeyAndOriginatingAddressTableAbortsIf;
+        let post address_map = global<OriginatingAddress>(@aptos_framework).address_map;
+        let new_auth_key = from_bcs::deserialize<address>(new_auth_key_vector);
+        ensures table::spec_get(address_map, new_auth_key) == originating_addr;
     }
     spec schema UpdateAuthKeyAndOriginatingAddressTableAbortsIf {
         originating_addr: address;
