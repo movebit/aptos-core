@@ -27,7 +27,7 @@ A module for formatting move values as strings.
     -  [Function `native_format_list`](#@Specification_1_native_format_list)
 
 
-<pre><code><b>use</b> <a href="../../move-stdlib/doc/string.md#0x1_string">0x1::string</a>;
+<pre><code><b>use</b> <a href="..\../move-stdlib\doc\string.md#0x1_string">0x1::string</a>;
 </code></pre>
 
 
@@ -157,13 +157,13 @@ The format string is not valid.
 Format a move value as a human readable string,
 eg. <code><a href="string_utils.md#0x1_string_utils_to_string">to_string</a>(&1u64) == "1"</code>, <code><a href="string_utils.md#0x1_string_utils_to_string">to_string</a>(&<b>false</b>) == "<b>false</b>"</code>, <code><a href="string_utils.md#0x1_string_utils_to_string">to_string</a>(&@0x1) == "@0x1"</code>.
 For vectors and structs the format is similar to rust, eg.
-<code><a href="string_utils.md#0x1_string_utils_to_string">to_string</a>(&<a href="string_utils.md#0x1_string_utils_cons">cons</a>(1,2)) == "<a href="string_utils.md#0x1_string_utils_Cons">Cons</a> { car: 1, cdr: 2 }"</code> and <code><a href="string_utils.md#0x1_string_utils_to_string">to_string</a>(&<a href="../../move-stdlib/doc/vector.md#0x1_vector">vector</a>[1, 2, 3]) == "[ 1, 2, 3 ]"</code>
-For vectors of u8 the output is hex encoded, eg. <code><a href="string_utils.md#0x1_string_utils_to_string">to_string</a>(&<a href="../../move-stdlib/doc/vector.md#0x1_vector">vector</a>[1u8, 2u8, 3u8]) == "0x010203"</code>
+<code><a href="string_utils.md#0x1_string_utils_to_string">to_string</a>(&<a href="string_utils.md#0x1_string_utils_cons">cons</a>(1,2)) == "<a href="string_utils.md#0x1_string_utils_Cons">Cons</a> { car: 1, cdr: 2 }"</code> and <code><a href="string_utils.md#0x1_string_utils_to_string">to_string</a>(&<a href="..\../move-stdlib\doc\vector.md#0x1_vector">vector</a>[1, 2, 3]) == "[ 1, 2, 3 ]"</code>
+For vectors of u8 the output is hex encoded, eg. <code><a href="string_utils.md#0x1_string_utils_to_string">to_string</a>(&<a href="..\../move-stdlib\doc\vector.md#0x1_vector">vector</a>[1u8, 2u8, 3u8]) == "0x010203"</code>
 For std::string::String the output is the string itself including quotes, eg.
-<code><a href="string_utils.md#0x1_string_utils_to_string">to_string</a>(&std::string::utf8(b"My <a href="../../move-stdlib/doc/string.md#0x1_string">string</a>")) == "\"My <a href="../../move-stdlib/doc/string.md#0x1_string">string</a>\""</code>
+<code><a href="string_utils.md#0x1_string_utils_to_string">to_string</a>(&std::string::utf8(b"My <a href="..\../move-stdlib\doc\string.md#0x1_string">string</a>")) == "\"My <a href="..\../move-stdlib\doc\string.md#0x1_string">string</a>\""</code>
 
 
-<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_to_string">to_string</a>&lt;T&gt;(s: &T): <a href="../../move-stdlib/doc/string.md#0x1_string_String">string::String</a>
+<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_to_string">to_string</a>&lt;T&gt;(s: &T): <a href="..\../move-stdlib\doc\string.md#0x1_string_String">string::String</a>
 </code></pre>
 
 
@@ -188,7 +188,7 @@ For std::string::String the output is the string itself including quotes, eg.
 Format addresses as 64 zero-padded hexadecimals.
 
 
-<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_to_string_with_canonical_addresses">to_string_with_canonical_addresses</a>&lt;T&gt;(s: &T): <a href="../../move-stdlib/doc/string.md#0x1_string_String">string::String</a>
+<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_to_string_with_canonical_addresses">to_string_with_canonical_addresses</a>&lt;T&gt;(s: &T): <a href="..\../move-stdlib\doc\string.md#0x1_string_String">string::String</a>
 </code></pre>
 
 
@@ -213,7 +213,7 @@ Format addresses as 64 zero-padded hexadecimals.
 Format emitting integers with types ie. 6u8 or 128u32.
 
 
-<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_to_string_with_integer_types">to_string_with_integer_types</a>&lt;T&gt;(s: &T): <a href="../../move-stdlib/doc/string.md#0x1_string_String">string::String</a>
+<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_to_string_with_integer_types">to_string_with_integer_types</a>&lt;T&gt;(s: &T): <a href="..\../move-stdlib\doc\string.md#0x1_string_String">string::String</a>
 </code></pre>
 
 
@@ -238,7 +238,7 @@ Format emitting integers with types ie. 6u8 or 128u32.
 Format vectors and structs with newlines and indentation.
 
 
-<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_debug_string">debug_string</a>&lt;T&gt;(s: &T): <a href="../../move-stdlib/doc/string.md#0x1_string_String">string::String</a>
+<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_debug_string">debug_string</a>&lt;T&gt;(s: &T): <a href="..\../move-stdlib\doc\string.md#0x1_string_String">string::String</a>
 </code></pre>
 
 
@@ -263,7 +263,7 @@ Format vectors and structs with newlines and indentation.
 Formatting with a rust-like format string, eg. <code><a href="string_utils.md#0x1_string_utils_format2">format2</a>(&b"a = {}, b = {}", 1, 2) == "a = 1, b = 2"</code>.
 
 
-<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_format1">format1</a>&lt;T0: drop&gt;(fmt: &<a href="../../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;u8&gt;, a: T0): <a href="../../move-stdlib/doc/string.md#0x1_string_String">string::String</a>
+<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_format1">format1</a>&lt;T0: drop&gt;(fmt: &<a href="..\../move-stdlib\doc\vector.md#0x1_vector">vector</a>&lt;u8&gt;, a: T0): <a href="..\../move-stdlib\doc\string.md#0x1_string_String">string::String</a>
 </code></pre>
 
 
@@ -272,7 +272,7 @@ Formatting with a rust-like format string, eg. <code><a href="string_utils.md#0x
 <summary>Implementation</summary>
 
 
-<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_format1">format1</a>&lt;T0: drop&gt;(fmt: &<a href="../../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;u8&gt;, a: T0): String {
+<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_format1">format1</a>&lt;T0: drop&gt;(fmt: &<a href="..\../move-stdlib\doc\vector.md#0x1_vector">vector</a>&lt;u8&gt;, a: T0): String {
     <a href="string_utils.md#0x1_string_utils_native_format_list">native_format_list</a>(fmt, &list1(a))
 }
 </code></pre>
@@ -287,7 +287,7 @@ Formatting with a rust-like format string, eg. <code><a href="string_utils.md#0x
 
 
 
-<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_format2">format2</a>&lt;T0: drop, T1: drop&gt;(fmt: &<a href="../../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;u8&gt;, a: T0, b: T1): <a href="../../move-stdlib/doc/string.md#0x1_string_String">string::String</a>
+<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_format2">format2</a>&lt;T0: drop, T1: drop&gt;(fmt: &<a href="..\../move-stdlib\doc\vector.md#0x1_vector">vector</a>&lt;u8&gt;, a: T0, b: T1): <a href="..\../move-stdlib\doc\string.md#0x1_string_String">string::String</a>
 </code></pre>
 
 
@@ -296,7 +296,7 @@ Formatting with a rust-like format string, eg. <code><a href="string_utils.md#0x
 <summary>Implementation</summary>
 
 
-<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_format2">format2</a>&lt;T0: drop, T1: drop&gt;(fmt: &<a href="../../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;u8&gt;, a: T0, b: T1): String {
+<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_format2">format2</a>&lt;T0: drop, T1: drop&gt;(fmt: &<a href="..\../move-stdlib\doc\vector.md#0x1_vector">vector</a>&lt;u8&gt;, a: T0, b: T1): String {
     <a href="string_utils.md#0x1_string_utils_native_format_list">native_format_list</a>(fmt, &list2(a, b))
 }
 </code></pre>
@@ -311,7 +311,7 @@ Formatting with a rust-like format string, eg. <code><a href="string_utils.md#0x
 
 
 
-<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_format3">format3</a>&lt;T0: drop, T1: drop, T2: drop&gt;(fmt: &<a href="../../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;u8&gt;, a: T0, b: T1, c: T2): <a href="../../move-stdlib/doc/string.md#0x1_string_String">string::String</a>
+<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_format3">format3</a>&lt;T0: drop, T1: drop, T2: drop&gt;(fmt: &<a href="..\../move-stdlib\doc\vector.md#0x1_vector">vector</a>&lt;u8&gt;, a: T0, b: T1, c: T2): <a href="..\../move-stdlib\doc\string.md#0x1_string_String">string::String</a>
 </code></pre>
 
 
@@ -320,7 +320,7 @@ Formatting with a rust-like format string, eg. <code><a href="string_utils.md#0x
 <summary>Implementation</summary>
 
 
-<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_format3">format3</a>&lt;T0: drop, T1: drop, T2: drop&gt;(fmt: &<a href="../../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;u8&gt;, a: T0, b: T1, c: T2): String {
+<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_format3">format3</a>&lt;T0: drop, T1: drop, T2: drop&gt;(fmt: &<a href="..\../move-stdlib\doc\vector.md#0x1_vector">vector</a>&lt;u8&gt;, a: T0, b: T1, c: T2): String {
     <a href="string_utils.md#0x1_string_utils_native_format_list">native_format_list</a>(fmt, &list3(a, b, c))
 }
 </code></pre>
@@ -335,7 +335,7 @@ Formatting with a rust-like format string, eg. <code><a href="string_utils.md#0x
 
 
 
-<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_format4">format4</a>&lt;T0: drop, T1: drop, T2: drop, T3: drop&gt;(fmt: &<a href="../../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;u8&gt;, a: T0, b: T1, c: T2, d: T3): <a href="../../move-stdlib/doc/string.md#0x1_string_String">string::String</a>
+<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_format4">format4</a>&lt;T0: drop, T1: drop, T2: drop, T3: drop&gt;(fmt: &<a href="..\../move-stdlib\doc\vector.md#0x1_vector">vector</a>&lt;u8&gt;, a: T0, b: T1, c: T2, d: T3): <a href="..\../move-stdlib\doc\string.md#0x1_string_String">string::String</a>
 </code></pre>
 
 
@@ -344,7 +344,7 @@ Formatting with a rust-like format string, eg. <code><a href="string_utils.md#0x
 <summary>Implementation</summary>
 
 
-<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_format4">format4</a>&lt;T0: drop, T1: drop, T2: drop, T3: drop&gt;(fmt: &<a href="../../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;u8&gt;, a: T0, b: T1, c: T2, d: T3): String {
+<pre><code><b>public</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_format4">format4</a>&lt;T0: drop, T1: drop, T2: drop, T3: drop&gt;(fmt: &<a href="..\../move-stdlib\doc\vector.md#0x1_vector">vector</a>&lt;u8&gt;, a: T0, b: T1, c: T2, d: T3): String {
     <a href="string_utils.md#0x1_string_utils_native_format_list">native_format_list</a>(fmt, &list4(a, b, c, d))
 }
 </code></pre>
@@ -403,7 +403,7 @@ Formatting with a rust-like format string, eg. <code><a href="string_utils.md#0x
 
 
 
-<pre><code><b>fun</b> <a href="string_utils.md#0x1_string_utils_native_format">native_format</a>&lt;T&gt;(s: &T, type_tag: bool, canonicalize: bool, single_line: bool, include_int_types: bool): <a href="../../move-stdlib/doc/string.md#0x1_string_String">string::String</a>
+<pre><code><b>fun</b> <a href="string_utils.md#0x1_string_utils_native_format">native_format</a>&lt;T&gt;(s: &T, type_tag: bool, canonicalize: bool, single_line: bool, include_int_types: bool): <a href="..\../move-stdlib\doc\string.md#0x1_string_String">string::String</a>
 </code></pre>
 
 
@@ -425,7 +425,7 @@ Formatting with a rust-like format string, eg. <code><a href="string_utils.md#0x
 
 
 
-<pre><code><b>fun</b> <a href="string_utils.md#0x1_string_utils_native_format_list">native_format_list</a>&lt;T&gt;(fmt: &<a href="../../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;u8&gt;, val: &T): <a href="../../move-stdlib/doc/string.md#0x1_string_String">string::String</a>
+<pre><code><b>fun</b> <a href="string_utils.md#0x1_string_utils_native_format_list">native_format_list</a>&lt;T&gt;(fmt: &<a href="..\../move-stdlib\doc\vector.md#0x1_vector">vector</a>&lt;u8&gt;, val: &T): <a href="..\../move-stdlib\doc\string.md#0x1_string_String">string::String</a>
 </code></pre>
 
 
@@ -434,7 +434,7 @@ Formatting with a rust-like format string, eg. <code><a href="string_utils.md#0x
 <summary>Implementation</summary>
 
 
-<pre><code><b>native</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_native_format_list">native_format_list</a>&lt;T&gt;(fmt: &<a href="../../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;u8&gt;, val: &T): String;
+<pre><code><b>native</b> <b>fun</b> <a href="string_utils.md#0x1_string_utils_native_format_list">native_format_list</a>&lt;T&gt;(fmt: &<a href="..\../move-stdlib\doc\vector.md#0x1_vector">vector</a>&lt;u8&gt;, val: &T): String;
 </code></pre>
 
 
@@ -451,7 +451,7 @@ Formatting with a rust-like format string, eg. <code><a href="string_utils.md#0x
 ### Function `native_format`
 
 
-<pre><code><b>fun</b> <a href="string_utils.md#0x1_string_utils_native_format">native_format</a>&lt;T&gt;(s: &T, type_tag: bool, canonicalize: bool, single_line: bool, include_int_types: bool): <a href="../../move-stdlib/doc/string.md#0x1_string_String">string::String</a>
+<pre><code><b>fun</b> <a href="string_utils.md#0x1_string_utils_native_format">native_format</a>&lt;T&gt;(s: &T, type_tag: bool, canonicalize: bool, single_line: bool, include_int_types: bool): <a href="..\../move-stdlib\doc\string.md#0x1_string_String">string::String</a>
 </code></pre>
 
 
@@ -467,7 +467,7 @@ Formatting with a rust-like format string, eg. <code><a href="string_utils.md#0x
 ### Function `native_format_list`
 
 
-<pre><code><b>fun</b> <a href="string_utils.md#0x1_string_utils_native_format_list">native_format_list</a>&lt;T&gt;(fmt: &<a href="../../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;u8&gt;, val: &T): <a href="../../move-stdlib/doc/string.md#0x1_string_String">string::String</a>
+<pre><code><b>fun</b> <a href="string_utils.md#0x1_string_utils_native_format_list">native_format_list</a>&lt;T&gt;(fmt: &<a href="..\../move-stdlib\doc\vector.md#0x1_vector">vector</a>&lt;u8&gt;, val: &T): <a href="..\../move-stdlib\doc\string.md#0x1_string_String">string::String</a>
 </code></pre>
 
 
