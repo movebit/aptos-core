@@ -2,18 +2,6 @@ spec aptos_framework::account {
     spec module {
         pragma verify = true;
         pragma aborts_if_is_strict;
-
-        //To avoid ambiguous, declare all proof is deserializable
-        axiom forall s: u8, v1: vector<u8>, v2: vector<u8>, c:RotationProofChallenge:
-            from_bcs::deserializable<address>(spec_assert_valid_rotation_proof_signature_and_get_auth_key(s, v1, v2, c));
-
-        //If the input are equal, the result of deserialize should be equal too
-        axiom forall b1: vector<u8>, b2: vector<u8>:
-            ( b1 == b2 ==> from_bcs::deserializable<address>(b1) == from_bcs::deserializable<address>(b2) );
-
-        axiom forall b1: vector<u8>, b2: vector<u8>:
-            ( b1 == b2 ==> from_bcs::deserialize<address>(b1) == from_bcs::deserialize<address>(b2) );
-
     }
 
     /// Only the address `@aptos_framework` can call.
