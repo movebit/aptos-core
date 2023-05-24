@@ -143,6 +143,17 @@ pub enum EntryPoints {
     BytesMakeOrChange {
         data_length: Option<usize>,
     },
+    EmitEvents {
+        count: u64,
+    },
+    MakeOrChangeTable {
+        offset: u64,
+        count: u64,
+    },
+    MakeOrChangeTableRandom {
+        max_offset: u64,
+        max_count: u64,
+    },
     /// Increment destination resource - COUNTER_STEP
     StepDst,
 
@@ -156,7 +167,6 @@ pub enum EntryPoints {
     TokenV1MintAndStoreFT,
     TokenV1MintAndTransferFT,
 
-    TokenV2AmbassadorInitCollection,
     TokenV2AmbassadorMint,
 }
 
@@ -179,6 +189,9 @@ impl EntryPoints {
             | EntryPoints::Minimize
             | EntryPoints::MakeOrChange { .. }
             | EntryPoints::BytesMakeOrChange { .. }
+            | EntryPoints::EmitEvents { .. }
+            | EntryPoints::MakeOrChangeTable { .. }
+            | EntryPoints::MakeOrChangeTableRandom { .. }
             | EntryPoints::StepDst => "simple",
             EntryPoints::TokenV1InitializeCollection
             | EntryPoints::TokenV1MintAndStoreNFTParallel
@@ -187,9 +200,7 @@ impl EntryPoints {
             | EntryPoints::TokenV1MintAndTransferNFTSequential
             | EntryPoints::TokenV1MintAndStoreFT
             | EntryPoints::TokenV1MintAndTransferFT => "framework_usecases",
-            EntryPoints::TokenV2AmbassadorInitCollection | EntryPoints::TokenV2AmbassadorMint => {
-                "framework_usecases"
-            },
+            EntryPoints::TokenV2AmbassadorMint => "ambassador_token",
         }
     }
 
@@ -211,6 +222,9 @@ impl EntryPoints {
             | EntryPoints::Minimize
             | EntryPoints::MakeOrChange { .. }
             | EntryPoints::BytesMakeOrChange { .. }
+            | EntryPoints::EmitEvents { .. }
+            | EntryPoints::MakeOrChangeTable { .. }
+            | EntryPoints::MakeOrChangeTableRandom { .. }
             | EntryPoints::StepDst => "simple",
             EntryPoints::TokenV1InitializeCollection
             | EntryPoints::TokenV1MintAndStoreNFTParallel
@@ -219,9 +233,7 @@ impl EntryPoints {
             | EntryPoints::TokenV1MintAndTransferNFTSequential
             | EntryPoints::TokenV1MintAndStoreFT
             | EntryPoints::TokenV1MintAndTransferFT => "token_v1",
-            EntryPoints::TokenV2AmbassadorInitCollection | EntryPoints::TokenV2AmbassadorMint => {
-                "ambassador"
-            },
+            EntryPoints::TokenV2AmbassadorMint => "ambassador",
         }
     }
 
@@ -282,6 +294,37 @@ impl EntryPoints {
                 let data_len = data_length.unwrap_or_else(|| rng.gen_range(0usize, 1000usize));
                 bytes_make_or_change(rng, module_id, data_len)
             },
+            EntryPoints::EmitEvents { count } => {
+                get_payload(module_id, ident_str!("emit_events").to_owned(), vec![
+                    bcs::to_bytes(count).unwrap(),
+                ])
+            },
+            EntryPoints::MakeOrChangeTable { offset, count } => get_payload(
+                module_id,
+                ident_str!("make_or_change_table").to_owned(),
+                vec![
+                    bcs::to_bytes(offset).unwrap(),
+                    bcs::to_bytes(count).unwrap(),
+                ],
+            ),
+            EntryPoints::MakeOrChangeTableRandom {
+                max_offset,
+                max_count,
+            } => {
+                let rng = rng.expect("Must provide RNG");
+                let mut offset: u64 = rng.gen();
+                offset %= max_offset;
+                let mut count: u64 = rng.gen();
+                count %= max_count;
+                get_payload(
+                    module_id,
+                    ident_str!("make_or_change_table").to_owned(),
+                    vec![
+                        bcs::to_bytes(&offset).unwrap(),
+                        bcs::to_bytes(&count).unwrap(),
+                    ],
+                )
+            },
             EntryPoints::StepDst => step_dst(module_id, other.expect("Must provide other")),
             EntryPoints::TokenV1InitializeCollection => get_payload_void(
                 module_id,
@@ -318,29 +361,15 @@ impl EntryPoints {
                 ident_str!("token_v1_mint_and_transfer_ft").to_owned(),
                 vec![bcs::to_bytes(other.expect("Must provide other")).unwrap()],
             ),
-
-            EntryPoints::TokenV2AmbassadorInitCollection => {
-                let rng: &mut StdRng = rng.expect("Must provide RNG");
-                get_payload(
-                    module_id,
-                    ident_str!("create_ambassador_collection").to_owned(),
-                    vec![
-                        bcs::to_bytes(&rand_string(rng, 100)).unwrap(), // description
-                        bcs::to_bytes(&"unique ambasador collection").unwrap(), // name
-                        bcs::to_bytes(&rand_string(rng, 50)).unwrap(),  // uri
-                    ],
-                )
-            },
             EntryPoints::TokenV2AmbassadorMint => {
                 let rng: &mut StdRng = rng.expect("Must provide RNG");
                 get_payload(
                     module_id,
-                    ident_str!("mint_ambassador_token").to_owned(),
+                    ident_str!("mint_ambassador_token_by_user").to_owned(),
                     vec![
-                        bcs::to_bytes(&"unique ambasador collection").unwrap(), // collection_name
-                        bcs::to_bytes(&rand_string(rng, 100)).unwrap(),         // description
-                        bcs::to_bytes(&rand_string(rng, 20)).unwrap(),          // name
-                        bcs::to_bytes(&rand_string(rng, 50)).unwrap(),          // uri
+                        bcs::to_bytes(&rand_string(rng, 100)).unwrap(), // description
+                        bcs::to_bytes(&rand_string(rng, 20)).unwrap(),  // name
+                        bcs::to_bytes(&rand_string(rng, 50)).unwrap(),  // uri
                     ],
                 )
             },
@@ -356,9 +385,6 @@ impl EntryPoints {
             | EntryPoints::TokenV1MintAndStoreFT
             | EntryPoints::TokenV1MintAndTransferFT => {
                 Some(EntryPoints::TokenV1InitializeCollection)
-            },
-            EntryPoints::TokenV2AmbassadorMint => {
-                Some(EntryPoints::TokenV2AmbassadorInitCollection)
             },
             _ => None,
         }
