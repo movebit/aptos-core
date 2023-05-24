@@ -33,17 +33,36 @@ spec aptos_framework::code {
     }
 
     spec check_upgradability(old_pack: &PackageMetadata, new_pack: &PackageMetadata, new_modules: &vector<String>) {
-        // TODO: Can't `aborts_if` in a loop.
-        pragma verify = false;
+        // TODO: Timeout
+        pragma verify = true;
+        let old_modules = spec_get_module_names(old_pack);
+
+        aborts_if old_pack.upgrade_policy.policy >= upgrade_policy_immutable().policy;
+        aborts_if !can_change_upgrade_policy_to(old_pack.upgrade_policy, new_pack.upgrade_policy);
+
+        aborts_if exists i in 0 .. len(old_modules):
+            !contains(new_modules, old_modules[i]);
     }
 
     spec check_dependencies(publish_address: address, pack: &PackageMetadata): vector<AllowedDep> {
         // TODO: loop too deep.
+        // TODO: Timeout
         pragma verify = false;
     }
 
     spec check_coexistence(old_pack: &PackageMetadata, new_modules: &vector<String>) {
-        // TODO: loop too deep.
-        pragma verify = false;
+        // Takes 15s to verify.
+        pragma verify = true;
+
+        aborts_if exists i in 0 .. len(old_pack.modules):
+                    exists j in 0 .. len(new_modules):
+                        old_pack.modules[i].name == new_modules[j];
     }
+
+    spec get_module_names(pack: &PackageMetadata): vector<String> {
+        pragma opaque;
+        ensures [abstract] result == spec_get_module_names(pack);
+    }
+
+    spec fun spec_get_module_names(pack: PackageMetadata): vector<String>;
 }

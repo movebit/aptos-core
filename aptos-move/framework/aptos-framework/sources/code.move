@@ -196,13 +196,27 @@ module aptos_framework::code {
     /// Checks whether the given package is upgradable, and returns true if a compatibility check is needed.
     fun check_upgradability(
         old_pack: &PackageMetadata, new_pack: &PackageMetadata, new_modules: &vector<String>) {
+
+        // spec {
+        //     assume len(old_pack.modules) == 3;
+        //     assume len(new_pack.modules) == 3;
+        //     assume len(new_modules) == 3;
+        // };
+
         assert!(old_pack.upgrade_policy.policy < upgrade_policy_immutable().policy,
             error::invalid_argument(EUPGRADE_IMMUTABLE));
         assert!(can_change_upgrade_policy_to(old_pack.upgrade_policy, new_pack.upgrade_policy),
             error::invalid_argument(EUPGRADE_WEAKER_POLICY));
         let old_modules = get_module_names(old_pack);
         let i = 0;
-        while (i < vector::length(&old_modules)) {
+        while ({
+            spec {
+                invariant i <= len(old_modules);
+                invariant forall k in 0 .. i:
+                            contains(new_modules, old_modules[k]);
+                };
+            (i < vector::length(&old_modules))
+        }){
             assert!(
                 vector::contains(new_modules, vector::borrow(&old_modules, i)),
                 EMODULE_MISSING
@@ -215,10 +229,25 @@ module aptos_framework::code {
     fun check_coexistence(old_pack: &PackageMetadata, new_modules: &vector<String>) {
         // The modules introduced by each package must not overlap with `names`.
         let i = 0;
-        while (i < vector::length(&old_pack.modules)) {
+        while ({
+            spec {
+                invariant i <= len(old_pack.modules);
+                invariant forall k1 in 0 .. i:
+                            forall k2 in 0 .. len(new_modules):
+                                old_pack.modules[k1].name != new_modules[k2];
+                };
+            (i < vector::length(&old_pack.modules))
+        }) {
             let old_mod = vector::borrow(&old_pack.modules, i);
             let j = 0;
-            while (j < vector::length(new_modules)) {
+            while ({
+                spec {
+                invariant j <= len(new_modules);
+                invariant forall k in 0..j:
+                    old_mod.name != new_modules[k];
+                    };
+                (j < vector::length(new_modules))
+            }) {
                 let name = vector::borrow(new_modules, j);
                 assert!(&old_mod.name != name, error::already_exists(EMODULE_NAME_CLASH));
                 j = j + 1;
