@@ -457,6 +457,7 @@ spec aptos_framework::aptos_governance {
         // and the `aborts_if` of `proposal_state` cannot be written.
         // Can't cover all aborts_if conditions
         // pragma aborts_if_is_partial;
+        pragma verify = true;
 
         requires chain_status::is_operating();
         /*
@@ -485,8 +486,8 @@ spec aptos_framework::aptos_governance {
     spec add_approved_script_hash_script(proposal_id: u64) {
         // TODO: Calls `add_approved_script_hash`.
         // Can't cover all aborts_if conditions
-        // pragma verify = false;
         use aptos_framework::chain_status;
+        // pragma verify = true;
         requires chain_status::is_operating();
         include Schema_add_approved_script_hash;
     }
