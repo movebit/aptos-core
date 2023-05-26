@@ -113,7 +113,6 @@ spec aptos_framework::aptos_governance {
     ) {
         use aptos_framework::chain_status;
         // TODO: Calls `create_proposal_v2`.
-        // pragma verify = false;
         pragma aborts_if_is_partial;
         requires chain_status::is_operating();
         include CreateProposalAbortsIf;
@@ -133,7 +132,6 @@ spec aptos_framework::aptos_governance {
         // so the value of `stake_balance` cannot be obtained in the spec,
         // and the `aborts_if` of `stake_balancede` cannot be written.
         // pragma aborts_if_is_partial;
-        // pragma verify = false;
         requires chain_status::is_operating();
         // include CreateProposalAbortsIf;
         let proposer_address = signer::address_of(proposer);
@@ -668,7 +666,6 @@ spec aptos_framework::aptos_governance {
         // pragma aborts_if_is_partial;
         // let voting_forum = borrow_global<voting::VotingForum<GovernanceProposal>>(@aptos_framework);
         // let proposal = table::spec_get(voting_forum.proposals, proposal_id);
-        // pragma verify = false;
         requires chain_status::is_operating();
         /*
         aborts_if !exists<voting::VotingForum<GovernanceProposal>>(@aptos_framework);
