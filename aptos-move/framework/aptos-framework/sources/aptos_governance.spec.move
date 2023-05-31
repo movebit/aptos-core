@@ -133,80 +133,84 @@ spec aptos_framework::aptos_governance {
         // and the `aborts_if` of `stake_balancede` cannot be written.
         // pragma aborts_if_is_partial;
         pragma verify = true;
-        aborts_if true;
+
         requires chain_status::is_operating();
-        aborts_if true;
-    
-        // // include CreateProposalAbortsIf;
-        // let proposer_address = signer::address_of(proposer);
-        // aborts_if !exists<stake::StakePool>(stake_pool);
-        // aborts_if global<stake::StakePool>(stake_pool).delegated_voter != proposer_address;
+        // aborts_if true;
+        // include CreateProposalAbortsIf;
+        let proposer_address = signer::address_of(proposer);
+        aborts_if !exists<stake::StakePool>(stake_pool);
+        aborts_if proposer_address != global<stake::StakePool>(stake_pool).delegated_voter;
+        // aborts_if proposer_address == global<stake::StakePool>(stake_pool).delegated_voter;
 
-        // // 242 borrow
-        // include AbortsIfNotGovernanceConfig;
+        /// 241 borrow
+        include AbortsIfNotGovernanceConfig;
 
-        // // 243 245
-        // let stake_pool_res = global<stake::StakePool>(stake_pool);
-        // let staking_config = global<staking_config::StakingConfig>(@aptos_framework);
-        // let allow_validator_set_change = staking_config.allow_validator_set_change;
-        // let stake_balance_0 = stake_pool_res.active.value + stake_pool_res.pending_active.value + stake_pool_res.pending_inactive.value;
-        // let stake_balance_1 = stake_pool_res.active.value + stake_pool_res.pending_inactive.value;
-        // let stake_balance_2 = 0;
-        // let governance_config = global<GovernanceConfig>(@aptos_framework);
-        // aborts_if allow_validator_set_change && stake_balance_0 > MAX_U64;
-        // aborts_if !allow_validator_set_change && !exists<stake::ValidatorSet>(@aptos_framework);  // stake::get_current_epoch_voting_power(pool_address)
-        // aborts_if !allow_validator_set_change && stake::spec_is_current_epoch_validator(stake_pool) && stake_balance_1 > MAX_U64;
-        // aborts_if allow_validator_set_change && stake_balance_0 < governance_config.required_proposer_stake;
-        // aborts_if !allow_validator_set_change && stake::spec_is_current_epoch_validator(stake_pool) && stake_balance_1 < governance_config.required_proposer_stake;
-        // aborts_if !allow_validator_set_change && !stake::spec_is_current_epoch_validator(stake_pool) && stake_balance_2 < governance_config.required_proposer_stake;
+        /// 242 get_voting_power(stake_pool)
+        let staking_config = global<staking_config::StakingConfig>(@aptos_framework);
+        let allow_validator_set_change = staking_config.allow_validator_set_change;
+        let stake_pool_res = global<stake::StakePool>(stake_pool);
+        let stake_balance_0 = stake_pool_res.active.value + stake_pool_res.pending_active.value + stake_pool_res.pending_inactive.value;
+        let stake_balance_1 = stake_pool_res.active.value + stake_pool_res.pending_inactive.value;
+        let stake_balance_2 = 0;
+        let governance_config = global<GovernanceConfig>(@aptos_framework);
+        let required_proposer_stake = governance_config.required_proposer_stake;
+        aborts_if allow_validator_set_change && stake_balance_0 > MAX_U64;
+        aborts_if !allow_validator_set_change && !exists<stake::ValidatorSet>(@aptos_framework); // ?
+        aborts_if !allow_validator_set_change && stake::spec_is_current_epoch_validator(stake_pool) && stake_balance_1 > MAX_U64;
+        /// 244 assert
+        aborts_if allow_validator_set_change && stake_balance_0 < required_proposer_stake;
+        aborts_if !allow_validator_set_change && stake::spec_is_current_epoch_validator(stake_pool) && stake_balance_1 < required_proposer_stake;
+        aborts_if !allow_validator_set_change && !stake::spec_is_current_epoch_validator(stake_pool) && stake_balance_2 < required_proposer_stake;
 
-        // // 250 253
-        // aborts_if !exists<timestamp::CurrentTimeMicroseconds>(@aptos_framework);  // 250
-        // let current_time = timestamp::now_seconds();
-        // let proposal_expiration = current_time + governance_config.voting_duration_secs;
-        // aborts_if stake_pool_res.locked_until_secs < proposal_expiration;  // 253 ?
+        /// 249 timestamp::now_seconds();
+        aborts_if !exists<timestamp::CurrentTimeMicroseconds>(@aptos_framework);
+        /// 252 assert
+        let current_time = timestamp::spec_now_seconds();
+        let proposal_expiration = current_time + governance_config.voting_duration_secs;
+        aborts_if stake_pool_res.locked_until_secs < proposal_expiration;
         
-        // // 258
-        // aborts_if !string::spec_internal_check_utf8(metadata_location);
-        // aborts_if !string::spec_internal_check_utf8(metadata_hash);
-        // aborts_if !string::spec_internal_check_utf8(METADATA_LOCATION_KEY);
-        // aborts_if !string::spec_internal_check_utf8(METADATA_HASH_KEY);
-        // aborts_if string::length(utf8(metadata_location)) > 256;
-        // aborts_if string::length(utf8(metadata_hash)) > 256;
-        // // let proposal_metadata = simple_map::create<String, vector<u8>>();
-        
-        // // 264
-        // let addr = aptos_std::type_info::type_of<AptosCoin>().account_address;
-        // aborts_if !exists<coin::CoinInfo<AptosCoin>>(addr);  // 264
-        // let maybe_supply = global<coin::CoinInfo<AptosCoin>>(addr).supply;
-        // let supply = option::spec_borrow(maybe_supply);
-        // let total_supply = aptos_framework::optional_aggregator::optional_aggregator_value(supply);
-        // let early_resolution_vote_threshold_value = total_supply / 2 + 1;
-        // // let early_resolution_vote_threshold = option::spec_some(total_supply / 2 + 1);
+        /// 257 create_proposal_metadata
+        aborts_if !string::spec_internal_check_utf8(metadata_location);
+        aborts_if !string::spec_internal_check_utf8(metadata_hash);
+        aborts_if len(metadata_location) > 256; // or aborts_if string::length(utf8(metadata_location)) > 256;
+        aborts_if len(metadata_hash) > 256; // or aborts_if string::length(utf8(metadata_hash)) > 256;
+        aborts_if !string::spec_internal_check_utf8(METADATA_LOCATION_KEY);
+        aborts_if !string::spec_internal_check_utf8(METADATA_HASH_KEY);
+        // let metadata = simple_map::SimpleMap{data: vec<simple_map::Element<String, vector<u8>>>(),}; // failed
+        // let metadata = simple_map::create<String, vector<u8>>(); // failed
+        aborts_if METADATA_LOCATION_KEY == METADATA_HASH_KEY; // ?
 
-        // // 272
-        // aborts_if early_resolution_vote_threshold_value != 0 && governance_config.min_voting_threshold > early_resolution_vote_threshold_value;
-        // aborts_if len(execution_hash) == 0;
-        // aborts_if !exists<voting::VotingForum<GovernanceProposal>>(@aptos_framework);
-        // let voting_forum = global<voting::VotingForum<GovernanceProposal>>(@aptos_framework);
-        // let proposal_id = voting_forum.next_proposal_id;
-        // let old_next_proposal_id = voting_forum.next_proposal_id;
-        // let post post_next_proposal_id = voting_forum.next_proposal_id;
-        // aborts_if old_next_proposal_id + 1 > MAX_U64;
-        // ensures post_next_proposal_id == old_next_proposal_id + 1;
-        // aborts_if !string::spec_internal_check_utf8(voting::IS_MULTI_STEP_PROPOSAL_KEY);
-        // aborts_if voting::IS_MULTI_STEP_PROPOSAL_KEY == METADATA_LOCATION_KEY || voting::IS_MULTI_STEP_PROPOSAL_KEY == METADATA_HASH_KEY;
-        // aborts_if !string::spec_internal_check_utf8(voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY);
-        // aborts_if is_multi_step_proposal && voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY == METADATA_LOCATION_KEY 
-        //                                  || voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY == METADATA_HASH_KEY 
-        //                                  || voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY == voting::IS_MULTI_STEP_PROPOSAL_KEY;
-        // aborts_if !is_multi_step_proposal && voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY != METADATA_LOCATION_KEY 
-        //                                   && voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY != METADATA_HASH_KEY 
-        //                                   && voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY != voting::IS_MULTI_STEP_PROPOSAL_KEY;
-        // aborts_if table::spec_contains(voting_forum.proposals, old_next_proposal_id);
-        // ensures table::spec_contains(voting_forum.proposals, old_next_proposal_id);
+        /// 263 nofalse
+        let addr = aptos_std::type_info::type_of<AptosCoin>().account_address;
+        aborts_if !exists<coin::CoinInfo<AptosCoin>>(addr);
+        let maybe_supply = global<coin::CoinInfo<AptosCoin>>(addr).supply;
+        let supply = option::spec_borrow(maybe_supply);
+        let total_supply = aptos_framework::optional_aggregator::optional_aggregator_value(supply);
+        let early_resolution_vote_threshold_value = total_supply / 2 + 1; // only when option::spec_is_some(maybe_supply)
+        // let early_resolution_vote_threshold = option::spec_some(early_resolution_vote_threshold_value); // failed
 
-        // aborts_if !exists<GovernanceEvents>(@aptos_framework);
+        /// 271 voting::create_proposal_v2
+        aborts_if option::spec_is_some(maybe_supply) && governance_config.min_voting_threshold > early_resolution_vote_threshold_value; // 255
+        aborts_if len(execution_hash) <= 0; // 260
+        aborts_if !exists<voting::VotingForum<GovernanceProposal>>(@aptos_framework); // 262
+        let voting_forum = global<voting::VotingForum<GovernanceProposal>>(@aptos_framework);
+        let proposal_id = voting_forum.next_proposal_id;
+        aborts_if proposal_id + 1 > MAX_U64; // 264
+        let post post_voting_forum = global<voting::VotingForum<GovernanceProposal>>(@aptos_framework);
+        let post post_next_proposal_id = post_voting_forum.next_proposal_id;
+        ensures post_next_proposal_id == proposal_id + 1; // ?264
+        // 267 can not verify add to_bytes
+        aborts_if !string::spec_internal_check_utf8(voting::IS_MULTI_STEP_PROPOSAL_KEY); // 267
+        aborts_if voting::IS_MULTI_STEP_PROPOSAL_KEY == METADATA_LOCATION_KEY || voting::IS_MULTI_STEP_PROPOSAL_KEY == METADATA_HASH_KEY; // ?267
+        aborts_if !string::spec_internal_check_utf8(voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY); // ?269
+        aborts_if is_multi_step_proposal && (voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY == METADATA_LOCATION_KEY 
+                                           || voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY == METADATA_HASH_KEY 
+                                           || voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY == voting::IS_MULTI_STEP_PROPOSAL_KEY); // ?274
+        aborts_if table::spec_contains(voting_forum.proposals,proposal_id); // ?281
+        ensures table::spec_contains(post_voting_forum.proposals, proposal_id); // ?281
+
+        /// ?283
+        aborts_if !exists<GovernanceEvents>(@aptos_framework);
     }
 
     /// `stake_pool` must exist StakePool.

@@ -9307,6 +9307,11 @@ L4:
 
 }
 
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/signer.move:12:5+77
+function {:inline} $1_signer_$address_of(s: $signer): int {
+    $1_signer_$borrow_address(s)
+}
+
 // fun signer::address_of [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/signer.move:12:5+77
 procedure {:inline 1} $1_signer_address_of(_$t0: $signer) returns ($ret0: int)
 {
@@ -11492,6 +11497,11 @@ var $1_chain_status_GenesisEndMarker_$memory: $Memory $1_chain_status_GenesisEnd
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/timestamp.spec.move:22:10+111
 function {:inline} $1_timestamp_spec_now_microseconds($1_timestamp_CurrentTimeMicroseconds_$memory: $Memory $1_timestamp_CurrentTimeMicroseconds): int {
     $microseconds#$1_timestamp_CurrentTimeMicroseconds($ResourceValue($1_timestamp_CurrentTimeMicroseconds_$memory, 1))
+}
+
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/timestamp.spec.move:26:10+93
+function {:inline} $1_timestamp_spec_now_seconds($1_timestamp_CurrentTimeMicroseconds_$memory: $Memory $1_timestamp_CurrentTimeMicroseconds): int {
+    ($1_timestamp_spec_now_microseconds($1_timestamp_CurrentTimeMicroseconds_$memory) div 1000000)
 }
 
 // struct timestamp::CurrentTimeMicroseconds at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/timestamp.move:12:5+73
@@ -14364,55 +14374,75 @@ procedure {:timeLimit 40} $1_aptos_governance_create_proposal_v2$verify(_$t0: $s
     var $t17: int;
     var $t18: $1_option_Option'u128';
     var $t19: int;
-    var $t20: int;
-    var $t21: int;
-    var $t22: bool;
+    var $t20: $1_staking_config_StakingConfig;
+    var $t21: bool;
+    var $t22: $1_stake_StakePool;
     var $t23: int;
     var $t24: int;
     var $t25: int;
     var $t26: $1_aptos_governance_GovernanceConfig;
-    var $t27: $1_staking_config_StakingConfig;
-    var $t28: bool;
-    var $t29: $1_stake_StakePool;
+    var $t27: int;
+    var $t28: int;
+    var $t29: int;
     var $t30: int;
-    var $t31: int;
-    var $t32: bool;
+    var $t31: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
+    var $t32: $1_optional_aggregator_OptionalAggregator;
     var $t33: int;
     var $t34: int;
-    var $t35: int;
+    var $t35: $1_voting_VotingForum'$1_governance_proposal_GovernanceProposal';
     var $t36: int;
     var $t37: int;
     var $t38: int;
-    var $t39: bool;
-    var $t40: int;
+    var $t39: int;
+    var $t40: bool;
     var $t41: int;
-    var $t42: Table int (Vec (int));
+    var $t42: int;
     var $t43: int;
-    var $t44: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t45: $1_optional_aggregator_OptionalAggregator;
-    var $t46: int;
-    var $t47: $1_option_Option'u128';
-    var $t48: $1_option_Option'u128';
-    var $t49: bool;
-    var $t50: int;
-    var $t51: bool;
+    var $t44: $1_aptos_governance_GovernanceConfig;
+    var $t45: $1_staking_config_StakingConfig;
+    var $t46: bool;
+    var $t47: $1_stake_StakePool;
+    var $t48: int;
+    var $t49: int;
+    var $t50: bool;
+    var $t51: int;
     var $t52: int;
     var $t53: int;
     var $t54: int;
     var $t55: int;
-    var $t56: $1_option_Option'u128';
-    var $t57: int;
-    var $t58: $1_governance_proposal_GovernanceProposal;
+    var $t56: int;
+    var $t57: bool;
+    var $t58: int;
     var $t59: int;
-    var $t60: $1_voting_VotingForum'$1_governance_proposal_GovernanceProposal';
+    var $t60: Table int (Vec (int));
     var $t61: int;
-    var $t62: $1_string_String;
-    var $t63: $1_string_String;
+    var $t62: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
+    var $t63: $1_optional_aggregator_OptionalAggregator;
     var $t64: int;
-    var $t65: int;
-    var $t66: $Mutation ($1_aptos_governance_GovernanceEvents);
-    var $t67: $Mutation ($1_event_EventHandle'$1_aptos_governance_CreateProposalEvent');
-    var $t68: $1_aptos_governance_CreateProposalEvent;
+    var $t65: $1_option_Option'u128';
+    var $t66: $1_option_Option'u128';
+    var $t67: bool;
+    var $t68: int;
+    var $t69: bool;
+    var $t70: int;
+    var $t71: int;
+    var $t72: int;
+    var $t73: int;
+    var $t74: $1_option_Option'u128';
+    var $t75: int;
+    var $t76: $1_governance_proposal_GovernanceProposal;
+    var $t77: int;
+    var $t78: $1_voting_VotingForum'$1_governance_proposal_GovernanceProposal';
+    var $t79: int;
+    var $t80: $1_string_String;
+    var $t81: $1_string_String;
+    var $t82: int;
+    var $t83: int;
+    var $t84: $Mutation ($1_aptos_governance_GovernanceEvents);
+    var $t85: $Mutation ($1_event_EventHandle'$1_aptos_governance_CreateProposalEvent');
+    var $t86: $1_aptos_governance_CreateProposalEvent;
+    var $t87: $1_voting_VotingForum'$1_governance_proposal_GovernanceProposal';
+    var $t88: int;
     var $t0: $signer;
     var $t1: int;
     var $t2: Vec (int);
@@ -14427,6 +14457,13 @@ procedure {:timeLimit 40} $1_aptos_governance_create_proposal_v2$verify(_$t0: $s
     var $temp_0'signer': $signer;
     var $temp_0'u64': int;
     var $temp_0'vec'u8'': Vec (int);
+    var $1_stake_StakePool_$memory#24: $Memory $1_stake_StakePool;
+    var $1_aptos_governance_GovernanceConfig_$memory#25: $Memory $1_aptos_governance_GovernanceConfig;
+    var $1_stake_ValidatorSet_$memory#26: $Memory $1_stake_ValidatorSet;
+    var $1_timestamp_CurrentTimeMicroseconds_$memory#27: $Memory $1_timestamp_CurrentTimeMicroseconds;
+    var $1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory#28: $Memory $1_coin_CoinInfo'$1_aptos_coin_AptosCoin';
+    var $1_voting_VotingForum'$1_governance_proposal_GovernanceProposal'_$memory#29: $Memory $1_voting_VotingForum'$1_governance_proposal_GovernanceProposal';
+    var $1_aptos_governance_GovernanceEvents_$memory#30: $Memory $1_aptos_governance_GovernanceEvents;
     $t0 := _$t0;
     $t1 := _$t1;
     $t2 := _$t2;
@@ -14602,9 +14639,102 @@ procedure {:timeLimit 40} $1_aptos_governance_create_proposal_v2$verify(_$t0: $s
     // global invariant at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/block.spec.move:5:9+97
     assume ($1_chain_status_$is_operating($1_chain_status_GenesisEndMarker_$memory) ==> $ResourceExists($1_block_BlockResource_$memory, 1));
 
+    // assume Identical($t19, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:140:9+52
+    assume {:print "$at(3,5461,5513)"} true;
+    assume ($t19 == $1_signer_$address_of($t0));
+
+    // assume Identical($t20, global<staking_config::StakingConfig>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:149:9+77
+    assume {:print "$at(3,5881,5958)"} true;
+    assume ($t20 == $ResourceValue($1_staking_config_StakingConfig_$memory, 1));
+
+    // assume Identical($t21, select staking_config::StakingConfig.allow_validator_set_change($t20)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:150:9+75
+    assume {:print "$at(3,5967,6042)"} true;
+    assume ($t21 == $allow_validator_set_change#$1_staking_config_StakingConfig($t20));
+
+    // assume Identical($t22, global<stake::StakePool>($t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:151:9+58
+    assume {:print "$at(3,6051,6109)"} true;
+    assume ($t22 == $ResourceValue($1_stake_StakePool_$memory, $t1));
+
+    // assume Identical($t23, Add(Add(select coin::Coin.value(select stake::StakePool.active($t22)), select coin::Coin.value(select stake::StakePool.pending_active($t22))), select coin::Coin.value(select stake::StakePool.pending_inactive($t22)))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:152:9+128
+    assume {:print "$at(3,6118,6246)"} true;
+    assume ($t23 == (($value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($active#$1_stake_StakePool($t22)) + $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($pending_active#$1_stake_StakePool($t22))) + $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($pending_inactive#$1_stake_StakePool($t22))));
+
+    // assume Identical($t24, Add(select coin::Coin.value(select stake::StakePool.active($t22)), select coin::Coin.value(select stake::StakePool.pending_inactive($t22)))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:153:9+90
+    assume {:print "$at(3,6255,6345)"} true;
+    assume ($t24 == ($value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($active#$1_stake_StakePool($t22)) + $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($pending_inactive#$1_stake_StakePool($t22))));
+
+    // assume Identical($t25, 0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:154:9+24
+    assume {:print "$at(3,6354,6378)"} true;
+    assume ($t25 == 0);
+
+    // assume Identical($t26, global<aptos_governance::GovernanceConfig>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:155:9+67
+    assume {:print "$at(3,6387,6454)"} true;
+    assume ($t26 == $ResourceValue($1_aptos_governance_GovernanceConfig_$memory, 1));
+
+    // assume Identical($t27, select aptos_governance::GovernanceConfig.required_proposer_stake($t26)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:156:9+72
+    assume {:print "$at(3,6463,6535)"} true;
+    assume ($t27 == $required_proposer_stake#$1_aptos_governance_GovernanceConfig($t26));
+
+    // assume Identical($t28, timestamp::spec_now_seconds()) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:168:9+49
+    assume {:print "$at(3,7405,7454)"} true;
+    assume ($t28 == $1_timestamp_spec_now_seconds($1_timestamp_CurrentTimeMicroseconds_$memory));
+
+    // assume Identical($t29, Add($t28, select aptos_governance::GovernanceConfig.voting_duration_secs($t26))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:169:9+80
+    assume {:print "$at(3,7463,7543)"} true;
+    assume ($t29 == ($t28 + $voting_duration_secs#$1_aptos_governance_GovernanceConfig($t26)));
+
+    // assume Identical($t30, select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:184:9+70
+    assume {:print "$at(3,8462,8532)"} true;
+    assume ($t30 == $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))));
+
+    // assume Identical($t31, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>($t30))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:186:9+66
+    assume {:print "$at(3,8601,8667)"} true;
+    assume ($t31 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $t30)));
+
+    // assume Identical($t32, option::spec_borrow<optional_aggregator::OptionalAggregator>($t31)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:187:9+47
+    assume {:print "$at(3,8676,8723)"} true;
+    assume ($t32 == $1_option_spec_borrow'$1_optional_aggregator_OptionalAggregator'($t31));
+
+    // assume Identical($t33, optional_aggregator::optional_aggregator_value($t32)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:188:9+91
+    assume {:print "$at(3,8732,8823)"} true;
+    assume ($t33 == $1_optional_aggregator_optional_aggregator_value($t32));
+
+    // assume Identical($t34, Add(Div($t33, 2), 1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:189:9+65
+    assume {:print "$at(3,8832,8897)"} true;
+    assume ($t34 == (($t33 div 2) + 1));
+
+    // assume Identical($t35, global<voting::VotingForum<governance_proposal::GovernanceProposal>>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:196:9+85
+    assume {:print "$at(3,9402,9487)"} true;
+    assume ($t35 == $ResourceValue($1_voting_VotingForum'$1_governance_proposal_GovernanceProposal'_$memory, 1));
+
+    // assume Identical($t36, select voting::VotingForum.next_proposal_id($t35)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:197:9+48
+    assume {:print "$at(3,9496,9544)"} true;
+    assume ($t36 == $next_proposal_id#$1_voting_VotingForum'$1_governance_proposal_GovernanceProposal'($t35));
+
     // assume chain_status::$is_operating() at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:137:9+38
-    assume {:print "$at(3,5367,5405)"} true;
+    assume {:print "$at(3,5344,5382)"} true;
     assume $1_chain_status_$is_operating($1_chain_status_GenesisEndMarker_$memory);
+
+    // @28 := save_mem(coin::CoinInfo<aptos_coin::AptosCoin>) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:137:9+38
+    $1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory#28 := $1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory;
+
+    // @27 := save_mem(timestamp::CurrentTimeMicroseconds) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:137:9+38
+    $1_timestamp_CurrentTimeMicroseconds_$memory#27 := $1_timestamp_CurrentTimeMicroseconds_$memory;
+
+    // @29 := save_mem(voting::VotingForum<governance_proposal::GovernanceProposal>) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:137:9+38
+    $1_voting_VotingForum'$1_governance_proposal_GovernanceProposal'_$memory#29 := $1_voting_VotingForum'$1_governance_proposal_GovernanceProposal'_$memory;
+
+    // @24 := save_mem(stake::StakePool) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:137:9+38
+    $1_stake_StakePool_$memory#24 := $1_stake_StakePool_$memory;
+
+    // @26 := save_mem(stake::ValidatorSet) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:137:9+38
+    $1_stake_ValidatorSet_$memory#26 := $1_stake_ValidatorSet_$memory;
+
+    // @25 := save_mem(aptos_governance::GovernanceConfig) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:137:9+38
+    $1_aptos_governance_GovernanceConfig_$memory#25 := $1_aptos_governance_GovernanceConfig_$memory;
+
+    // @30 := save_mem(aptos_governance::GovernanceEvents) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:137:9+38
+    $1_aptos_governance_GovernanceEvents_$memory#30 := $1_aptos_governance_GovernanceEvents_$memory;
 
     // trace_local[proposer]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:229:5+1
     assume {:print "$at(2,9812,9813)"} true;
@@ -14625,34 +14755,34 @@ procedure {:timeLimit 40} $1_aptos_governance_create_proposal_v2$verify(_$t0: $s
     // trace_local[is_multi_step_proposal]($t5) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:229:5+1
     assume {:print "$track_local(44,4,5):", $t5} $t5 == $t5;
 
-    // $t19 := signer::address_of($t0) on_abort goto L12 with $t20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:237:32+28
+    // $t37 := signer::address_of($t0) on_abort goto L12 with $t38 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:237:32+28
     assume {:print "$at(2,10136,10164)"} true;
-    call $t19 := $1_signer_address_of($t0);
+    call $t37 := $1_signer_address_of($t0);
     if ($abort_flag) {
         assume {:print "$at(2,10136,10164)"} true;
-        $t20 := $abort_code;
-        assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+        $t38 := $abort_code;
+        assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
         goto L12;
     }
 
-    // trace_local[proposer_address]($t19) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:237:13+16
-    assume {:print "$track_local(44,4,17):", $t19} $t19 == $t19;
+    // trace_local[proposer_address]($t37) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:237:13+16
+    assume {:print "$track_local(44,4,17):", $t37} $t37 == $t37;
 
-    // $t21 := stake::get_delegated_voter($t1) on_abort goto L12 with $t20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:238:17+38
+    // $t39 := stake::get_delegated_voter($t1) on_abort goto L12 with $t38 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:238:17+38
     assume {:print "$at(2,10182,10220)"} true;
-    call $t21 := $1_stake_get_delegated_voter($t1);
+    call $t39 := $1_stake_get_delegated_voter($t1);
     if ($abort_flag) {
         assume {:print "$at(2,10182,10220)"} true;
-        $t20 := $abort_code;
-        assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+        $t38 := $abort_code;
+        assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
         goto L12;
     }
 
-    // $t22 := ==($t21, $t19) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:238:56+2
-    $t22 := $IsEqual'address'($t21, $t19);
+    // $t40 := ==($t39, $t37) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:238:56+2
+    $t40 := $IsEqual'address'($t39, $t37);
 
-    // if ($t22) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:238:9+114
-    if ($t22) { goto L1; } else { goto L0; }
+    // if ($t40) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:238:9+114
+    if ($t40) { goto L1; } else { goto L0; }
 
     // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:238:9+114
 L1:
@@ -14664,26 +14794,26 @@ L1:
     // label L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:238:101+20
 L0:
 
-    // $t23 := 2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:238:101+20
+    // $t41 := 2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:238:101+20
     assume {:print "$at(2,10266,10286)"} true;
-    $t23 := 2;
-    assume $IsValid'u64'($t23);
+    $t41 := 2;
+    assume $IsValid'u64'($t41);
 
-    // $t24 := error::invalid_argument($t23) on_abort goto L12 with $t20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:238:77+45
-    call $t24 := $1_error_invalid_argument($t23);
+    // $t42 := error::invalid_argument($t41) on_abort goto L12 with $t38 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:238:77+45
+    call $t42 := $1_error_invalid_argument($t41);
     if ($abort_flag) {
         assume {:print "$at(2,10242,10287)"} true;
-        $t20 := $abort_code;
-        assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+        $t38 := $abort_code;
+        assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
         goto L12;
     }
 
-    // trace_abort($t24) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:238:9+114
+    // trace_abort($t42) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:238:9+114
     assume {:print "$at(2,10174,10288)"} true;
-    assume {:print "$track_abort(44,4):", $t24} $t24 == $t24;
+    assume {:print "$track_abort(44,4):", $t42} $t42 == $t42;
 
-    // $t20 := move($t24) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:238:9+114
-    $t20 := $t24;
+    // $t38 := move($t42) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:238:9+114
+    $t38 := $t42;
 
     // goto L12 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:238:9+114
     goto L12;
@@ -14692,59 +14822,59 @@ L0:
     assume {:print "$at(2,10434,10450)"} true;
 L2:
 
-    // $t25 := 0x1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:241:65+16
+    // $t43 := 0x1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:241:65+16
     assume {:print "$at(2,10434,10450)"} true;
-    $t25 := 1;
-    assume $IsValid'address'($t25);
+    $t43 := 1;
+    assume $IsValid'address'($t43);
 
-    // $t26 := get_global<aptos_governance::GovernanceConfig>($t25) on_abort goto L12 with $t20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:241:33+13
-    if (!$ResourceExists($1_aptos_governance_GovernanceConfig_$memory, $t25)) {
+    // $t44 := get_global<aptos_governance::GovernanceConfig>($t43) on_abort goto L12 with $t38 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:241:33+13
+    if (!$ResourceExists($1_aptos_governance_GovernanceConfig_$memory, $t43)) {
         call $ExecFailureAbort();
     } else {
-        $t26 := $ResourceValue($1_aptos_governance_GovernanceConfig_$memory, $t25);
+        $t44 := $ResourceValue($1_aptos_governance_GovernanceConfig_$memory, $t43);
     }
     if ($abort_flag) {
         assume {:print "$at(2,10402,10415)"} true;
-        $t20 := $abort_code;
-        assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+        $t38 := $abort_code;
+        assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
         goto L12;
     }
 
-    // trace_local[governance_config]($t26) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:241:13+17
-    assume {:print "$track_local(44,4,13):", $t26} $t26 == $t26;
+    // trace_local[governance_config]($t44) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:241:13+17
+    assume {:print "$track_local(44,4,13):", $t44} $t44 == $t44;
 
-    // assume Identical($t27, global<staking_config::StakingConfig>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:617:9+77
-    assume {:print "$at(3,37678,37755)"} true;
-    assume ($t27 == $ResourceValue($1_staking_config_StakingConfig_$memory, 1));
+    // assume Identical($t45, global<staking_config::StakingConfig>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:621:9+77
+    assume {:print "$at(3,37796,37873)"} true;
+    assume ($t45 == $ResourceValue($1_staking_config_StakingConfig_$memory, 1));
 
-    // assume Identical($t28, select staking_config::StakingConfig.allow_validator_set_change($t27)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:619:9+75
-    assume {:print "$at(3,37840,37915)"} true;
-    assume ($t28 == $allow_validator_set_change#$1_staking_config_StakingConfig($t27));
+    // assume Identical($t46, select staking_config::StakingConfig.allow_validator_set_change($t45)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:623:9+75
+    assume {:print "$at(3,37958,38033)"} true;
+    assume ($t46 == $allow_validator_set_change#$1_staking_config_StakingConfig($t45));
 
-    // assume Identical($t29, global<stake::StakePool>($t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:620:9+56
-    assume {:print "$at(3,37924,37980)"} true;
-    assume ($t29 == $ResourceValue($1_stake_StakePool_$memory, $t1));
+    // assume Identical($t47, global<stake::StakePool>($t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:624:9+56
+    assume {:print "$at(3,38042,38098)"} true;
+    assume ($t47 == $ResourceValue($1_stake_StakePool_$memory, $t1));
 
-    // $t30 := aptos_governance::get_voting_power($t1) on_abort goto L12 with $t20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:242:29+28
+    // $t48 := aptos_governance::get_voting_power($t1) on_abort goto L12 with $t38 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:242:29+28
     assume {:print "$at(2,10481,10509)"} true;
-    call $t30 := $1_aptos_governance_get_voting_power($t1);
+    call $t48 := $1_aptos_governance_get_voting_power($t1);
     if ($abort_flag) {
         assume {:print "$at(2,10481,10509)"} true;
-        $t20 := $abort_code;
-        assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+        $t38 := $abort_code;
+        assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
         goto L12;
     }
 
-    // $t31 := get_field<aptos_governance::GovernanceConfig>.required_proposer_stake($t26) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:244:30+41
+    // $t49 := get_field<aptos_governance::GovernanceConfig>.required_proposer_stake($t44) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:244:30+41
     assume {:print "$at(2,10557,10598)"} true;
-    $t31 := $required_proposer_stake#$1_aptos_governance_GovernanceConfig($t26);
+    $t49 := $required_proposer_stake#$1_aptos_governance_GovernanceConfig($t44);
 
-    // $t32 := >=($t30, $t31) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:244:27+2
-    call $t32 := $Ge($t30, $t31);
+    // $t50 := >=($t48, $t49) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:244:27+2
+    call $t50 := $Ge($t48, $t49);
 
-    // if ($t32) goto L4 else goto L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:243:9+157
+    // if ($t50) goto L4 else goto L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:243:9+157
     assume {:print "$at(2,10519,10676)"} true;
-    if ($t32) { goto L4; } else { goto L3; }
+    if ($t50) { goto L4; } else { goto L3; }
 
     // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:243:9+157
 L4:
@@ -14756,26 +14886,26 @@ L4:
     // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:243:9+157
 L3:
 
-    // $t33 := 1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:245:37+28
+    // $t51 := 1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:245:37+28
     assume {:print "$at(2,10636,10664)"} true;
-    $t33 := 1;
-    assume $IsValid'u64'($t33);
+    $t51 := 1;
+    assume $IsValid'u64'($t51);
 
-    // $t34 := error::invalid_argument($t33) on_abort goto L12 with $t20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:245:13+53
-    call $t34 := $1_error_invalid_argument($t33);
+    // $t52 := error::invalid_argument($t51) on_abort goto L12 with $t38 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:245:13+53
+    call $t52 := $1_error_invalid_argument($t51);
     if ($abort_flag) {
         assume {:print "$at(2,10612,10665)"} true;
-        $t20 := $abort_code;
-        assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+        $t38 := $abort_code;
+        assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
         goto L12;
     }
 
-    // trace_abort($t34) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:243:9+157
+    // trace_abort($t52) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:243:9+157
     assume {:print "$at(2,10519,10676)"} true;
-    assume {:print "$track_abort(44,4):", $t34} $t34 == $t34;
+    assume {:print "$track_abort(44,4):", $t52} $t52 == $t52;
 
-    // $t20 := move($t34) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:243:9+157
-    $t20 := $t34;
+    // $t38 := move($t52) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:243:9+157
+    $t38 := $t52;
 
     // goto L12 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:243:9+157
     goto L12;
@@ -14784,48 +14914,48 @@ L3:
     assume {:print "$at(2,10810,10834)"} true;
 L5:
 
-    // $t35 := timestamp::now_seconds() on_abort goto L12 with $t20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:249:28+24
+    // $t53 := timestamp::now_seconds() on_abort goto L12 with $t38 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:249:28+24
     assume {:print "$at(2,10810,10834)"} true;
-    call $t35 := $1_timestamp_now_seconds();
+    call $t53 := $1_timestamp_now_seconds();
     if ($abort_flag) {
         assume {:print "$at(2,10810,10834)"} true;
-        $t20 := $abort_code;
-        assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+        $t38 := $abort_code;
+        assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
         goto L12;
     }
 
-    // $t36 := get_field<aptos_governance::GovernanceConfig>.voting_duration_secs($t26) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:250:50+38
+    // $t54 := get_field<aptos_governance::GovernanceConfig>.voting_duration_secs($t44) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:250:50+38
     assume {:print "$at(2,10885,10923)"} true;
-    $t36 := $voting_duration_secs#$1_aptos_governance_GovernanceConfig($t26);
+    $t54 := $voting_duration_secs#$1_aptos_governance_GovernanceConfig($t44);
 
-    // $t37 := +($t35, $t36) on_abort goto L12 with $t20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:250:48+1
-    call $t37 := $AddU64($t35, $t36);
+    // $t55 := +($t53, $t54) on_abort goto L12 with $t38 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:250:48+1
+    call $t55 := $AddU64($t53, $t54);
     if ($abort_flag) {
         assume {:print "$at(2,10883,10884)"} true;
-        $t20 := $abort_code;
-        assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+        $t38 := $abort_code;
+        assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
         goto L12;
     }
 
-    // trace_local[proposal_expiration]($t37) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:250:13+19
-    assume {:print "$track_local(44,4,14):", $t37} $t37 == $t37;
+    // trace_local[proposal_expiration]($t55) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:250:13+19
+    assume {:print "$track_local(44,4,14):", $t55} $t55 == $t55;
 
-    // $t38 := stake::get_lockup_secs($t1) on_abort goto L12 with $t20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:252:13+34
+    // $t56 := stake::get_lockup_secs($t1) on_abort goto L12 with $t38 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:252:13+34
     assume {:print "$at(2,10954,10988)"} true;
-    call $t38 := $1_stake_get_lockup_secs($t1);
+    call $t56 := $1_stake_get_lockup_secs($t1);
     if ($abort_flag) {
         assume {:print "$at(2,10954,10988)"} true;
-        $t20 := $abort_code;
-        assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+        $t38 := $abort_code;
+        assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
         goto L12;
     }
 
-    // $t39 := >=($t38, $t37) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:252:48+2
-    call $t39 := $Ge($t38, $t37);
+    // $t57 := >=($t56, $t55) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:252:48+2
+    call $t57 := $Ge($t56, $t55);
 
-    // if ($t39) goto L7 else goto L6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:251:9+154
+    // if ($t57) goto L7 else goto L6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:251:9+154
     assume {:print "$at(2,10933,11087)"} true;
-    if ($t39) { goto L7; } else { goto L6; }
+    if ($t57) { goto L7; } else { goto L6; }
 
     // label L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:251:9+154
 L7:
@@ -14837,26 +14967,26 @@ L7:
     // label L6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:251:9+154
 L6:
 
-    // $t40 := 3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:253:37+26
+    // $t58 := 3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:253:37+26
     assume {:print "$at(2,11049,11075)"} true;
-    $t40 := 3;
-    assume $IsValid'u64'($t40);
+    $t58 := 3;
+    assume $IsValid'u64'($t58);
 
-    // $t41 := error::invalid_argument($t40) on_abort goto L12 with $t20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:253:13+51
-    call $t41 := $1_error_invalid_argument($t40);
+    // $t59 := error::invalid_argument($t58) on_abort goto L12 with $t38 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:253:13+51
+    call $t59 := $1_error_invalid_argument($t58);
     if ($abort_flag) {
         assume {:print "$at(2,11025,11076)"} true;
-        $t20 := $abort_code;
-        assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+        $t38 := $abort_code;
+        assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
         goto L12;
     }
 
-    // trace_abort($t41) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:251:9+154
+    // trace_abort($t59) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:251:9+154
     assume {:print "$at(2,10933,11087)"} true;
-    assume {:print "$track_abort(44,4):", $t41} $t41 == $t41;
+    assume {:print "$track_abort(44,4):", $t59} $t59 == $t59;
 
-    // $t20 := move($t41) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:251:9+154
-    $t20 := $t41;
+    // $t38 := move($t59) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:251:9+154
+    $t38 := $t59;
 
     // goto L12 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:251:9+154
     goto L12;
@@ -14865,102 +14995,102 @@ L6:
     assume {:print "$at(2,11197,11214)"} true;
 L8:
 
-    // $t42 := aptos_governance::create_proposal_metadata($t3, $t4) on_abort goto L12 with $t20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:257:33+58
+    // $t60 := aptos_governance::create_proposal_metadata($t3, $t4) on_abort goto L12 with $t38 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:257:33+58
     assume {:print "$at(2,11172,11230)"} true;
-    call $t42 := $1_aptos_governance_create_proposal_metadata($t3, $t4);
+    call $t60 := $1_aptos_governance_create_proposal_metadata($t3, $t4);
     if ($abort_flag) {
         assume {:print "$at(2,11172,11230)"} true;
-        $t20 := $abort_code;
-        assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+        $t38 := $abort_code;
+        assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
         goto L12;
     }
 
-    // trace_local[proposal_metadata]($t42) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:257:13+17
-    assume {:print "$track_local(44,4,16):", $t42} $t42 == $t42;
+    // trace_local[proposal_metadata]($t60) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:257:13+17
+    assume {:print "$track_local(44,4,16):", $t60} $t60 == $t60;
 
-    // assume Identical($t43, select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:91:9+63
+    // assume Identical($t61, select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:91:9+63
     assume {:print "$at(93,3461,3524)"} true;
-    assume ($t43 == $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))));
+    assume ($t61 == $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))));
 
-    // assume Identical($t44, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>($t43))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:93:9+64
+    // assume Identical($t62, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>($t61))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:93:9+64
     assume {:print "$at(93,3591,3655)"} true;
-    assume ($t44 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $t43)));
+    assume ($t62 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $t61)));
 
-    // assume Identical($t45, option::spec_borrow<optional_aggregator::OptionalAggregator>($t44)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:94:9+47
+    // assume Identical($t63, option::spec_borrow<optional_aggregator::OptionalAggregator>($t62)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:94:9+47
     assume {:print "$at(93,3664,3711)"} true;
-    assume ($t45 == $1_option_spec_borrow'$1_optional_aggregator_OptionalAggregator'($t44));
+    assume ($t63 == $1_option_spec_borrow'$1_optional_aggregator_OptionalAggregator'($t62));
 
-    // assume Identical($t46, optional_aggregator::optional_aggregator_value($t45)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:95:9+67
+    // assume Identical($t64, optional_aggregator::optional_aggregator_value($t63)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:95:9+67
     assume {:print "$at(93,3720,3787)"} true;
-    assume ($t46 == $1_optional_aggregator_optional_aggregator_value($t45));
+    assume ($t64 == $1_optional_aggregator_optional_aggregator_value($t63));
 
-    // $t47 := coin::supply<aptos_coin::AptosCoin>() on_abort goto L12 with $t20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:263:41+25
+    // $t65 := coin::supply<aptos_coin::AptosCoin>() on_abort goto L12 with $t38 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:263:41+25
     assume {:print "$at(2,11673,11698)"} true;
-    call $t47 := $1_coin_supply'$1_aptos_coin_AptosCoin'();
+    call $t65 := $1_coin_supply'$1_aptos_coin_AptosCoin'();
     if ($abort_flag) {
         assume {:print "$at(2,11673,11698)"} true;
-        $t20 := $abort_code;
-        assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+        $t38 := $abort_code;
+        assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
         goto L12;
     }
 
-    // trace_local[total_voting_token_supply]($t47) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:263:13+25
-    assume {:print "$track_local(44,4,18):", $t47} $t47 == $t47;
+    // trace_local[total_voting_token_supply]($t65) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:263:13+25
+    assume {:print "$track_local(44,4,18):", $t65} $t65 == $t65;
 
-    // $t48 := opaque begin: option::none<u128>() at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:264:47+20
+    // $t66 := opaque begin: option::none<u128>() at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:264:47+20
     assume {:print "$at(2,11746,11766)"} true;
 
-    // assume And(WellFormed($t48), Le(Len<u128>(select option::Option.vec($t48)), 1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:264:47+20
-    assume ($IsValid'$1_option_Option'u128''($t48) && (LenVec($vec#$1_option_Option'u128'($t48)) <= 1));
+    // assume And(WellFormed($t66), Le(Len<u128>(select option::Option.vec($t66)), 1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:264:47+20
+    assume ($IsValid'$1_option_Option'u128''($t66) && (LenVec($vec#$1_option_Option'u128'($t66)) <= 1));
 
-    // assume Eq<option::Option<u128>>($t48, option::spec_none<u128>()) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:264:47+20
-    assume $IsEqual'$1_option_Option'u128''($t48, $1_option_spec_none'u128'());
+    // assume Eq<option::Option<u128>>($t66, option::spec_none<u128>()) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:264:47+20
+    assume $IsEqual'$1_option_Option'u128''($t66, $1_option_spec_none'u128'());
 
-    // $t48 := opaque end: option::none<u128>() at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:264:47+20
+    // $t66 := opaque end: option::none<u128>() at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:264:47+20
 
-    // $t12 := $t48 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:264:13+31
-    $t12 := $t48;
+    // $t12 := $t66 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:264:13+31
+    $t12 := $t66;
 
-    // trace_local[early_resolution_vote_threshold]($t48) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:264:13+31
-    assume {:print "$track_local(44,4,12):", $t48} $t48 == $t48;
+    // trace_local[early_resolution_vote_threshold]($t66) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:264:13+31
+    assume {:print "$track_local(44,4,12):", $t66} $t66 == $t66;
 
-    // $t49 := opaque begin: option::is_some<u128>($t47) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:265:13+43
+    // $t67 := opaque begin: option::is_some<u128>($t65) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:265:13+43
     assume {:print "$at(2,11780,11823)"} true;
 
-    // assume WellFormed($t49) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:265:13+43
-    assume $IsValid'bool'($t49);
+    // assume WellFormed($t67) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:265:13+43
+    assume $IsValid'bool'($t67);
 
-    // assume Eq<bool>($t49, option::spec_is_some<u128>($t47)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:265:13+43
-    assume $IsEqual'bool'($t49, $1_option_spec_is_some'u128'($t47));
+    // assume Eq<bool>($t67, option::spec_is_some<u128>($t65)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:265:13+43
+    assume $IsEqual'bool'($t67, $1_option_spec_is_some'u128'($t65));
 
-    // $t49 := opaque end: option::is_some<u128>($t47) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:265:13+43
+    // $t67 := opaque end: option::is_some<u128>($t65) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:265:13+43
 
-    // if ($t49) goto L10 else goto L9 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:265:9+267
-    if ($t49) { goto L10; } else { goto L9; }
+    // if ($t67) goto L10 else goto L9 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:265:9+267
+    if ($t67) { goto L10; } else { goto L9; }
 
     // label L10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:48+26
     assume {:print "$at(2,11874,11900)"} true;
 L10:
 
-    // $t50 := opaque begin: option::borrow<u128>($t47) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
+    // $t68 := opaque begin: option::borrow<u128>($t65) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
     assume {:print "$at(2,11859,11901)"} true;
 
-    // assume Identical($t51, option::spec_is_none<u128>($t47)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
-    assume ($t51 == $1_option_spec_is_none'u128'($t47));
+    // assume Identical($t69, option::spec_is_none<u128>($t65)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
+    assume ($t69 == $1_option_spec_is_none'u128'($t65));
 
-    // if ($t51) goto L14 else goto L13 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
-    if ($t51) { goto L14; } else { goto L13; }
+    // if ($t69) goto L14 else goto L13 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
+    if ($t69) { goto L14; } else { goto L13; }
 
     // label L14 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
 L14:
 
-    // assume And(option::spec_is_none<u128>($t47), Eq(262145, $t20)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
+    // assume And(option::spec_is_none<u128>($t65), Eq(262145, $t38)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
     assume {:print "$at(2,11859,11901)"} true;
-    assume ($1_option_spec_is_none'u128'($t47) && $IsEqual'num'(262145, $t20));
+    assume ($1_option_spec_is_none'u128'($t65) && $IsEqual'num'(262145, $t38));
 
-    // trace_abort($t20) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
+    // trace_abort($t38) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
     assume {:print "$at(2,11859,11901)"} true;
-    assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+    assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
 
     // goto L12 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
     goto L12;
@@ -14968,181 +15098,334 @@ L14:
     // label L13 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
 L13:
 
-    // assume WellFormed($t50) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
+    // assume WellFormed($t68) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
     assume {:print "$at(2,11859,11901)"} true;
-    assume $IsValid'u128'($t50);
+    assume $IsValid'u128'($t68);
 
-    // assume Eq<u128>($t50, option::spec_borrow<u128>($t47)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
-    assume $IsEqual'u128'($t50, $1_option_spec_borrow'u128'($t47));
+    // assume Eq<u128>($t68, option::spec_borrow<u128>($t65)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
+    assume $IsEqual'u128'($t68, $1_option_spec_borrow'u128'($t65));
 
-    // $t50 := opaque end: option::borrow<u128>($t47) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
+    // $t68 := opaque end: option::borrow<u128>($t65) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:266:33+42
 
-    // $t52 := 2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:75+1
+    // $t70 := 2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:75+1
     assume {:print "$at(2,12026,12027)"} true;
-    $t52 := 2;
-    assume $IsValid'u128'($t52);
+    $t70 := 2;
+    assume $IsValid'u128'($t70);
 
-    // $t53 := /($t50, $t52) on_abort goto L12 with $t20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:73+1
-    call $t53 := $Div($t50, $t52);
+    // $t71 := /($t68, $t70) on_abort goto L12 with $t38 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:73+1
+    call $t71 := $Div($t68, $t70);
     if ($abort_flag) {
         assume {:print "$at(2,12024,12025)"} true;
-        $t20 := $abort_code;
-        assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+        $t38 := $abort_code;
+        assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
         goto L12;
     }
 
-    // $t54 := 1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:79+1
-    $t54 := 1;
-    assume $IsValid'u128'($t54);
+    // $t72 := 1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:79+1
+    $t72 := 1;
+    assume $IsValid'u128'($t72);
 
-    // $t55 := +($t53, $t54) on_abort goto L12 with $t20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:77+1
-    call $t55 := $AddU128($t53, $t54);
+    // $t73 := +($t71, $t72) on_abort goto L12 with $t38 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:77+1
+    call $t73 := $AddU128($t71, $t72);
     if ($abort_flag) {
         assume {:print "$at(2,12028,12029)"} true;
-        $t20 := $abort_code;
-        assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+        $t38 := $abort_code;
+        assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
         goto L12;
     }
 
-    // $t56 := opaque begin: option::some<u128>($t55) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:47+34
+    // $t74 := opaque begin: option::some<u128>($t73) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:47+34
 
-    // assume And(WellFormed($t56), Le(Len<u128>(select option::Option.vec($t56)), 1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:47+34
-    assume ($IsValid'$1_option_Option'u128''($t56) && (LenVec($vec#$1_option_Option'u128'($t56)) <= 1));
+    // assume And(WellFormed($t74), Le(Len<u128>(select option::Option.vec($t74)), 1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:47+34
+    assume ($IsValid'$1_option_Option'u128''($t74) && (LenVec($vec#$1_option_Option'u128'($t74)) <= 1));
 
-    // assume Eq<option::Option<u128>>($t56, option::spec_some<u128>($t55)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:47+34
-    assume $IsEqual'$1_option_Option'u128''($t56, $1_option_spec_some'u128'($t55));
+    // assume Eq<option::Option<u128>>($t74, option::spec_some<u128>($t73)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:47+34
+    assume $IsEqual'$1_option_Option'u128''($t74, $1_option_spec_some'u128'($t73));
 
-    // $t56 := opaque end: option::some<u128>($t55) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:47+34
+    // $t74 := opaque end: option::some<u128>($t73) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:47+34
 
-    // $t12 := $t56 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:13+31
-    $t12 := $t56;
+    // $t12 := $t74 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:13+31
+    $t12 := $t74;
 
-    // trace_local[early_resolution_vote_threshold]($t56) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:13+31
-    assume {:print "$track_local(44,4,12):", $t56} $t56 == $t56;
+    // trace_local[early_resolution_vote_threshold]($t74) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:268:13+31
+    assume {:print "$track_local(44,4,12):", $t74} $t74 == $t74;
 
     // label L9 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:272:13+16
     assume {:print "$at(2,12112,12128)"} true;
 L9:
 
-    // $t57 := 0x1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:273:13+16
+    // $t75 := 0x1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:273:13+16
     assume {:print "$at(2,12142,12158)"} true;
-    $t57 := 1;
-    assume $IsValid'address'($t57);
+    $t75 := 1;
+    assume $IsValid'address'($t75);
 
-    // $t58 := governance_proposal::create_proposal() on_abort goto L12 with $t20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:274:13+38
+    // $t76 := governance_proposal::create_proposal() on_abort goto L12 with $t38 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:274:13+38
     assume {:print "$at(2,12172,12210)"} true;
-    call $t58 := $1_governance_proposal_create_proposal();
+    call $t76 := $1_governance_proposal_create_proposal();
     if ($abort_flag) {
         assume {:print "$at(2,12172,12210)"} true;
-        $t20 := $abort_code;
-        assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+        $t38 := $abort_code;
+        assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
         goto L12;
     }
 
-    // $t59 := get_field<aptos_governance::GovernanceConfig>.min_voting_threshold($t26) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:276:13+38
+    // $t77 := get_field<aptos_governance::GovernanceConfig>.min_voting_threshold($t44) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:276:13+38
     assume {:print "$at(2,12252,12290)"} true;
-    $t59 := $min_voting_threshold#$1_aptos_governance_GovernanceConfig($t26);
+    $t77 := $min_voting_threshold#$1_aptos_governance_GovernanceConfig($t44);
 
-    // assume Identical($t60, global<voting::VotingForum<governance_proposal::GovernanceProposal>>($t57)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/voting.spec.move:69:9+75
+    // assume Identical($t78, global<voting::VotingForum<governance_proposal::GovernanceProposal>>($t75)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/voting.spec.move:69:9+75
     assume {:print "$at(154,2710,2785)"} true;
-    assume ($t60 == $ResourceValue($1_voting_VotingForum'$1_governance_proposal_GovernanceProposal'_$memory, $t57));
+    assume ($t78 == $ResourceValue($1_voting_VotingForum'$1_governance_proposal_GovernanceProposal'_$memory, $t75));
 
-    // assume Identical($t61, select voting::VotingForum.next_proposal_id($t60)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/voting.spec.move:70:9+48
+    // assume Identical($t79, select voting::VotingForum.next_proposal_id($t78)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/voting.spec.move:70:9+48
     assume {:print "$at(154,2794,2842)"} true;
-    assume ($t61 == $next_proposal_id#$1_voting_VotingForum'$1_governance_proposal_GovernanceProposal'($t60));
+    assume ($t79 == $next_proposal_id#$1_voting_VotingForum'$1_governance_proposal_GovernanceProposal'($t78));
 
-    // assume Identical($t62, string::spec_utf8([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 75, 69, 89])) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/voting.spec.move:78:9+71
+    // assume Identical($t80, string::spec_utf8([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 75, 69, 89])) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/voting.spec.move:78:9+71
     assume {:print "$at(154,3361,3432)"} true;
-    assume ($t62 == $1_string_spec_utf8(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 75)), MakeVec2(69, 89))));
+    assume ($t80 == $1_string_spec_utf8(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 75)), MakeVec2(69, 89))));
 
-    // assume Identical($t63, string::spec_utf8([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 73, 78, 95, 69, 88, 69, 67, 85, 84, 73, 79, 78])) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/voting.spec.move:81:9+101
+    // assume Identical($t81, string::spec_utf8([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 73, 78, 95, 69, 88, 69, 67, 85, 84, 73, 79, 78])) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/voting.spec.move:81:9+101
     assume {:print "$at(154,3577,3678)"} true;
-    assume ($t63 == $1_string_spec_utf8(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 73)), MakeVec4(78, 95, 69, 88)), MakeVec4(69, 67, 85, 84)), MakeVec3(73, 79, 78))));
+    assume ($t81 == $1_string_spec_utf8(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 73)), MakeVec4(78, 95, 69, 88)), MakeVec4(69, 67, 85, 84)), MakeVec3(73, 79, 78))));
 
     // assert chain_status::$is_operating() at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/voting.spec.move:57:9+38
     assume {:print "$at(154,2295,2333)"} true;
     assert {:msg "assert_failed(154,2295,2333): precondition does not hold at this call"}
       $1_chain_status_$is_operating($1_chain_status_GenesisEndMarker_$memory);
 
-    // $t64 := voting::create_proposal_v2<governance_proposal::GovernanceProposal>($t19, $t57, $t58, $t2, $t59, $t37, $t12, $t42, $t5) on_abort goto L12 with $t20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:271:27+374
+    // $t82 := voting::create_proposal_v2<governance_proposal::GovernanceProposal>($t37, $t75, $t76, $t2, $t77, $t55, $t12, $t60, $t5) on_abort goto L12 with $t38 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:271:27+374
     assume {:print "$at(2,12072,12446)"} true;
-    call $t64 := $1_voting_create_proposal_v2'$1_governance_proposal_GovernanceProposal'($t19, $t57, $t58, $t2, $t59, $t37, $t12, $t42, $t5);
+    call $t82 := $1_voting_create_proposal_v2'$1_governance_proposal_GovernanceProposal'($t37, $t75, $t76, $t2, $t77, $t55, $t12, $t60, $t5);
     if ($abort_flag) {
         assume {:print "$at(2,12072,12446)"} true;
-        $t20 := $abort_code;
-        assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+        $t38 := $abort_code;
+        assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
         goto L12;
     }
 
-    // trace_local[proposal_id]($t64) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:271:13+11
-    assume {:print "$track_local(44,4,15):", $t64} $t64 == $t64;
+    // trace_local[proposal_id]($t82) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:271:13+11
+    assume {:print "$track_local(44,4,15):", $t82} $t82 == $t82;
 
-    // $t65 := 0x1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:283:58+16
+    // $t83 := 0x1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:283:58+16
     assume {:print "$at(2,12506,12522)"} true;
-    $t65 := 1;
-    assume $IsValid'address'($t65);
+    $t83 := 1;
+    assume $IsValid'address'($t83);
 
-    // $t66 := borrow_global<aptos_governance::GovernanceEvents>($t65) on_abort goto L12 with $t20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:283:22+17
-    if (!$ResourceExists($1_aptos_governance_GovernanceEvents_$memory, $t65)) {
+    // $t84 := borrow_global<aptos_governance::GovernanceEvents>($t83) on_abort goto L12 with $t38 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:283:22+17
+    if (!$ResourceExists($1_aptos_governance_GovernanceEvents_$memory, $t83)) {
         call $ExecFailureAbort();
     } else {
-        $t66 := $Mutation($Global($t65), EmptyVec(), $ResourceValue($1_aptos_governance_GovernanceEvents_$memory, $t65));
+        $t84 := $Mutation($Global($t83), EmptyVec(), $ResourceValue($1_aptos_governance_GovernanceEvents_$memory, $t83));
     }
     if ($abort_flag) {
         assume {:print "$at(2,12470,12487)"} true;
-        $t20 := $abort_code;
-        assume {:print "$track_abort(44,4):", $t20} $t20 == $t20;
+        $t38 := $abort_code;
+        assume {:print "$track_abort(44,4):", $t38} $t38 == $t38;
         goto L12;
     }
 
-    // $t67 := borrow_field<aptos_governance::GovernanceEvents>.create_proposal_events($t66) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:285:13+34
+    // $t85 := borrow_field<aptos_governance::GovernanceEvents>.create_proposal_events($t84) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:285:13+34
     assume {:print "$at(2,12585,12619)"} true;
-    $t67 := $ChildMutation($t66, 0, $create_proposal_events#$1_aptos_governance_GovernanceEvents($Dereference($t66)));
+    $t85 := $ChildMutation($t84, 0, $create_proposal_events#$1_aptos_governance_GovernanceEvents($Dereference($t84)));
 
-    // $t68 := pack aptos_governance::CreateProposalEvent($t19, $t1, $t64, $t2, $t42) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:286:13+203
+    // $t86 := pack aptos_governance::CreateProposalEvent($t37, $t1, $t82, $t2, $t60) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:286:13+203
     assume {:print "$at(2,12633,12836)"} true;
-    $t68 := $1_aptos_governance_CreateProposalEvent($t19, $t1, $t64, $t2, $t42);
+    $t86 := $1_aptos_governance_CreateProposalEvent($t37, $t1, $t82, $t2, $t60);
 
-    // opaque begin: event::emit_event<aptos_governance::CreateProposalEvent>($t67, $t68) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:284:9+314
+    // opaque begin: event::emit_event<aptos_governance::CreateProposalEvent>($t85, $t86) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:284:9+314
     assume {:print "$at(2,12533,12847)"} true;
 
-    // opaque end: event::emit_event<aptos_governance::CreateProposalEvent>($t67, $t68) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:284:9+314
+    // opaque end: event::emit_event<aptos_governance::CreateProposalEvent>($t85, $t86) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:284:9+314
 
-    // write_back[Reference($t66).create_proposal_events (event::EventHandle<aptos_governance::CreateProposalEvent>)]($t67) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:284:9+314
-    $t66 := $UpdateMutation($t66, $Update'$1_aptos_governance_GovernanceEvents'_create_proposal_events($Dereference($t66), $Dereference($t67)));
+    // write_back[Reference($t84).create_proposal_events (event::EventHandle<aptos_governance::CreateProposalEvent>)]($t85) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:284:9+314
+    $t84 := $UpdateMutation($t84, $Update'$1_aptos_governance_GovernanceEvents'_create_proposal_events($Dereference($t84), $Dereference($t85)));
 
-    // write_back[aptos_governance::GovernanceEvents@]($t66) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:284:9+314
-    $1_aptos_governance_GovernanceEvents_$memory := $ResourceUpdate($1_aptos_governance_GovernanceEvents_$memory, $GlobalLocationAddress($t66),
-        $Dereference($t66));
+    // write_back[aptos_governance::GovernanceEvents@]($t84) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:284:9+314
+    $1_aptos_governance_GovernanceEvents_$memory := $ResourceUpdate($1_aptos_governance_GovernanceEvents_$memory, $GlobalLocationAddress($t84),
+        $Dereference($t84));
 
     // label L11 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:294:5+1
     assume {:print "$at(2,12853,12854)"} true;
 L11:
 
-    // assert Not(true) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:136:9+15
-    assume {:print "$at(3,5343,5358)"} true;
-    assert {:msg "assert_failed(3,5343,5358): function does not abort under this condition"}
-      !true;
+    // assume Identical($t87, global<voting::VotingForum<governance_proposal::GovernanceProposal>>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:199:9+95
+    assume {:print "$at(3,9605,9700)"} true;
+    assume ($t87 == $ResourceValue($1_voting_VotingForum'$1_governance_proposal_GovernanceProposal'_$memory, 1));
 
-    // assert Not(true) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:138:9+15
-    assume {:print "$at(3,5414,5429)"} true;
-    assert {:msg "assert_failed(3,5414,5429): function does not abort under this condition"}
-      !true;
+    // assume Identical($t88, select voting::VotingForum.next_proposal_id($t87)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:200:9+68
+    assume {:print "$at(3,9709,9777)"} true;
+    assume ($t88 == $next_proposal_id#$1_voting_VotingForum'$1_governance_proposal_GovernanceProposal'($t87));
 
-    // return () at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:138:9+15
+    // assert Not(Not(exists[@24]<stake::StakePool>($t1))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:141:9+48
+    assume {:print "$at(3,5522,5570)"} true;
+    assert {:msg "assert_failed(3,5522,5570): function does not abort under this condition"}
+      !!$ResourceExists($1_stake_StakePool_$memory#24, $t1);
+
+    // assert Not(Neq<address>($t19, select stake::StakePool.delegated_voter(global[@24]<stake::StakePool>($t1)))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:142:9+83
+    assume {:print "$at(3,5579,5662)"} true;
+    assert {:msg "assert_failed(3,5579,5662): function does not abort under this condition"}
+      !!$IsEqual'address'($t19, $delegated_voter#$1_stake_StakePool($ResourceValue($1_stake_StakePool_$memory#24, $t1)));
+
+    // assert Not(Not(exists[@25]<aptos_governance::GovernanceConfig>(1))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:103:9+54
+    assume {:print "$at(3,4117,4171)"} true;
+    assert {:msg "assert_failed(3,4117,4171): function does not abort under this condition"}
+      !!$ResourceExists($1_aptos_governance_GovernanceConfig_$memory#25, 1);
+
+    // assert Not(And($t21, Gt($t23, 18446744073709551615))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:157:9+66
+    assume {:print "$at(3,6544,6610)"} true;
+    assert {:msg "assert_failed(3,6544,6610): function does not abort under this condition"}
+      !($t21 && ($t23 > 18446744073709551615));
+
+    // assert Not(And(Not($t21), Not(exists[@26]<stake::ValidatorSet>(1)))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:158:9+88
+    assume {:print "$at(3,6619,6707)"} true;
+    assert {:msg "assert_failed(3,6619,6707): function does not abort under this condition"}
+      !(!$t21 && !$ResourceExists($1_stake_ValidatorSet_$memory#26, 1));
+
+    // assert Not(And(And(Not($t21), stake::spec_is_current_epoch_validator[@26]($t1)), Gt($t24, 18446744073709551615))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:159:9+121
+    assume {:print "$at(3,6721,6842)"} true;
+    assert {:msg "assert_failed(3,6721,6842): function does not abort under this condition"}
+      !((!$t21 && $1_stake_spec_is_current_epoch_validator($1_stake_ValidatorSet_$memory#26, $t1)) && ($t24 > 18446744073709551615));
+
+    // assert Not(And($t21, Lt($t23, $t27))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:161:9+82
+    assume {:print "$at(3,6874,6956)"} true;
+    assert {:msg "assert_failed(3,6874,6956): function does not abort under this condition"}
+      !($t21 && ($t23 < $t27));
+
+    // assert Not(And(And(Not($t21), stake::spec_is_current_epoch_validator[@26]($t1)), Lt($t24, $t27))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:162:9+137
+    assume {:print "$at(3,6965,7102)"} true;
+    assert {:msg "assert_failed(3,6965,7102): function does not abort under this condition"}
+      !((!$t21 && $1_stake_spec_is_current_epoch_validator($1_stake_ValidatorSet_$memory#26, $t1)) && ($t24 < $t27));
+
+    // assert Not(And(And(Not($t21), Not(stake::spec_is_current_epoch_validator[@26]($t1))), Lt($t25, $t27))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:163:9+138
+    assume {:print "$at(3,7111,7249)"} true;
+    assert {:msg "assert_failed(3,7111,7249): function does not abort under this condition"}
+      !((!$t21 && !$1_stake_spec_is_current_epoch_validator($1_stake_ValidatorSet_$memory#26, $t1)) && ($t25 < $t27));
+
+    // assert Not(Not(exists[@27]<timestamp::CurrentTimeMicroseconds>(1))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:166:9+72
+    assume {:print "$at(3,7301,7373)"} true;
+    assert {:msg "assert_failed(3,7301,7373): function does not abort under this condition"}
+      !!$ResourceExists($1_timestamp_CurrentTimeMicroseconds_$memory#27, 1);
+
+    // assert Not(Lt(select stake::StakePool.locked_until_secs($t22), $t29)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:170:9+65
+    assume {:print "$at(3,7552,7617)"} true;
+    assert {:msg "assert_failed(3,7552,7617): function does not abort under this condition"}
+      !($locked_until_secs#$1_stake_StakePool($t22) < $t29);
+
+    // assert Not(Not(string::spec_internal_check_utf8[]($t3))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:173:9+63
+    assume {:print "$at(3,7676,7739)"} true;
+    assert {:msg "assert_failed(3,7676,7739): function does not abort under this condition"}
+      !!$1_string_spec_internal_check_utf8($t3);
+
+    // assert Not(Not(string::spec_internal_check_utf8[]($t4))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:174:9+59
+    assume {:print "$at(3,7748,7807)"} true;
+    assert {:msg "assert_failed(3,7748,7807): function does not abort under this condition"}
+      !!$1_string_spec_internal_check_utf8($t4);
+
+    // assert Not(Gt(Len<u8>($t3), 256)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:175:9+39
+    assume {:print "$at(3,7816,7855)"} true;
+    assert {:msg "assert_failed(3,7816,7855): function does not abort under this condition"}
+      !(LenVec($t3) > 256);
+
+    // assert Not(Gt(Len<u8>($t4), 256)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:176:9+35
+    assume {:print "$at(3,7927,7962)"} true;
+    assert {:msg "assert_failed(3,7927,7962): function does not abort under this condition"}
+      !(LenVec($t4) > 256);
+
+    // assert Not(Not(string::spec_internal_check_utf8[]([109, 101, 116, 97, 100, 97, 116, 97, 95, 108, 111, 99, 97, 116, 105, 111, 110]))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:177:9+67
+    assume {:print "$at(3,8030,8097)"} true;
+    assert {:msg "assert_failed(3,8030,8097): function does not abort under this condition"}
+      !!$1_string_spec_internal_check_utf8(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 108, 111, 99)), MakeVec4(97, 116, 105, 111)), MakeVec1(110)));
+
+    // assert Not(Not(string::spec_internal_check_utf8[]([109, 101, 116, 97, 100, 97, 116, 97, 95, 104, 97, 115, 104]))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:178:9+63
+    assume {:print "$at(3,8106,8169)"} true;
+    assert {:msg "assert_failed(3,8106,8169): function does not abort under this condition"}
+      !!$1_string_spec_internal_check_utf8(ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 104, 97, 115)), MakeVec1(104)));
+
+    // assert Not(Eq<vector<u8>>([109, 101, 116, 97, 100, 97, 116, 97, 95, 108, 111, 99, 97, 116, 105, 111, 110], [109, 101, 116, 97, 100, 97, 116, 97, 95, 104, 97, 115, 104])) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:181:9+53
+    assume {:print "$at(3,8370,8423)"} true;
+    assert {:msg "assert_failed(3,8370,8423): function does not abort under this condition"}
+      !$IsEqual'vec'u8''(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 108, 111, 99)), MakeVec4(97, 116, 105, 111)), MakeVec1(110)), ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 104, 97, 115)), MakeVec1(104)));
+
+    // assert Not(Not(exists[@28]<coin::CoinInfo<aptos_coin::AptosCoin>>($t30))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:185:9+51
+    assume {:print "$at(3,8541,8592)"} true;
+    assert {:msg "assert_failed(3,8541,8592): function does not abort under this condition"}
+      !!$ResourceExists($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory#28, $t30);
+
+    // assert Not(And(option::spec_is_some[]<optional_aggregator::OptionalAggregator>($t31), Gt(select aptos_governance::GovernanceConfig.min_voting_threshold($t26), $t34))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:193:9+127
+    assume {:print "$at(3,9115,9242)"} true;
+    assert {:msg "assert_failed(3,9115,9242): function does not abort under this condition"}
+      !($1_option_spec_is_some'$1_optional_aggregator_OptionalAggregator'($t31) && ($min_voting_threshold#$1_aptos_governance_GovernanceConfig($t26) > $t34));
+
+    // assert Not(Le(Len<u8>($t2), 0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:194:9+35
+    assume {:print "$at(3,9258,9293)"} true;
+    assert {:msg "assert_failed(3,9258,9293): function does not abort under this condition"}
+      !(LenVec($t2) <= 0);
+
+    // assert Not(Not(exists[@29]<voting::VotingForum<governance_proposal::GovernanceProposal>>(1))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:195:9+77
+    assume {:print "$at(3,9309,9386)"} true;
+    assert {:msg "assert_failed(3,9309,9386): function does not abort under this condition"}
+      !!$ResourceExists($1_voting_VotingForum'$1_governance_proposal_GovernanceProposal'_$memory#29, 1);
+
+    // assert Not(Gt(Add($t36, 1), 18446744073709551615)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:198:9+36
+    assume {:print "$at(3,9553,9589)"} true;
+    assert {:msg "assert_failed(3,9553,9589): function does not abort under this condition"}
+      !(($t36 + 1) > 18446744073709551615);
+
+    // assert Not(Not(string::spec_internal_check_utf8[]([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 75, 69, 89]))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:203:9+80
+    assume {:print "$at(3,9895,9975)"} true;
+    assert {:msg "assert_failed(3,9895,9975): function does not abort under this condition"}
+      !!$1_string_spec_internal_check_utf8(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 75)), MakeVec2(69, 89)));
+
+    // assert Not(Or(Eq<vector<u8>>([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 75, 69, 89], [109, 101, 116, 97, 100, 97, 116, 97, 95, 108, 111, 99, 97, 116, 105, 111, 110]), Eq<vector<u8>>([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 75, 69, 89], [109, 101, 116, 97, 100, 97, 116, 97, 95, 104, 97, 115, 104]))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:204:9+129
+    assume {:print "$at(3,9991,10120)"} true;
+    assert {:msg "assert_failed(3,9991,10120): function does not abort under this condition"}
+      !($IsEqual'vec'u8''(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 75)), MakeVec2(69, 89)), ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 108, 111, 99)), MakeVec4(97, 116, 105, 111)), MakeVec1(110))) || $IsEqual'vec'u8''(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 75)), MakeVec2(69, 89)), ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 104, 97, 115)), MakeVec1(104))));
+
+    // assert Not(Not(string::spec_internal_check_utf8[]([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 73, 78, 95, 69, 88, 69, 67, 85, 84, 73, 79, 78]))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:205:9+93
+    assume {:print "$at(3,10137,10230)"} true;
+    assert {:msg "assert_failed(3,10137,10230): function does not abort under this condition"}
+      !!$1_string_spec_internal_check_utf8(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 73)), MakeVec4(78, 95, 69, 88)), MakeVec4(69, 67, 85, 84)), MakeVec3(73, 79, 78)));
+
+    // assert Not(And($t5, Or(Or(Eq<vector<u8>>([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 73, 78, 95, 69, 88, 69, 67, 85, 84, 73, 79, 78], [109, 101, 116, 97, 100, 97, 116, 97, 95, 108, 111, 99, 97, 116, 105, 111, 110]), Eq<vector<u8>>([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 73, 78, 95, 69, 88, 69, 67, 85, 84, 73, 79, 78], [109, 101, 116, 97, 100, 97, 116, 97, 95, 104, 97, 115, 104])), Eq<vector<u8>>([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 73, 78, 95, 69, 88, 69, 67, 85, 84, 73, 79, 78], [73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 75, 69, 89])))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:206:9+360
+    assume {:print "$at(3,10247,10607)"} true;
+    assert {:msg "assert_failed(3,10247,10607): function does not abort under this condition"}
+      !($t5 && (($IsEqual'vec'u8''(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 73)), MakeVec4(78, 95, 69, 88)), MakeVec4(69, 67, 85, 84)), MakeVec3(73, 79, 78)), ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 108, 111, 99)), MakeVec4(97, 116, 105, 111)), MakeVec1(110))) || $IsEqual'vec'u8''(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 73)), MakeVec4(78, 95, 69, 88)), MakeVec4(69, 67, 85, 84)), MakeVec3(73, 79, 78)), ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 104, 97, 115)), MakeVec1(104)))) || $IsEqual'vec'u8''(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 73)), MakeVec4(78, 95, 69, 88)), MakeVec4(69, 67, 85, 84)), MakeVec3(73, 79, 78)), ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 75)), MakeVec2(69, 89)))));
+
+    // assert Not(table::spec_contains[]<u64, voting::Proposal<governance_proposal::GovernanceProposal>>(select voting::VotingForum.proposals($t35), $t36)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:209:9+67
+    assume {:print "$at(3,10624,10691)"} true;
+    assert {:msg "assert_failed(3,10624,10691): function does not abort under this condition"}
+      !$1_table_spec_contains'u64_$1_voting_Proposal'$1_governance_proposal_GovernanceProposal''($proposals#$1_voting_VotingForum'$1_governance_proposal_GovernanceProposal'($t35), $t36);
+
+    // assert Not(Not(exists[@30]<aptos_governance::GovernanceEvents>(1))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:213:9+54
+    assume {:print "$at(3,10814,10868)"} true;
+    assert {:msg "assert_failed(3,10814,10868): function does not abort under this condition"}
+      !!$ResourceExists($1_aptos_governance_GovernanceEvents_$memory#30, 1);
+
+    // assert Eq<u64>($t88, Add($t36, 1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:201:9+49
+    assume {:print "$at(3,9786,9835)"} true;
+    assert {:msg "assert_failed(3,9786,9835): post-condition does not hold"}
+      $IsEqual'u64'($t88, ($t36 + 1));
+
+    // assert table::spec_contains<u64, voting::Proposal<governance_proposal::GovernanceProposal>>(select voting::VotingForum.proposals($t87), $t36) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:210:9+71
+    assume {:print "$at(3,10708,10779)"} true;
+    assert {:msg "assert_failed(3,10708,10779): post-condition does not hold"}
+      $1_table_spec_contains'u64_$1_voting_Proposal'$1_governance_proposal_GovernanceProposal''($proposals#$1_voting_VotingForum'$1_governance_proposal_GovernanceProposal'($t87), $t36);
+
+    // return () at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:210:9+71
     return;
 
     // label L12 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:294:5+1
     assume {:print "$at(2,12853,12854)"} true;
 L12:
 
-    // assert Or(true, true) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:121:5+6102
-    assume {:print "$at(3,4654,10756)"} true;
-    assert {:msg "assert_failed(3,4654,10756): abort not covered by any of the `aborts_if` clauses"}
-      (true || true);
+    // assert Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Or(Not(exists[@24]<stake::StakePool>($t1)), Neq<address>($t19, select stake::StakePool.delegated_voter(global[@24]<stake::StakePool>($t1)))), Not(exists[@25]<aptos_governance::GovernanceConfig>(1))), And($t21, Gt($t23, 18446744073709551615))), And(Not($t21), Not(exists[@26]<stake::ValidatorSet>(1)))), And(And(Not($t21), stake::spec_is_current_epoch_validator[@26]($t1)), Gt($t24, 18446744073709551615))), And($t21, Lt($t23, $t27))), And(And(Not($t21), stake::spec_is_current_epoch_validator[@26]($t1)), Lt($t24, $t27))), And(And(Not($t21), Not(stake::spec_is_current_epoch_validator[@26]($t1))), Lt($t25, $t27))), Not(exists[@27]<timestamp::CurrentTimeMicroseconds>(1))), Lt(select stake::StakePool.locked_until_secs($t22), $t29)), Not(string::spec_internal_check_utf8[]($t3))), Not(string::spec_internal_check_utf8[]($t4))), Gt(Len<u8>($t3), 256)), Gt(Len<u8>($t4), 256)), Not(string::spec_internal_check_utf8[]([109, 101, 116, 97, 100, 97, 116, 97, 95, 108, 111, 99, 97, 116, 105, 111, 110]))), Not(string::spec_internal_check_utf8[]([109, 101, 116, 97, 100, 97, 116, 97, 95, 104, 97, 115, 104]))), Eq<vector<u8>>([109, 101, 116, 97, 100, 97, 116, 97, 95, 108, 111, 99, 97, 116, 105, 111, 110], [109, 101, 116, 97, 100, 97, 116, 97, 95, 104, 97, 115, 104])), Not(exists[@28]<coin::CoinInfo<aptos_coin::AptosCoin>>($t30))), And(option::spec_is_some[]<optional_aggregator::OptionalAggregator>($t31), Gt(select aptos_governance::GovernanceConfig.min_voting_threshold($t26), $t34))), Le(Len<u8>($t2), 0)), Not(exists[@29]<voting::VotingForum<governance_proposal::GovernanceProposal>>(1))), Gt(Add($t36, 1), 18446744073709551615)), Not(string::spec_internal_check_utf8[]([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 75, 69, 89]))), Or(Eq<vector<u8>>([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 75, 69, 89], [109, 101, 116, 97, 100, 97, 116, 97, 95, 108, 111, 99, 97, 116, 105, 111, 110]), Eq<vector<u8>>([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 75, 69, 89], [109, 101, 116, 97, 100, 97, 116, 97, 95, 104, 97, 115, 104]))), Not(string::spec_internal_check_utf8[]([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 73, 78, 95, 69, 88, 69, 67, 85, 84, 73, 79, 78]))), And($t5, Or(Or(Eq<vector<u8>>([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 73, 78, 95, 69, 88, 69, 67, 85, 84, 73, 79, 78], [109, 101, 116, 97, 100, 97, 116, 97, 95, 108, 111, 99, 97, 116, 105, 111, 110]), Eq<vector<u8>>([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 73, 78, 95, 69, 88, 69, 67, 85, 84, 73, 79, 78], [109, 101, 116, 97, 100, 97, 116, 97, 95, 104, 97, 115, 104])), Eq<vector<u8>>([73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 73, 78, 95, 69, 88, 69, 67, 85, 84, 73, 79, 78], [73, 83, 95, 77, 85, 76, 84, 73, 95, 83, 84, 69, 80, 95, 80, 82, 79, 80, 79, 83, 65, 76, 95, 75, 69, 89])))), table::spec_contains[]<u64, voting::Proposal<governance_proposal::GovernanceProposal>>(select voting::VotingForum.proposals($t35), $t36)), Not(exists[@30]<aptos_governance::GovernanceEvents>(1))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:121:5+6220
+    assume {:print "$at(3,4654,10874)"} true;
+    assert {:msg "assert_failed(3,4654,10874): abort not covered by any of the `aborts_if` clauses"}
+      ((((((((((((((((((((((((((((!$ResourceExists($1_stake_StakePool_$memory#24, $t1) || !$IsEqual'address'($t19, $delegated_voter#$1_stake_StakePool($ResourceValue($1_stake_StakePool_$memory#24, $t1)))) || !$ResourceExists($1_aptos_governance_GovernanceConfig_$memory#25, 1)) || ($t21 && ($t23 > 18446744073709551615))) || (!$t21 && !$ResourceExists($1_stake_ValidatorSet_$memory#26, 1))) || ((!$t21 && $1_stake_spec_is_current_epoch_validator($1_stake_ValidatorSet_$memory#26, $t1)) && ($t24 > 18446744073709551615))) || ($t21 && ($t23 < $t27))) || ((!$t21 && $1_stake_spec_is_current_epoch_validator($1_stake_ValidatorSet_$memory#26, $t1)) && ($t24 < $t27))) || ((!$t21 && !$1_stake_spec_is_current_epoch_validator($1_stake_ValidatorSet_$memory#26, $t1)) && ($t25 < $t27))) || !$ResourceExists($1_timestamp_CurrentTimeMicroseconds_$memory#27, 1)) || ($locked_until_secs#$1_stake_StakePool($t22) < $t29)) || !$1_string_spec_internal_check_utf8($t3)) || !$1_string_spec_internal_check_utf8($t4)) || (LenVec($t3) > 256)) || (LenVec($t4) > 256)) || !$1_string_spec_internal_check_utf8(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 108, 111, 99)), MakeVec4(97, 116, 105, 111)), MakeVec1(110)))) || !$1_string_spec_internal_check_utf8(ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 104, 97, 115)), MakeVec1(104)))) || $IsEqual'vec'u8''(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 108, 111, 99)), MakeVec4(97, 116, 105, 111)), MakeVec1(110)), ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 104, 97, 115)), MakeVec1(104)))) || !$ResourceExists($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory#28, $t30)) || ($1_option_spec_is_some'$1_optional_aggregator_OptionalAggregator'($t31) && ($min_voting_threshold#$1_aptos_governance_GovernanceConfig($t26) > $t34))) || (LenVec($t2) <= 0)) || !$ResourceExists($1_voting_VotingForum'$1_governance_proposal_GovernanceProposal'_$memory#29, 1)) || (($t36 + 1) > 18446744073709551615)) || !$1_string_spec_internal_check_utf8(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 75)), MakeVec2(69, 89)))) || ($IsEqual'vec'u8''(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 75)), MakeVec2(69, 89)), ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 108, 111, 99)), MakeVec4(97, 116, 105, 111)), MakeVec1(110))) || $IsEqual'vec'u8''(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 75)), MakeVec2(69, 89)), ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 104, 97, 115)), MakeVec1(104))))) || !$1_string_spec_internal_check_utf8(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 73)), MakeVec4(78, 95, 69, 88)), MakeVec4(69, 67, 85, 84)), MakeVec3(73, 79, 78)))) || ($t5 && (($IsEqual'vec'u8''(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 73)), MakeVec4(78, 95, 69, 88)), MakeVec4(69, 67, 85, 84)), MakeVec3(73, 79, 78)), ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 108, 111, 99)), MakeVec4(97, 116, 105, 111)), MakeVec1(110))) || $IsEqual'vec'u8''(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 73)), MakeVec4(78, 95, 69, 88)), MakeVec4(69, 67, 85, 84)), MakeVec3(73, 79, 78)), ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 104, 97, 115)), MakeVec1(104)))) || $IsEqual'vec'u8''(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 73)), MakeVec4(78, 95, 69, 88)), MakeVec4(69, 67, 85, 84)), MakeVec3(73, 79, 78)), ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(73, 83, 95, 77), MakeVec4(85, 76, 84, 73)), MakeVec4(95, 83, 84, 69)), MakeVec4(80, 95, 80, 82)), MakeVec4(79, 80, 79, 83)), MakeVec4(65, 76, 95, 75)), MakeVec2(69, 89)))))) || $1_table_spec_contains'u64_$1_voting_Proposal'$1_governance_proposal_GovernanceProposal''($proposals#$1_voting_VotingForum'$1_governance_proposal_GovernanceProposal'($t35), $t36)) || !$ResourceExists($1_aptos_governance_GovernanceEvents_$memory#30, 1));
 
-    // abort($t20) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:121:5+6102
-    $abort_code := $t20;
+    // abort($t38) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:121:5+6220
+    $abort_code := $t38;
     $abort_flag := true;
     return;
 
@@ -15701,37 +15984,37 @@ L5:
     assume {:print "$at(2,21504,21505)"} true;
 L6:
 
-    // assert Not(Gt(string::$length[](string::$utf8[]($t0)), 256)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:649:9+56
-    assume {:print "$at(3,39438,39494)"} true;
-    assert {:msg "assert_failed(3,39438,39494): function does not abort under this condition"}
+    // assert Not(Gt(string::$length[](string::$utf8[]($t0)), 256)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:653:9+56
+    assume {:print "$at(3,39556,39612)"} true;
+    assert {:msg "assert_failed(3,39556,39612): function does not abort under this condition"}
       !($1_string_$length($1_string_$utf8($t0)) > 256);
 
-    // assert Not(Gt(string::$length[](string::$utf8[]($t1)), 256)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:650:9+52
-    assume {:print "$at(3,39503,39555)"} true;
-    assert {:msg "assert_failed(3,39503,39555): function does not abort under this condition"}
+    // assert Not(Gt(string::$length[](string::$utf8[]($t1)), 256)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:654:9+52
+    assume {:print "$at(3,39621,39673)"} true;
+    assert {:msg "assert_failed(3,39621,39673): function does not abort under this condition"}
       !($1_string_$length($1_string_$utf8($t1)) > 256);
 
-    // assert Not(Not(string::spec_internal_check_utf8[]($t0))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:651:9+63
-    assume {:print "$at(3,39564,39627)"} true;
-    assert {:msg "assert_failed(3,39564,39627): function does not abort under this condition"}
+    // assert Not(Not(string::spec_internal_check_utf8[]($t0))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:655:9+63
+    assume {:print "$at(3,39682,39745)"} true;
+    assert {:msg "assert_failed(3,39682,39745): function does not abort under this condition"}
       !!$1_string_spec_internal_check_utf8($t0);
 
-    // assert Not(Not(string::spec_internal_check_utf8[]($t1))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:652:9+59
-    assume {:print "$at(3,39636,39695)"} true;
-    assert {:msg "assert_failed(3,39636,39695): function does not abort under this condition"}
+    // assert Not(Not(string::spec_internal_check_utf8[]($t1))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:656:9+59
+    assume {:print "$at(3,39754,39813)"} true;
+    assert {:msg "assert_failed(3,39754,39813): function does not abort under this condition"}
       !!$1_string_spec_internal_check_utf8($t1);
 
-    // assert Not(Not(string::spec_internal_check_utf8[]([109, 101, 116, 97, 100, 97, 116, 97, 95, 108, 111, 99, 97, 116, 105, 111, 110]))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:653:9+67
-    assume {:print "$at(3,39704,39771)"} true;
-    assert {:msg "assert_failed(3,39704,39771): function does not abort under this condition"}
+    // assert Not(Not(string::spec_internal_check_utf8[]([109, 101, 116, 97, 100, 97, 116, 97, 95, 108, 111, 99, 97, 116, 105, 111, 110]))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:657:9+67
+    assume {:print "$at(3,39822,39889)"} true;
+    assert {:msg "assert_failed(3,39822,39889): function does not abort under this condition"}
       !!$1_string_spec_internal_check_utf8(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 108, 111, 99)), MakeVec4(97, 116, 105, 111)), MakeVec1(110)));
 
-    // assert Not(Not(string::spec_internal_check_utf8[]([109, 101, 116, 97, 100, 97, 116, 97, 95, 104, 97, 115, 104]))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:654:9+63
-    assume {:print "$at(3,39780,39843)"} true;
-    assert {:msg "assert_failed(3,39780,39843): function does not abort under this condition"}
+    // assert Not(Not(string::spec_internal_check_utf8[]([109, 101, 116, 97, 100, 97, 116, 97, 95, 104, 97, 115, 104]))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:658:9+63
+    assume {:print "$at(3,39898,39961)"} true;
+    assert {:msg "assert_failed(3,39898,39961): function does not abort under this condition"}
       !!$1_string_spec_internal_check_utf8(ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 104, 97, 115)), MakeVec1(104)));
 
-    // return $t24 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:654:9+63
+    // return $t24 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:658:9+63
     $ret0 := $t24;
     return;
 
@@ -15739,12 +16022,12 @@ L6:
     assume {:print "$at(2,21504,21505)"} true;
 L7:
 
-    // assert Or(Or(Or(Or(Or(Gt(string::$length[](string::$utf8[]($t0)), 256), Gt(string::$length[](string::$utf8[]($t1)), 256)), Not(string::spec_internal_check_utf8[]($t0))), Not(string::spec_internal_check_utf8[]($t1))), Not(string::spec_internal_check_utf8[]([109, 101, 116, 97, 100, 97, 116, 97, 95, 108, 111, 99, 97, 116, 105, 111, 110]))), Not(string::spec_internal_check_utf8[]([109, 101, 116, 97, 100, 97, 116, 97, 95, 104, 97, 115, 104]))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:646:5+571
-    assume {:print "$at(3,39278,39849)"} true;
-    assert {:msg "assert_failed(3,39278,39849): abort not covered by any of the `aborts_if` clauses"}
+    // assert Or(Or(Or(Or(Or(Gt(string::$length[](string::$utf8[]($t0)), 256), Gt(string::$length[](string::$utf8[]($t1)), 256)), Not(string::spec_internal_check_utf8[]($t0))), Not(string::spec_internal_check_utf8[]($t1))), Not(string::spec_internal_check_utf8[]([109, 101, 116, 97, 100, 97, 116, 97, 95, 108, 111, 99, 97, 116, 105, 111, 110]))), Not(string::spec_internal_check_utf8[]([109, 101, 116, 97, 100, 97, 116, 97, 95, 104, 97, 115, 104]))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:650:5+571
+    assume {:print "$at(3,39396,39967)"} true;
+    assert {:msg "assert_failed(3,39396,39967): abort not covered by any of the `aborts_if` clauses"}
       (((((($1_string_$length($1_string_$utf8($t0)) > 256) || ($1_string_$length($1_string_$utf8($t1)) > 256)) || !$1_string_spec_internal_check_utf8($t0)) || !$1_string_spec_internal_check_utf8($t1)) || !$1_string_spec_internal_check_utf8(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 108, 111, 99)), MakeVec4(97, 116, 105, 111)), MakeVec1(110)))) || !$1_string_spec_internal_check_utf8(ConcatVec(ConcatVec(ConcatVec(MakeVec4(109, 101, 116, 97), MakeVec4(100, 97, 116, 97)), MakeVec4(95, 104, 97, 115)), MakeVec1(104))));
 
-    // abort($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:646:5+571
+    // abort($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:650:5+571
     $abort_code := $t6;
     $abort_flag := true;
     return;
@@ -15776,16 +16059,16 @@ procedure {:inline 1} $1_aptos_governance_get_voting_power(_$t0: int) returns ($
     $t0 := _$t0;
 
     // bytecode translation starts here
-    // assume Identical($t5, global<staking_config::StakingConfig>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:617:9+77
-    assume {:print "$at(3,37678,37755)"} true;
+    // assume Identical($t5, global<staking_config::StakingConfig>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:621:9+77
+    assume {:print "$at(3,37796,37873)"} true;
     assume ($t5 == $ResourceValue($1_staking_config_StakingConfig_$memory, 1));
 
-    // assume Identical($t6, select staking_config::StakingConfig.allow_validator_set_change($t5)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:619:9+75
-    assume {:print "$at(3,37840,37915)"} true;
+    // assume Identical($t6, select staking_config::StakingConfig.allow_validator_set_change($t5)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:623:9+75
+    assume {:print "$at(3,37958,38033)"} true;
     assume ($t6 == $allow_validator_set_change#$1_staking_config_StakingConfig($t5));
 
-    // assume Identical($t7, global<stake::StakePool>($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:620:9+56
-    assume {:print "$at(3,37924,37980)"} true;
+    // assume Identical($t7, global<stake::StakePool>($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:624:9+56
+    assume {:print "$at(3,38042,38098)"} true;
     assume ($t7 == $ResourceValue($1_stake_StakePool_$memory, $t0));
 
     // trace_local[pool_address]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:433:5+1
@@ -15973,16 +16256,16 @@ procedure {:timeLimit 40} $1_aptos_governance_get_voting_power$verify(_$t0: int)
     // global invariant at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:12:9+96
     assume ($1_chain_status_$is_operating($1_chain_status_GenesisEndMarker_$memory) ==> $ResourceExists($1_stake_ValidatorSet_$memory, 1));
 
-    // assume Identical($t5, global<staking_config::StakingConfig>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:617:9+77
-    assume {:print "$at(3,37678,37755)"} true;
+    // assume Identical($t5, global<staking_config::StakingConfig>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:621:9+77
+    assume {:print "$at(3,37796,37873)"} true;
     assume ($t5 == $ResourceValue($1_staking_config_StakingConfig_$memory, 1));
 
-    // assume Identical($t6, select staking_config::StakingConfig.allow_validator_set_change($t5)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:619:9+75
-    assume {:print "$at(3,37840,37915)"} true;
+    // assume Identical($t6, select staking_config::StakingConfig.allow_validator_set_change($t5)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:623:9+75
+    assume {:print "$at(3,37958,38033)"} true;
     assume ($t6 == $allow_validator_set_change#$1_staking_config_StakingConfig($t5));
 
-    // assume Identical($t7, global<stake::StakePool>($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:620:9+56
-    assume {:print "$at(3,37924,37980)"} true;
+    // assume Identical($t7, global<stake::StakePool>($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:624:9+56
+    assume {:print "$at(3,38042,38098)"} true;
     assume ($t7 == $ResourceValue($1_stake_StakePool_$memory, $t0));
 
     // @18 := save_mem(staking_config::StakingConfig) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.move:433:5+1
@@ -16092,42 +16375,42 @@ L2:
     assume {:print "$at(2,20447,20448)"} true;
 L3:
 
-    // assert Not(Not(exists[@18]<staking_config::StakingConfig>(1))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:618:9+67
-    assume {:print "$at(3,37764,37831)"} true;
-    assert {:msg "assert_failed(3,37764,37831): function does not abort under this condition"}
+    // assert Not(Not(exists[@18]<staking_config::StakingConfig>(1))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:622:9+67
+    assume {:print "$at(3,37882,37949)"} true;
+    assert {:msg "assert_failed(3,37882,37949): function does not abort under this condition"}
       !!$ResourceExists($1_staking_config_StakingConfig_$memory#18, 1);
 
-    // assert Not(And($t6, Gt(Add(Add(select coin::Coin.value(select stake::StakePool.active($t7)), select coin::Coin.value(select stake::StakePool.pending_active($t7))), select coin::Coin.value(select stake::StakePool.pending_inactive($t7))), 18446744073709551615))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:621:9+146
-    assume {:print "$at(3,37989,38135)"} true;
-    assert {:msg "assert_failed(3,37989,38135): function does not abort under this condition"}
+    // assert Not(And($t6, Gt(Add(Add(select coin::Coin.value(select stake::StakePool.active($t7)), select coin::Coin.value(select stake::StakePool.pending_active($t7))), select coin::Coin.value(select stake::StakePool.pending_inactive($t7))), 18446744073709551615))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:625:9+146
+    assume {:print "$at(3,38107,38253)"} true;
+    assert {:msg "assert_failed(3,38107,38253): function does not abort under this condition"}
       !($t6 && ((($value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($active#$1_stake_StakePool($t7)) + $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($pending_active#$1_stake_StakePool($t7))) + $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($pending_inactive#$1_stake_StakePool($t7))) > 18446744073709551615));
 
-    // assert Not(Not(exists[@19]<stake::StakePool>($t0))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:622:9+50
-    assume {:print "$at(3,38144,38194)"} true;
-    assert {:msg "assert_failed(3,38144,38194): function does not abort under this condition"}
+    // assert Not(Not(exists[@19]<stake::StakePool>($t0))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:626:9+50
+    assume {:print "$at(3,38262,38312)"} true;
+    assert {:msg "assert_failed(3,38262,38312): function does not abort under this condition"}
       !!$ResourceExists($1_stake_StakePool_$memory#19, $t0);
 
-    // assert Not(And(Not($t6), Not(exists[@20]<stake::ValidatorSet>(1)))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:623:9+88
-    assume {:print "$at(3,38203,38291)"} true;
-    assert {:msg "assert_failed(3,38203,38291): function does not abort under this condition"}
+    // assert Not(And(Not($t6), Not(exists[@20]<stake::ValidatorSet>(1)))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:627:9+88
+    assume {:print "$at(3,38321,38409)"} true;
+    assert {:msg "assert_failed(3,38321,38409): function does not abort under this condition"}
       !(!$t6 && !$ResourceExists($1_stake_ValidatorSet_$memory#20, 1));
 
-    // assert Not(And(And(Not($t6), stake::spec_is_current_epoch_validator[@20]($t0)), Gt(Add(select coin::Coin.value(select stake::StakePool.active($t7)), select coin::Coin.value(select stake::StakePool.pending_inactive($t7))), 18446744073709551615))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:624:9+167
-    assume {:print "$at(3,38300,38467)"} true;
-    assert {:msg "assert_failed(3,38300,38467): function does not abort under this condition"}
+    // assert Not(And(And(Not($t6), stake::spec_is_current_epoch_validator[@20]($t0)), Gt(Add(select coin::Coin.value(select stake::StakePool.active($t7)), select coin::Coin.value(select stake::StakePool.pending_inactive($t7))), 18446744073709551615))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:628:9+167
+    assume {:print "$at(3,38418,38585)"} true;
+    assert {:msg "assert_failed(3,38418,38585): function does not abort under this condition"}
       !((!$t6 && $1_stake_spec_is_current_epoch_validator($1_stake_ValidatorSet_$memory#20, $t0)) && (($value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($active#$1_stake_StakePool($t7)) + $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($pending_inactive#$1_stake_StakePool($t7))) > 18446744073709551615));
 
-    // assert Implies($t6, Eq<u64>($t2, Add(Add(select coin::Coin.value(select stake::StakePool.active($t7)), select coin::Coin.value(select stake::StakePool.pending_active($t7))), select coin::Coin.value(select stake::StakePool.pending_inactive($t7))))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:626:9+143
-    assume {:print "$at(3,38477,38620)"} true;
-    assert {:msg "assert_failed(3,38477,38620): post-condition does not hold"}
+    // assert Implies($t6, Eq<u64>($t2, Add(Add(select coin::Coin.value(select stake::StakePool.active($t7)), select coin::Coin.value(select stake::StakePool.pending_active($t7))), select coin::Coin.value(select stake::StakePool.pending_inactive($t7))))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:630:9+143
+    assume {:print "$at(3,38595,38738)"} true;
+    assert {:msg "assert_failed(3,38595,38738): post-condition does not hold"}
       ($t6 ==> $IsEqual'u64'($t2, (($value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($active#$1_stake_StakePool($t7)) + $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($pending_active#$1_stake_StakePool($t7))) + $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($pending_inactive#$1_stake_StakePool($t7)))));
 
-    // assert Implies(Not($t6), (if stake::spec_is_current_epoch_validator($t0) {Eq<u64>($t2, Add(select coin::Coin.value(select stake::StakePool.active($t7)), select coin::Coin.value(select stake::StakePool.pending_inactive($t7))))} else {Eq<u64>($t2, 0)})) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:627:9+233
-    assume {:print "$at(3,38629,38862)"} true;
-    assert {:msg "assert_failed(3,38629,38862): post-condition does not hold"}
+    // assert Implies(Not($t6), (if stake::spec_is_current_epoch_validator($t0) {Eq<u64>($t2, Add(select coin::Coin.value(select stake::StakePool.active($t7)), select coin::Coin.value(select stake::StakePool.pending_inactive($t7))))} else {Eq<u64>($t2, 0)})) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:631:9+233
+    assume {:print "$at(3,38747,38980)"} true;
+    assert {:msg "assert_failed(3,38747,38980): post-condition does not hold"}
       (!$t6 ==> (if ($1_stake_spec_is_current_epoch_validator($1_stake_ValidatorSet_$memory, $t0)) then ($IsEqual'u64'($t2, ($value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($active#$1_stake_StakePool($t7)) + $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($pending_inactive#$1_stake_StakePool($t7))))) else ($IsEqual'u64'($t2, 0))));
 
-    // return $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:627:9+233
+    // return $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:631:9+233
     $ret0 := $t2;
     return;
 
@@ -16135,12 +16418,12 @@ L3:
     assume {:print "$at(2,20447,20448)"} true;
 L4:
 
-    // assert Or(Or(Or(Or(Not(exists[@18]<staking_config::StakingConfig>(1)), And($t6, Gt(Add(Add(select coin::Coin.value(select stake::StakePool.active($t7)), select coin::Coin.value(select stake::StakePool.pending_active($t7))), select coin::Coin.value(select stake::StakePool.pending_inactive($t7))), 18446744073709551615))), Not(exists[@19]<stake::StakePool>($t0))), And(Not($t6), Not(exists[@20]<stake::ValidatorSet>(1)))), And(And(Not($t6), stake::spec_is_current_epoch_validator[@20]($t0)), Gt(Add(select coin::Coin.value(select stake::StakePool.active($t7)), select coin::Coin.value(select stake::StakePool.pending_inactive($t7))), 18446744073709551615))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:609:5+1668
-    assume {:print "$at(3,37200,38868)"} true;
-    assert {:msg "assert_failed(3,37200,38868): abort not covered by any of the `aborts_if` clauses"}
+    // assert Or(Or(Or(Or(Not(exists[@18]<staking_config::StakingConfig>(1)), And($t6, Gt(Add(Add(select coin::Coin.value(select stake::StakePool.active($t7)), select coin::Coin.value(select stake::StakePool.pending_active($t7))), select coin::Coin.value(select stake::StakePool.pending_inactive($t7))), 18446744073709551615))), Not(exists[@19]<stake::StakePool>($t0))), And(Not($t6), Not(exists[@20]<stake::ValidatorSet>(1)))), And(And(Not($t6), stake::spec_is_current_epoch_validator[@20]($t0)), Gt(Add(select coin::Coin.value(select stake::StakePool.active($t7)), select coin::Coin.value(select stake::StakePool.pending_inactive($t7))), 18446744073709551615))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:613:5+1668
+    assume {:print "$at(3,37318,38986)"} true;
+    assert {:msg "assert_failed(3,37318,38986): abort not covered by any of the `aborts_if` clauses"}
       ((((!$ResourceExists($1_staking_config_StakingConfig_$memory#18, 1) || ($t6 && ((($value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($active#$1_stake_StakePool($t7)) + $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($pending_active#$1_stake_StakePool($t7))) + $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($pending_inactive#$1_stake_StakePool($t7))) > 18446744073709551615))) || !$ResourceExists($1_stake_StakePool_$memory#19, $t0)) || (!$t6 && !$ResourceExists($1_stake_ValidatorSet_$memory#20, 1))) || ((!$t6 && $1_stake_spec_is_current_epoch_validator($1_stake_ValidatorSet_$memory#20, $t0)) && (($value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($active#$1_stake_StakePool($t7)) + $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($pending_inactive#$1_stake_StakePool($t7))) > 18446744073709551615)));
 
-    // abort($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:609:5+1668
+    // abort($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_governance.spec.move:613:5+1668
     $abort_code := $t9;
     $abort_flag := true;
     return;
