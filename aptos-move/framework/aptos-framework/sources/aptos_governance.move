@@ -268,6 +268,14 @@ module aptos_framework::aptos_governance {
             early_resolution_vote_threshold = option::some(total_supply / 2 + 1);
         };
 
+        spec {
+            assert simple_map::spec_len(proposal_metadata) == 2;
+            assert simple_map::spec_contains_key(proposal_metadata, string::spec_utf8(METADATA_LOCATION_KEY)) &&
+                   simple_map::spec_contains_key(proposal_metadata, string::spec_utf8(METADATA_HASH_KEY));
+                //    !simple_map::spec_contains_key(proposal_metadata, string::spec_utf8(voting::IS_MULTI_STEP_PROPOSAL_KEY)) &&
+                //    !simple_map::spec_contains_key(proposal_metadata, string::spec_utf8(voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY));
+        };
+
         let proposal_id = voting::create_proposal_v2(
             proposer_address,
             @aptos_framework,

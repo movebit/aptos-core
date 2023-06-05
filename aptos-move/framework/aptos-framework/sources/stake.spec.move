@@ -248,7 +248,43 @@ spec aptos_framework::stake {
     }
 
     spec add_stake_with_cap {
+        // pragma verify = true;
+        pragma aborts_if_is_strict;
+
         include ResourceRequirement;
+
+        let pool_address = owner_cap.pool_address;
+        aborts_if !exists<StakePool>(pool_address);
+
+        let amount = coins.value;
+        let validator_set = global<ValidatorSet>(@aptos_framework);
+        let config = global<staking_config::StakingConfig>(@aptos_framework);
+        let voting_power_increase_limit = config.voting_power_increase_limit;
+        let post post_validator_set = global<ValidatorSet>(@aptos_framework);
+        let update_voting_power_increase = amount != 0 && (spec_contains(validator_set.active_validators, pool_address)
+                                                          || spec_contains(validator_set.pending_active, pool_address));
+        aborts_if update_voting_power_increase && validator_set.total_joining_power + amount > MAX_U128;
+        ensures update_voting_power_increase ==> post_validator_set.total_joining_power == validator_set.total_joining_power + amount;
+        aborts_if update_voting_power_increase && validator_set.total_voting_power > 0
+                && validator_set.total_voting_power * voting_power_increase_limit > MAX_U128;
+        aborts_if update_voting_power_increase && validator_set.total_voting_power > 0
+                && validator_set.total_joining_power + amount > validator_set.total_voting_power * voting_power_increase_limit / 100;
+
+        let stake_pool = global<StakePool>(pool_address);
+        let post post_stake_pool = global<StakePool>(pool_address);
+        let value_pending_active = stake_pool.pending_active.value;
+        let value_active = stake_pool.active.value;
+        aborts_if amount != 0 && spec_is_current_epoch_validator(pool_address) && value_pending_active + amount > MAX_U64;
+        ensures amount != 0 && spec_is_current_epoch_validator(pool_address) ==> post_stake_pool.pending_active.value == value_pending_active + amount;
+        aborts_if amount != 0 && !spec_is_current_epoch_validator(pool_address) && value_active + amount > MAX_U64;
+        ensures amount != 0 && !spec_is_current_epoch_validator(pool_address) ==> post_stake_pool.active.value == value_active + amount;
+
+        let maximum_stake = config.maximum_stake;
+        let value_pending_inactive = stake_pool.pending_inactive.value;
+        let next_epoch_voting_power = value_pending_active + value_active + value_pending_inactive;
+        let voting_power = next_epoch_voting_power + amount;
+        aborts_if amount != 0 && voting_power > MAX_U64;
+        aborts_if amount != 0 && voting_power > maximum_stake;
     }
 
     spec add_stake {

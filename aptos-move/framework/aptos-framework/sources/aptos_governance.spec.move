@@ -135,7 +135,7 @@ spec aptos_framework::aptos_governance {
         pragma verify = true;
 
         requires chain_status::is_operating();
-        // aborts_if true;
+         aborts_if true;
         // include CreateProposalAbortsIf;
         let proposer_address = signer::address_of(proposer);
         aborts_if !exists<stake::StakePool>(stake_pool);
@@ -178,7 +178,7 @@ spec aptos_framework::aptos_governance {
         aborts_if !string::spec_internal_check_utf8(METADATA_HASH_KEY);
         // let metadata = simple_map::SimpleMap{data: vec<simple_map::Element<String, vector<u8>>>(),}; // failed
         // let metadata = simple_map::create<String, vector<u8>>(); // failed
-        aborts_if METADATA_LOCATION_KEY == METADATA_HASH_KEY; // ?
+        // aborts_if METADATA_LOCATION_KEY == METADATA_HASH_KEY; // ?
 
         /// 263 nofalse
         let addr = aptos_std::type_info::type_of<AptosCoin>().account_address;
@@ -201,16 +201,16 @@ spec aptos_framework::aptos_governance {
         ensures post_next_proposal_id == proposal_id + 1; // ?264
         // 267 can not verify add to_bytes
         aborts_if !string::spec_internal_check_utf8(voting::IS_MULTI_STEP_PROPOSAL_KEY); // 267
-        aborts_if voting::IS_MULTI_STEP_PROPOSAL_KEY == METADATA_LOCATION_KEY || voting::IS_MULTI_STEP_PROPOSAL_KEY == METADATA_HASH_KEY; // ?267
+        // aborts_if voting::IS_MULTI_STEP_PROPOSAL_KEY == METADATA_LOCATION_KEY || voting::IS_MULTI_STEP_PROPOSAL_KEY == METADATA_HASH_KEY; // ?267
         aborts_if !string::spec_internal_check_utf8(voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY); // ?269
-        aborts_if is_multi_step_proposal && (voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY == METADATA_LOCATION_KEY 
-                                           || voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY == METADATA_HASH_KEY 
-                                           || voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY == voting::IS_MULTI_STEP_PROPOSAL_KEY); // ?274
+        // aborts_if is_multi_step_proposal && (voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY == METADATA_LOCATION_KEY 
+        //                                   || voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY == METADATA_HASH_KEY 
+        //                                   || voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY == voting::IS_MULTI_STEP_PROPOSAL_KEY); // ?274
         aborts_if table::spec_contains(voting_forum.proposals,proposal_id); // ?281
         ensures table::spec_contains(post_voting_forum.proposals, proposal_id); // ?281
 
-        /// ?283
-        aborts_if !exists<GovernanceEvents>(@aptos_framework);
+        // /// ?283
+        // aborts_if !exists<GovernanceEvents>(@aptos_framework);
     }
 
     /// `stake_pool` must exist StakePool.
