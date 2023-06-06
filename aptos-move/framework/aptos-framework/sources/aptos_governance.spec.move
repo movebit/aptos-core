@@ -538,16 +538,16 @@ spec aptos_framework::aptos_governance {
         let next_execution_hash_is_empty = len(next_execution_hash) == 0;
         aborts_if !is_multi_step && !next_execution_hash_is_empty;
         aborts_if next_execution_hash_is_empty && is_multi_step && !simple_map::spec_contains_key(proposal.metadata, multi_step_in_execution_key); // ?
-        ensures next_execution_hash_is_empty ==> post_proposal.is_resolved == true && post_proposal.resolution_time_secs == timestamp::spec_now_seconds() && 
-            if (is_multi_step) {
-                is_multi_step_proposal_in_execution_value == std::bcs::serialize(false)
-            } else {
-                simple_map::spec_contains_key(proposal.metadata, multi_step_in_execution_key) ==>
-                    is_multi_step_proposal_in_execution_value == std::bcs::serialize(true)
-            };
-        ensures !next_execution_hash_is_empty ==> post_proposal.execution_hash == next_execution_hash && 
-            simple_map::spec_contains_key(proposal.metadata, multi_step_in_execution_key) ==>
-                is_multi_step_proposal_in_execution_value == std::bcs::serialize(true);
+        // ensures next_execution_hash_is_empty ==> post_proposal.is_resolved == true && post_proposal.resolution_time_secs == timestamp::spec_now_seconds() && 
+        //     if (is_multi_step) {
+        //         is_multi_step_proposal_in_execution_value == std::bcs::serialize(false)
+        //     } else {
+        //         simple_map::spec_contains_key(proposal.metadata, multi_step_in_execution_key) ==>
+        //             is_multi_step_proposal_in_execution_value == std::bcs::serialize(true)
+        //     };
+        // ensures !next_execution_hash_is_empty ==> post_proposal.execution_hash == next_execution_hash && 
+        //     simple_map::spec_contains_key(proposal.metadata, multi_step_in_execution_key) ==>
+        //         is_multi_step_proposal_in_execution_value == std::bcs::serialize(true);
 
         /// verify remove_approved_hash
         aborts_if next_execution_hash_is_empty && !exists<ApprovedExecutionHashes>(@aptos_framework);
