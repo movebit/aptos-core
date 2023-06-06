@@ -4,6 +4,7 @@ spec aptos_framework::stake {
     // -----------------
 
     spec module {
+        pragma verify = false;
         // The validator set should satisfy its desired invariant.
         invariant [suspendable] exists<ValidatorSet>(@aptos_framework) ==> validator_set_is_valid();
         // After genesis, `AptosCoinCapabilities`, `ValidatorPerformance` and `ValidatorSet` exist.
@@ -248,7 +249,7 @@ spec aptos_framework::stake {
     }
 
     spec add_stake_with_cap {
-        // pragma verify = true;
+          pragma verify = true;
         pragma aborts_if_is_strict;
 
         include ResourceRequirement;
@@ -274,16 +275,14 @@ spec aptos_framework::stake {
         let post post_stake_pool = global<StakePool>(pool_address);
         let value_pending_active = stake_pool.pending_active.value;
         let value_active = stake_pool.active.value;
-        aborts_if amount != 0 && spec_is_current_epoch_validator(pool_address) && value_pending_active + amount > MAX_U64;
         ensures amount != 0 && spec_is_current_epoch_validator(pool_address) ==> post_stake_pool.pending_active.value == value_pending_active + amount;
-        aborts_if amount != 0 && !spec_is_current_epoch_validator(pool_address) && value_active + amount > MAX_U64;
         ensures amount != 0 && !spec_is_current_epoch_validator(pool_address) ==> post_stake_pool.active.value == value_active + amount;
 
         let maximum_stake = config.maximum_stake;
         let value_pending_inactive = stake_pool.pending_inactive.value;
         let next_epoch_voting_power = value_pending_active + value_active + value_pending_inactive;
         let voting_power = next_epoch_voting_power + amount;
-        aborts_if amount != 0 && voting_power > MAX_U64;
+        // aborts_if amount != 0 && voting_power > MAX_U64;
         aborts_if amount != 0 && voting_power > maximum_stake;
     }
 

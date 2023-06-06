@@ -121,10 +121,7 @@ spec aptos_framework::voting {
         include AbortsIfNotContainProposalID<ProposalType>;
         // If the proposal is not resolvable, this function aborts.
         
-        // TODO: Find a way to specify when it will abort. The opaque with spec fun doesn't work.
-        // Result: Finished
-        // aborts_if spec_get_proposal_state<ProposalType>(voting_forum_address, proposal_id) != PROPOSAL_STATE_SUCCEEDED;
-        let voting_forum =  global<VotingForum<ProposalType>>(voting_forum_address);
+        let voting_forum = global<VotingForum<ProposalType>>(voting_forum_address);
         let proposal = table::spec_get(voting_forum.proposals, proposal_id);
         let early_resolution_threshold = option::spec_borrow(proposal.early_resolution_vote_threshold);
         let voting_period_over = timestamp::now_seconds() > proposal.expiration_secs;

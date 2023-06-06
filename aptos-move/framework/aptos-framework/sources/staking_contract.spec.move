@@ -78,7 +78,7 @@ spec aptos_framework::staking_contract {
         
         requires exists<stake::ValidatorPerformance>(@aptos_framework);
         requires exists<stake::ValidatorSet>(@aptos_framework);
-        requires exists<staking_config::StakingConfig>(@aptos_framework);
+        // requires exists<staking_config::StakingConfig>(@aptos_framework);
         requires exists<staking_config::StakingRewardsConfig>(@aptos_framework) || !std::features::spec_periodical_reward_rate_decrease_enabled();
         requires exists<stake::ValidatorFees>(@aptos_framework);
         requires exists<aptos_framework::timestamp::CurrentTimeMicroseconds>(@aptos_framework);
@@ -88,7 +88,7 @@ spec aptos_framework::staking_contract {
         aborts_if commission_percentage < 0 || commission_percentage > 100;
 
         /// 269
-        // aborts_if !exists<staking_config::StakingConfig>(@aptos_framework);
+        aborts_if !exists<staking_config::StakingConfig>(@aptos_framework);
         let config = global<staking_config::StakingConfig>(@aptos_framework);
         let min_stake_required = config.minimum_stake;
         let principal = coins.value;
@@ -104,7 +104,7 @@ spec aptos_framework::staking_contract {
         /// 281
         let store = global<Store>(staker_address);
         let staking_contracts = store.staking_contracts;
-        aborts_if simple_map::spec_contains_key(staking_contracts, operator); // ?
+        aborts_if simple_map::spec_contains_key(staking_contracts, operator);
 
         /// 288
         let seed_0 = bcs::to_bytes(staker_address);
@@ -411,6 +411,27 @@ spec aptos_framework::staking_contract {
     ) {
         // TODO: complex aborts conditions in the cycle.
         pragma verify = false;
+        let t = distribution_pool.total_coins != updated_total_coins;
+        let shareholders = distribution_pool.shareholders;
+        let len = len(shareholders);
+        // let shareholder = vector::spec_borrow(shareholders, i);
+        // // let shares = simple_map::spec_get(distribution_pool.shares, shareholder);
+        // let shares = pool_u64::spec_shares(distribution_pool, shareholder);
+        // let previous_worth = pool_u64::spec_shares_to_amount_with_total_coins(distribution_pool, shares, distribution_pool.total_coins);
+        // aborts_if t && distribution_pool.total_coins > 0 && distribution_pool.total_shares > 0
+        //             && (shares * distribution_pool.total_coins) / distribution_pool.total_shares > MAX_U64;
+        // let current_worth = pool_u64::spec_shares_to_amount_with_total_coins(distribution_pool, shares, updated_total_coins);
+        // aborts_if t && distribution_pool.total_coins > 0 && distribution_pool.total_shares > 0
+        //             && (shares * updated_total_coins) / distribution_pool.total_shares > MAX_U64;
+        // let unpaid_commission = (current_worth - previous_worth) * commission_percentage / 100;
+        // aborts_if current_worth - previous_worth <= 0;
+        // aborts_if (current_worth - previous_worth) * commission_percentage / 100 > MAX_U64;
+        // let shares_to_transfer = pool_u64::spec_amount_to_shares_with_total_coins(distribution_pool, unpaid_commission, updated_total_coins);
+        // aborts_if distribution_pool.total_coins > 0 && distribution_pool.total_shares > 0
+        //     && (coins_amount * distribution_pool.total_shares) / unpaid_commission > MAX_U64;
+        // aborts_if (distribution_pool.total_coins == 0 || distribution_pool.total_shares == 0)
+        //     && coins_amount * distribution_pool.scaling_factor > MAX_U64;
+        // aborts_if distribution_pool.total_coins > 0 && distribution_pool.total_shares > 0 && unpaid_commission == 0;
     }
 
     /// The Account exists under the staker.
