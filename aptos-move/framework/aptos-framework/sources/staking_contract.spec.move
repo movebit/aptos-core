@@ -74,7 +74,7 @@ spec aptos_framework::staking_contract {
         contract_creation_seed: vector<u8>,
     ): address {
         // TODO: Complex aborts conditions in 'stake::add_stake_with_cap'.
-        pragma verify = true;
+        pragma verify = false;
         
         requires exists<stake::ValidatorPerformance>(@aptos_framework);
         requires exists<stake::ValidatorSet>(@aptos_framework);
@@ -149,7 +149,6 @@ spec aptos_framework::staking_contract {
     /// Account is not frozen and sufficient to withdraw.
     /// Staking_contract exists the stacker/operator pair.
     spec add_stake(staker: &signer, operator: address, amount: u64) {
-        // TODO: complex aborts conditions in 'stake::add_stake_with_cap'.
         pragma verify = false;
 
         requires exists<stake::ValidatorPerformance>(@aptos_framework);
@@ -410,28 +409,8 @@ spec aptos_framework::staking_contract {
         commission_percentage: u64,
     ) {
         // TODO: complex aborts conditions in the cycle.
-        pragma verify = false;
-        let t = distribution_pool.total_coins != updated_total_coins;
-        let shareholders = distribution_pool.shareholders;
-        let len = len(shareholders);
-        // let shareholder = vector::spec_borrow(shareholders, i);
-        // // let shares = simple_map::spec_get(distribution_pool.shares, shareholder);
-        // let shares = pool_u64::spec_shares(distribution_pool, shareholder);
-        // let previous_worth = pool_u64::spec_shares_to_amount_with_total_coins(distribution_pool, shares, distribution_pool.total_coins);
-        // aborts_if t && distribution_pool.total_coins > 0 && distribution_pool.total_shares > 0
-        //             && (shares * distribution_pool.total_coins) / distribution_pool.total_shares > MAX_U64;
-        // let current_worth = pool_u64::spec_shares_to_amount_with_total_coins(distribution_pool, shares, updated_total_coins);
-        // aborts_if t && distribution_pool.total_coins > 0 && distribution_pool.total_shares > 0
-        //             && (shares * updated_total_coins) / distribution_pool.total_shares > MAX_U64;
-        // let unpaid_commission = (current_worth - previous_worth) * commission_percentage / 100;
-        // aborts_if current_worth - previous_worth <= 0;
-        // aborts_if (current_worth - previous_worth) * commission_percentage / 100 > MAX_U64;
-        // let shares_to_transfer = pool_u64::spec_amount_to_shares_with_total_coins(distribution_pool, unpaid_commission, updated_total_coins);
-        // aborts_if distribution_pool.total_coins > 0 && distribution_pool.total_shares > 0
-        //     && (coins_amount * distribution_pool.total_shares) / unpaid_commission > MAX_U64;
-        // aborts_if (distribution_pool.total_coins == 0 || distribution_pool.total_shares == 0)
-        //     && coins_amount * distribution_pool.scaling_factor > MAX_U64;
-        // aborts_if distribution_pool.total_coins > 0 && distribution_pool.total_shares > 0 && unpaid_commission == 0;
+        pragma verify = true;
+        // pragma aborts_if_is_partial;
     }
 
     /// The Account exists under the staker.

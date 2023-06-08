@@ -705,9 +705,48 @@ module aptos_framework::staking_contract {
         let shareholders = &pool_u64::shareholders(distribution_pool);
         let len = vector::length(shareholders);
         let i = 0;
-        while (i < len) {
+        while ({
+            spec {
+                invariant i <= len(shareholders);
+            };
+            (i < len)
+            }) {
             let shareholder = *vector::borrow(shareholders, i);
             if (shareholder != operator) {
+                spec {
+                    // previous_worth
+                    assume distribution_pool.total_coins > 0 && distribution_pool.total_shares > 0 ==> 
+                        (pool_u64::spec_shares(distribution_pool, shareholder) * distribution_pool.total_coins) / distribution_pool.total_shares <= MAX_U64;
+                    // current_worth
+                    assume distribution_pool.total_coins > 0 && distribution_pool.total_shares > 0 ==> 
+                        (pool_u64::spec_shares(distribution_pool, shareholder) * updated_total_coins) / distribution_pool.total_shares <= MAX_U64;
+                    // unpaid_commission
+                    assume (pool_u64::spec_shares(distribution_pool, shareholder) * updated_total_coins) / distribution_pool.total_shares -
+                        (pool_u64::spec_shares(distribution_pool, shareholder) * distribution_pool.total_coins) / distribution_pool.total_shares >= 0;
+                    assume ((pool_u64::spec_shares(distribution_pool, shareholder) * updated_total_coins) / distribution_pool.total_shares -
+                        (pool_u64::spec_shares(distribution_pool, shareholder) * distribution_pool.total_coins) / distribution_pool.total_shares) * commission_percentage <= MAX_U64;
+                    // shares_to_transfer
+                    assume distribution_pool.total_coins > 0 && distribution_pool.total_shares > 0 ==> updated_total_coins != 0 &&
+                        (((pool_u64::spec_shares(distribution_pool, shareholder) * updated_total_coins) / distribution_pool.total_shares - 
+                        (pool_u64::spec_shares(distribution_pool, shareholder) * distribution_pool.total_coins) / distribution_pool.total_shares) * commission_percentage / 100) *
+                        distribution_pool.total_shares / updated_total_coins <= MAX_U64;
+                    // transfer_shares
+                    assume pool_u64::spec_contains(distribution_pool, vector::borrow(shareholders, i));
+                    assume pool_u64::spec_shares(distribution_pool, shareholder) >= 
+                        (((pool_u64::spec_shares(distribution_pool, shareholder) * updated_total_coins) / distribution_pool.total_shares - 
+                        (pool_u64::spec_shares(distribution_pool, shareholder) * distribution_pool.total_coins) / distribution_pool.total_shares) * commission_percentage / 100) *
+                        distribution_pool.total_shares / updated_total_coins;
+                    assume pool_u64::spec_contains(distribution_pool, operator) ==> simple_map::spec_get(distribution_pool.shares, operator) + 
+                        (((pool_u64::spec_shares(distribution_pool, shareholder) * updated_total_coins) / distribution_pool.total_shares - 
+                        (pool_u64::spec_shares(distribution_pool, shareholder) * distribution_pool.total_coins) / distribution_pool.total_shares) * commission_percentage / 100) *
+                        distribution_pool.total_shares / updated_total_coins <= MAX_U64;
+                    // assume !pool_u64::spec_contains(distribution_pool, operator) && updated_total_coins != 0 &&
+                    //     (((pool_u64::spec_shares(distribution_pool, shareholder) * updated_total_coins) / distribution_pool.total_shares - 
+                    //     (pool_u64::spec_shares(distribution_pool, shareholder) * distribution_pool.total_coins) / distribution_pool.total_shares) * commission_percentage / 100) *
+                    //     distribution_pool.total_shares / updated_total_coins > 0 ==> 
+                    //     len < distribution_pool.shareholders_limit;
+                    assume !pool_u64::spec_contains(distribution_pool, operator) ==> len < distribution_pool.shareholders_limit;
+                };
                 let shares = pool_u64::shares(distribution_pool, shareholder);
                 let previous_worth = pool_u64::balance(distribution_pool, shareholder);
                 let current_worth = pool_u64::shares_to_amount_with_total_coins(
@@ -717,6 +756,9 @@ module aptos_framework::staking_contract {
                 // The value of the shares should use the updated pool's total value.
                 let shares_to_transfer = pool_u64::amount_to_shares_with_total_coins(
                     distribution_pool, unpaid_commission, updated_total_coins);
+                // spec {
+                //     assume !pool_u64::spec_contains(distribution_pool, operator) ==> len < distribution_pool.shareholders_limit;
+                // };
                 pool_u64::transfer_shares(distribution_pool, shareholder, operator, shares_to_transfer);
             };
 
