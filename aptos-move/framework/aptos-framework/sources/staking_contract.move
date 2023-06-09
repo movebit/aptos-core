@@ -703,15 +703,8 @@ module aptos_framework::staking_contract {
         // Charge all stakeholders (except for the operator themselves) commission on any rewards earnt relatively to the
         // previous value of the distribution pool.
         let shareholders = &pool_u64::shareholders(distribution_pool);
-        let len = vector::length(shareholders);
-        let i = 0;
-        while ({
-            spec {
-                invariant i <= len(shareholders);
-            };
-            (i < len)
-            }) {
-            let shareholder = *vector::borrow(shareholders, i);
+        vector::for_each_ref(shareholders, |shareholder| {
+            let shareholder: address = *shareholder;
             if (shareholder != operator) {
                 spec {
                     // previous_worth
@@ -761,9 +754,7 @@ module aptos_framework::staking_contract {
                 // };
                 pool_u64::transfer_shares(distribution_pool, shareholder, operator, shares_to_transfer);
             };
-
-            i = i + 1;
-        };
+        });
 
         pool_u64::update_total_coins(distribution_pool, updated_total_coins);
     }

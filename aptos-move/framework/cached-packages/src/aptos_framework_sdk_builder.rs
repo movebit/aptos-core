@@ -357,9 +357,6 @@ pub enum EntryFunctionCall {
     },
 
     /// Create a multisig transaction, which will have one approval initially (from the creator).
-    ///
-    /// @param target_function The target function to call such as 0x123::module_to_call::function_to_call.
-    /// @param args Vector of BCS-encoded argument values to invoke the target function with.
     MultisigAccountCreateTransaction {
         multisig_account: AccountAddress,
         payload: Vec<u8>,
@@ -368,10 +365,6 @@ pub enum EntryFunctionCall {
     /// Create a multisig transaction with a transaction hash instead of the full payload.
     /// This means the payload will be stored off chain for gas saving. Later, during execution, the executor will need
     /// to provide the full payload, which will be validated against the hash stored on-chain.
-    ///
-    /// @param function_hash The sha-256 hash of the function to invoke, e.g. 0x123::module_to_call::function_to_call.
-    /// @param args_hash The sha-256 hash of the function arguments - a concatenated vector of the bcs-encoded
-    /// function arguments.
     MultisigAccountCreateTransactionWithHash {
         multisig_account: AccountAddress,
         payload_hash: Vec<u8>,
@@ -406,6 +399,17 @@ pub enum EntryFunctionCall {
         metadata_values: Vec<Vec<u8>>,
     },
 
+    /// Like `create_with_owners`, but removes the calling account after creation.
+    ///
+    /// This is for creating a vanity multisig account from a bootstrapping account that should not
+    /// be an owner after the vanity multisig address has been secured.
+    MultisigAccountCreateWithOwnersThenRemoveBootstrapper {
+        owners: Vec<AccountAddress>,
+        num_signatures_required: u64,
+        metadata_keys: Vec<Vec<u8>>,
+        metadata_values: Vec<Vec<u8>>,
+    },
+
     /// Remove the next transaction if it has sufficient owner rejections.
     MultisigAccountExecuteRejectedTransaction {
         multisig_account: AccountAddress,
@@ -433,8 +437,21 @@ pub enum EntryFunctionCall {
         owners_to_remove: Vec<AccountAddress>,
     },
 
-    /// Update the number of signatures required then remove owners, in a single operation.
-    MultisigAccountRemoveOwnersAndUpdateSignaturesRequired {
+    /// Swap an owner in for an old one, without changing required signatures.
+    MultisigAccountSwapOwner {
+        to_swap_in: AccountAddress,
+        to_swap_out: AccountAddress,
+    },
+
+    /// Swap owners in and out, without changing required signatures.
+    MultisigAccountSwapOwners {
+        to_swap_in: Vec<AccountAddress>,
+        to_swap_out: Vec<AccountAddress>,
+    },
+
+    /// Swap owners in and out, updating number of required signatures.
+    MultisigAccountSwapOwnersAndUpdateSignaturesRequired {
+        new_owners: Vec<AccountAddress>,
         owners_to_remove: Vec<AccountAddress>,
         new_num_signatures_required: u64,
     },
@@ -1012,6 +1029,17 @@ impl EntryFunctionCall {
                 metadata_keys,
                 metadata_values,
             ),
+            MultisigAccountCreateWithOwnersThenRemoveBootstrapper {
+                owners,
+                num_signatures_required,
+                metadata_keys,
+                metadata_values,
+            } => multisig_account_create_with_owners_then_remove_bootstrapper(
+                owners,
+                num_signatures_required,
+                metadata_keys,
+                metadata_values,
+            ),
             MultisigAccountExecuteRejectedTransaction { multisig_account } => {
                 multisig_account_execute_rejected_transaction(multisig_account)
             },
@@ -1025,10 +1053,20 @@ impl EntryFunctionCall {
             MultisigAccountRemoveOwners { owners_to_remove } => {
                 multisig_account_remove_owners(owners_to_remove)
             },
-            MultisigAccountRemoveOwnersAndUpdateSignaturesRequired {
+            MultisigAccountSwapOwner {
+                to_swap_in,
+                to_swap_out,
+            } => multisig_account_swap_owner(to_swap_in, to_swap_out),
+            MultisigAccountSwapOwners {
+                to_swap_in,
+                to_swap_out,
+            } => multisig_account_swap_owners(to_swap_in, to_swap_out),
+            MultisigAccountSwapOwnersAndUpdateSignaturesRequired {
+                new_owners,
                 owners_to_remove,
                 new_num_signatures_required,
-            } => multisig_account_remove_owners_and_update_signatures_required(
+            } => multisig_account_swap_owners_and_update_signatures_required(
+                new_owners,
                 owners_to_remove,
                 new_num_signatures_required,
             ),
@@ -2147,9 +2185,6 @@ pub fn multisig_account_create(
 }
 
 /// Create a multisig transaction, which will have one approval initially (from the creator).
-///
-/// @param target_function The target function to call such as 0x123::module_to_call::function_to_call.
-/// @param args Vector of BCS-encoded argument values to invoke the target function with.
 pub fn multisig_account_create_transaction(
     multisig_account: AccountAddress,
     payload: Vec<u8>,
@@ -2174,10 +2209,6 @@ pub fn multisig_account_create_transaction(
 /// Create a multisig transaction with a transaction hash instead of the full payload.
 /// This means the payload will be stored off chain for gas saving. Later, during execution, the executor will need
 /// to provide the full payload, which will be validated against the hash stored on-chain.
-///
-/// @param function_hash The sha-256 hash of the function to invoke, e.g. 0x123::module_to_call::function_to_call.
-/// @param args_hash The sha-256 hash of the function arguments - a concatenated vector of the bcs-encoded
-/// function arguments.
 pub fn multisig_account_create_transaction_with_hash(
     multisig_account: AccountAddress,
     payload_hash: Vec<u8>,
@@ -2268,6 +2299,35 @@ pub fn multisig_account_create_with_owners(
     ))
 }
 
+/// Like `create_with_owners`, but removes the calling account after creation.
+///
+/// This is for creating a vanity multisig account from a bootstrapping account that should not
+/// be an owner after the vanity multisig address has been secured.
+pub fn multisig_account_create_with_owners_then_remove_bootstrapper(
+    owners: Vec<AccountAddress>,
+    num_signatures_required: u64,
+    metadata_keys: Vec<Vec<u8>>,
+    metadata_values: Vec<Vec<u8>>,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("create_with_owners_then_remove_bootstrapper").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&owners).unwrap(),
+            bcs::to_bytes(&num_signatures_required).unwrap(),
+            bcs::to_bytes(&metadata_keys).unwrap(),
+            bcs::to_bytes(&metadata_values).unwrap(),
+        ],
+    ))
+}
+
 /// Remove the next transaction if it has sufficient owner rejections.
 pub fn multisig_account_execute_rejected_transaction(
     multisig_account: AccountAddress,
@@ -2346,8 +2406,53 @@ pub fn multisig_account_remove_owners(owners_to_remove: Vec<AccountAddress>) -> 
     ))
 }
 
-/// Update the number of signatures required then remove owners, in a single operation.
-pub fn multisig_account_remove_owners_and_update_signatures_required(
+/// Swap an owner in for an old one, without changing required signatures.
+pub fn multisig_account_swap_owner(
+    to_swap_in: AccountAddress,
+    to_swap_out: AccountAddress,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("swap_owner").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&to_swap_in).unwrap(),
+            bcs::to_bytes(&to_swap_out).unwrap(),
+        ],
+    ))
+}
+
+/// Swap owners in and out, without changing required signatures.
+pub fn multisig_account_swap_owners(
+    to_swap_in: Vec<AccountAddress>,
+    to_swap_out: Vec<AccountAddress>,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("swap_owners").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&to_swap_in).unwrap(),
+            bcs::to_bytes(&to_swap_out).unwrap(),
+        ],
+    ))
+}
+
+/// Swap owners in and out, updating number of required signatures.
+pub fn multisig_account_swap_owners_and_update_signatures_required(
+    new_owners: Vec<AccountAddress>,
     owners_to_remove: Vec<AccountAddress>,
     new_num_signatures_required: u64,
 ) -> TransactionPayload {
@@ -2359,9 +2464,10 @@ pub fn multisig_account_remove_owners_and_update_signatures_required(
             ]),
             ident_str!("multisig_account").to_owned(),
         ),
-        ident_str!("remove_owners_and_update_signatures_required").to_owned(),
+        ident_str!("swap_owners_and_update_signatures_required").to_owned(),
         vec![],
         vec![
+            bcs::to_bytes(&new_owners).unwrap(),
             bcs::to_bytes(&owners_to_remove).unwrap(),
             bcs::to_bytes(&new_num_signatures_required).unwrap(),
         ],
@@ -4063,6 +4169,23 @@ mod decoder {
         }
     }
 
+    pub fn multisig_account_create_with_owners_then_remove_bootstrapper(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(
+                EntryFunctionCall::MultisigAccountCreateWithOwnersThenRemoveBootstrapper {
+                    owners: bcs::from_bytes(script.args().get(0)?).ok()?,
+                    num_signatures_required: bcs::from_bytes(script.args().get(1)?).ok()?,
+                    metadata_keys: bcs::from_bytes(script.args().get(2)?).ok()?,
+                    metadata_values: bcs::from_bytes(script.args().get(3)?).ok()?,
+                },
+            )
+        } else {
+            None
+        }
+    }
+
     pub fn multisig_account_execute_rejected_transaction(
         payload: &TransactionPayload,
     ) -> Option<EntryFunctionCall> {
@@ -4114,14 +4237,37 @@ mod decoder {
         }
     }
 
-    pub fn multisig_account_remove_owners_and_update_signatures_required(
+    pub fn multisig_account_swap_owner(payload: &TransactionPayload) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::MultisigAccountSwapOwner {
+                to_swap_in: bcs::from_bytes(script.args().get(0)?).ok()?,
+                to_swap_out: bcs::from_bytes(script.args().get(1)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_swap_owners(payload: &TransactionPayload) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::MultisigAccountSwapOwners {
+                to_swap_in: bcs::from_bytes(script.args().get(0)?).ok()?,
+                to_swap_out: bcs::from_bytes(script.args().get(1)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_swap_owners_and_update_signatures_required(
         payload: &TransactionPayload,
     ) -> Option<EntryFunctionCall> {
         if let TransactionPayload::EntryFunction(script) = payload {
             Some(
-                EntryFunctionCall::MultisigAccountRemoveOwnersAndUpdateSignaturesRequired {
-                    owners_to_remove: bcs::from_bytes(script.args().get(0)?).ok()?,
-                    new_num_signatures_required: bcs::from_bytes(script.args().get(1)?).ok()?,
+                EntryFunctionCall::MultisigAccountSwapOwnersAndUpdateSignaturesRequired {
+                    new_owners: bcs::from_bytes(script.args().get(0)?).ok()?,
+                    owners_to_remove: bcs::from_bytes(script.args().get(1)?).ok()?,
+                    new_num_signatures_required: bcs::from_bytes(script.args().get(2)?).ok()?,
                 },
             )
         } else {
@@ -4984,6 +5130,10 @@ static SCRIPT_FUNCTION_DECODER_MAP: once_cell::sync::Lazy<EntryFunctionDecoderMa
             Box::new(decoder::multisig_account_create_with_owners),
         );
         map.insert(
+            "multisig_account_create_with_owners_then_remove_bootstrapper".to_string(),
+            Box::new(decoder::multisig_account_create_with_owners_then_remove_bootstrapper),
+        );
+        map.insert(
             "multisig_account_execute_rejected_transaction".to_string(),
             Box::new(decoder::multisig_account_execute_rejected_transaction),
         );
@@ -5000,8 +5150,16 @@ static SCRIPT_FUNCTION_DECODER_MAP: once_cell::sync::Lazy<EntryFunctionDecoderMa
             Box::new(decoder::multisig_account_remove_owners),
         );
         map.insert(
-            "multisig_account_remove_owners_and_update_signatures_required".to_string(),
-            Box::new(decoder::multisig_account_remove_owners_and_update_signatures_required),
+            "multisig_account_swap_owner".to_string(),
+            Box::new(decoder::multisig_account_swap_owner),
+        );
+        map.insert(
+            "multisig_account_swap_owners".to_string(),
+            Box::new(decoder::multisig_account_swap_owners),
+        );
+        map.insert(
+            "multisig_account_swap_owners_and_update_signatures_required".to_string(),
+            Box::new(decoder::multisig_account_swap_owners_and_update_signatures_required),
         );
         map.insert(
             "multisig_account_update_metadata".to_string(),

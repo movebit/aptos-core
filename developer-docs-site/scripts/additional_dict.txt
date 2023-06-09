@@ -43,6 +43,7 @@ CPU
 CPUs
 ChainID
 Clippy
+CodeBlock
 CoinStore
 CoinType
 CollectionData
@@ -71,6 +72,7 @@ DoS
 DocGen
 delegator
 delegators
+deletable
 dropdown
 EACCOUNT
 EALREADY
@@ -103,6 +105,7 @@ EWITHDRAW
 EWRONG
 EZERO
 Eg
+Enqueue
 EntryFunction
 EntryFunctionPayload
 Enums
@@ -243,6 +246,7 @@ TokenClient
 TokenData
 TokenStore
 TokenTransfers
+TokenV
 TransactionBuilder
 TransactionBuilderABI
 TransactionFee
@@ -347,6 +351,8 @@ doesnt
 dr
 eg
 endian
+enqueue
+enqueued
 entrancy
 enum
 enums
