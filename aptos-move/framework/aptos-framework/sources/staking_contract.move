@@ -740,12 +740,12 @@ module aptos_framework::staking_contract {
                         (((pool_u64::spec_shares(distribution_pool, shareholder) * updated_total_coins) / distribution_pool.total_shares - 
                         (pool_u64::spec_shares(distribution_pool, shareholder) * distribution_pool.total_coins) / distribution_pool.total_shares) * commission_percentage / 100) *
                         distribution_pool.total_shares / updated_total_coins <= MAX_U64;
-                    // assume !pool_u64::spec_contains(distribution_pool, operator) && updated_total_coins != 0 &&
-                    //     (((pool_u64::spec_shares(distribution_pool, shareholder) * updated_total_coins) / distribution_pool.total_shares - 
-                    //     (pool_u64::spec_shares(distribution_pool, shareholder) * distribution_pool.total_coins) / distribution_pool.total_shares) * commission_percentage / 100) *
-                    //     distribution_pool.total_shares / updated_total_coins > 0 ==> 
-                    //     len < distribution_pool.shareholders_limit;
-                    assume !pool_u64::spec_contains(distribution_pool, operator) ==> len < distribution_pool.shareholders_limit;
+                    assume !pool_u64::spec_contains(distribution_pool, operator) && distribution_pool.total_coins > 0 && distribution_pool.total_shares > 0 && updated_total_coins != 0 &&
+                        (((pool_u64::spec_shares(distribution_pool, shareholder) * updated_total_coins) / distribution_pool.total_shares - 
+                        (pool_u64::spec_shares(distribution_pool, shareholder) * distribution_pool.total_coins) / distribution_pool.total_shares) * commission_percentage / 100) *
+                        distribution_pool.total_shares / updated_total_coins > 0 ==> 
+                        len < distribution_pool.shareholders_limit;
+                    // assume !pool_u64::spec_contains(distribution_pool, operator) ==> len < distribution_pool.shareholders_limit;
                 };
                 let shares = pool_u64::shares(distribution_pool, shareholder);
                 let previous_worth = pool_u64::balance(distribution_pool, shareholder);

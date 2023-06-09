@@ -6691,8 +6691,8 @@ L1:
 
 }
 
-// fun staking_contract::update_distribution_pool [verification] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:692:5+5876
-procedure {:timeLimit 200} $1_staking_contract_update_distribution_pool$verify(_$t0: $Mutation ($1_pool_u64_Pool), _$t1: int, _$t2: int, _$t3: int) returns ($ret0: $Mutation ($1_pool_u64_Pool))
+// fun staking_contract::update_distribution_pool [verification] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:692:5+5939
+procedure {:timeLimit 2000} $1_staking_contract_update_distribution_pool$verify(_$t0: $Mutation ($1_pool_u64_Pool), _$t1: int, _$t2: int, _$t3: int) returns ($ret0: $Mutation ($1_pool_u64_Pool))
 {
     // declare local variables
     var $t4: Vec (int);
@@ -7025,11 +7025,11 @@ L7:
     assume {:print "$at(2,34136,34137)"} true;
     call $t27 := $Lt($t11, $t25);
 
-    // if ($t27) goto L3 else goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:708:9+5104
-    assume {:print "$at(2,34028,39132)"} true;
+    // if ($t27) goto L3 else goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:708:9+5167
+    assume {:print "$at(2,34028,39195)"} true;
     if ($t27) { goto L3; } else { goto L2; }
 
-    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:708:9+5104
+    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:708:9+5167
 L3:
 
     // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:714:47+12
@@ -7053,11 +7053,11 @@ L4:
     assume {:print "$at(2,34252,34254)"} true;
     $t29 := !$IsEqual'address'($t28, $t2);
 
-    // if ($t29) goto L6 else goto L11 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:715:13+4861
+    // if ($t29) goto L6 else goto L11 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:715:13+4924
     if ($t29) { goto L6; } else { goto L11; }
 
-    // label L6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:716:17+3753
-    assume {:print "$at(2,34283,38036)"} true;
+    // label L6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:716:17+3816
+    assume {:print "$at(2,34283,38099)"} true;
 L6:
 
     // assume Implies(And(Gt(select pool_u64::Pool.total_coins($t0), 0), Gt(select pool_u64::Pool.total_shares($t0), 0)), Le(Div(Mul(pool_u64::spec_shares($t0, $t28), select pool_u64::Pool.total_coins($t0)), select pool_u64::Pool.total_shares($t0)), 18446744073709551615)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:718:21+240
@@ -7092,18 +7092,18 @@ L6:
     assume {:print "$at(2,36758,37289)"} true;
     assume ($1_pool_u64_spec_contains($Dereference($t0), $t2) ==> (($1_simple_map_spec_get'address_u64'($shares#$1_pool_u64_Pool($Dereference($t0)), $t2) + ((((((($1_pool_u64_spec_shares($Dereference($t0), $t28) * $t1) div $total_shares#$1_pool_u64_Pool($Dereference($t0))) - (($1_pool_u64_spec_shares($Dereference($t0), $t28) * $total_coins#$1_pool_u64_Pool($Dereference($t0))) div $total_shares#$1_pool_u64_Pool($Dereference($t0)))) * $t3) div 100) * $total_shares#$1_pool_u64_Pool($Dereference($t0))) div $t1)) <= 18446744073709551615));
 
-    // assume Implies(Not(pool_u64::spec_contains($t0, $t2)), Lt($t25, select pool_u64::Pool.shareholders_limit($t0))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:748:21+108
-    assume {:print "$at(2,37910,38018)"} true;
-    assume (!$1_pool_u64_spec_contains($Dereference($t0), $t2) ==> ($t25 < $shareholders_limit#$1_pool_u64_Pool($Dereference($t0))));
+    // assume Implies(And(And(And(And(Not(pool_u64::spec_contains($t0, $t2)), Gt(select pool_u64::Pool.total_coins($t0), 0)), Gt(select pool_u64::Pool.total_shares($t0), 0)), Neq<u64>($t1, 0)), Gt(Div(Mul(Div(Mul(Sub(Div(Mul(pool_u64::spec_shares($t0, $t28), $t1), select pool_u64::Pool.total_shares($t0)), Div(Mul(pool_u64::spec_shares($t0, $t28), select pool_u64::Pool.total_coins($t0)), select pool_u64::Pool.total_shares($t0))), $t3), 100), select pool_u64::Pool.total_shares($t0)), $t1), 0)), Lt($t25, select pool_u64::Pool.shareholders_limit($t0))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:743:21+639
+    assume {:print "$at(2,37310,37949)"} true;
+    assume (((((!$1_pool_u64_spec_contains($Dereference($t0), $t2) && ($total_coins#$1_pool_u64_Pool($Dereference($t0)) > 0)) && ($total_shares#$1_pool_u64_Pool($Dereference($t0)) > 0)) && !$IsEqual'u64'($t1, 0)) && (((((((($1_pool_u64_spec_shares($Dereference($t0), $t28) * $t1) div $total_shares#$1_pool_u64_Pool($Dereference($t0))) - (($1_pool_u64_spec_shares($Dereference($t0), $t28) * $total_coins#$1_pool_u64_Pool($Dereference($t0))) div $total_shares#$1_pool_u64_Pool($Dereference($t0)))) * $t3) div 100) * $total_shares#$1_pool_u64_Pool($Dereference($t0))) div $t1) > 0)) ==> ($t25 < $shareholders_limit#$1_pool_u64_Pool($Dereference($t0))));
 
     // $t30 := read_ref($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:750:46+32
-    assume {:print "$at(2,38083,38115)"} true;
+    assume {:print "$at(2,38146,38178)"} true;
     $t30 := $Dereference($t0);
 
     // $t31 := pool_u64::shares($t30, $t28) on_abort goto L10 with $t21 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:750:30+48
     call $t31 := $1_pool_u64_shares($t30, $t28);
     if ($abort_flag) {
-        assume {:print "$at(2,38067,38115)"} true;
+        assume {:print "$at(2,38130,38178)"} true;
         $t21 := $abort_code;
         assume {:print "$track_abort(56,24):", $t21} $t21 == $t21;
         goto L10;
@@ -7113,7 +7113,7 @@ L6:
     assume {:print "$track_local(56,24,16):", $t31} $t31 == $t31;
 
     // $t32 := read_ref($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:751:55+32
-    assume {:print "$at(2,38171,38203)"} true;
+    assume {:print "$at(2,38234,38266)"} true;
     $t32 := $Dereference($t0);
 
     // assume Identical($t44, pool_u64::spec_shares($t32, $t28)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/pool_u64.spec.move:53:9+44
@@ -7125,10 +7125,10 @@ L6:
     assume ($t45 == $total_coins#$1_pool_u64_Pool($t32));
 
     // $t33 := pool_u64::balance($t32, $t28) on_abort goto L10 with $t21 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:751:38+49
-    assume {:print "$at(2,38154,38203)"} true;
+    assume {:print "$at(2,38217,38266)"} true;
     call $t33 := $1_pool_u64_balance($t32, $t28);
     if ($abort_flag) {
-        assume {:print "$at(2,38154,38203)"} true;
+        assume {:print "$at(2,38217,38266)"} true;
         $t21 := $abort_code;
         assume {:print "$track_abort(56,24):", $t21} $t21 == $t21;
         goto L10;
@@ -7138,23 +7138,23 @@ L6:
     assume {:print "$track_local(56,24,13):", $t33} $t33 == $t33;
 
     // $t34 := read_ref($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:752:80+69
-    assume {:print "$at(2,38284,38353)"} true;
+    assume {:print "$at(2,38347,38416)"} true;
     $t34 := $Dereference($t0);
 
     // $t35 := pool_u64::shares_to_amount_with_total_coins($t34, $t31, $t1) on_abort goto L10 with $t21 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:752:37+112
     call $t35 := $1_pool_u64_shares_to_amount_with_total_coins($t34, $t31, $t1);
     if ($abort_flag) {
-        assume {:print "$at(2,38241,38353)"} true;
+        assume {:print "$at(2,38304,38416)"} true;
         $t21 := $abort_code;
         assume {:print "$track_abort(56,24):", $t21} $t21 == $t21;
         goto L10;
     }
 
     // $t36 := -($t35, $t33) on_abort goto L10 with $t21 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:754:56+1
-    assume {:print "$at(2,38410,38411)"} true;
+    assume {:print "$at(2,38473,38474)"} true;
     call $t36 := $Sub($t35, $t33);
     if ($abort_flag) {
-        assume {:print "$at(2,38410,38411)"} true;
+        assume {:print "$at(2,38473,38474)"} true;
         $t21 := $abort_code;
         assume {:print "$track_abort(56,24):", $t21} $t21 == $t21;
         goto L10;
@@ -7163,7 +7163,7 @@ L6:
     // $t37 := *($t36, $t3) on_abort goto L10 with $t21 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:754:74+1
     call $t37 := $MulU64($t36, $t3);
     if ($abort_flag) {
-        assume {:print "$at(2,38428,38429)"} true;
+        assume {:print "$at(2,38491,38492)"} true;
         $t21 := $abort_code;
         assume {:print "$track_abort(56,24):", $t21} $t21 == $t21;
         goto L10;
@@ -7176,7 +7176,7 @@ L6:
     // $t39 := /($t37, $t38) on_abort goto L10 with $t21 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:754:98+1
     call $t39 := $Div($t37, $t38);
     if ($abort_flag) {
-        assume {:print "$at(2,38452,38453)"} true;
+        assume {:print "$at(2,38515,38516)"} true;
         $t21 := $abort_code;
         assume {:print "$track_abort(56,24):", $t21} $t21 == $t21;
         goto L10;
@@ -7186,13 +7186,13 @@ L6:
     assume {:print "$track_local(56,24,18):", $t39} $t39 == $t39;
 
     // $t40 := read_ref($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:757:85+80
-    assume {:print "$at(2,38717,38797)"} true;
+    assume {:print "$at(2,38780,38860)"} true;
     $t40 := $Dereference($t0);
 
     // $t41 := pool_u64::amount_to_shares_with_total_coins($t40, $t39, $t1) on_abort goto L10 with $t21 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:757:42+123
     call $t41 := $1_pool_u64_amount_to_shares_with_total_coins($t40, $t39, $t1);
     if ($abort_flag) {
-        assume {:print "$at(2,38674,38797)"} true;
+        assume {:print "$at(2,38737,38860)"} true;
         $t21 := $abort_code;
         assume {:print "$track_abort(56,24):", $t21} $t21 == $t21;
         goto L10;
@@ -7202,28 +7202,28 @@ L6:
     assume {:print "$track_local(56,24,17):", $t41} $t41 == $t41;
 
     // pool_u64::transfer_shares($t0, $t28, $t2, $t41) on_abort goto L10 with $t21 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:762:17+87
-    assume {:print "$at(2,38995,39082)"} true;
+    assume {:print "$at(2,39058,39145)"} true;
     call $t0 := $1_pool_u64_transfer_shares($t0, $t28, $t2, $t41);
     if ($abort_flag) {
-        assume {:print "$at(2,38995,39082)"} true;
+        assume {:print "$at(2,39058,39145)"} true;
         $t21 := $abort_code;
         assume {:print "$track_abort(56,24):", $t21} $t21 == $t21;
         goto L10;
     }
 
     // label L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:765:17+1
-    assume {:print "$at(2,39116,39117)"} true;
+    assume {:print "$at(2,39179,39180)"} true;
 L5:
 
     // $t42 := 1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:765:21+1
-    assume {:print "$at(2,39120,39121)"} true;
+    assume {:print "$at(2,39183,39184)"} true;
     $t42 := 1;
     assume $IsValid'u64'($t42);
 
     // $t43 := +($t11, $t42) on_abort goto L10 with $t21 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:765:19+1
     call $t43 := $AddU64($t11, $t42);
     if ($abort_flag) {
-        assume {:print "$at(2,39118,39119)"} true;
+        assume {:print "$at(2,39181,39182)"} true;
         $t21 := $abort_code;
         assume {:print "$track_abort(56,24):", $t21} $t21 == $t21;
         goto L10;
@@ -7236,14 +7236,14 @@ L5:
     goto L8;
 
     // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:768:9+68
-    assume {:print "$at(2,39143,39211)"} true;
+    assume {:print "$at(2,39206,39274)"} true;
 L2:
 
     // pool_u64::update_total_coins($t0, $t1) on_abort goto L10 with $t21 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:768:9+68
-    assume {:print "$at(2,39143,39211)"} true;
+    assume {:print "$at(2,39206,39274)"} true;
     call $t0 := $1_pool_u64_update_total_coins($t0, $t1);
     if ($abort_flag) {
-        assume {:print "$at(2,39143,39211)"} true;
+        assume {:print "$at(2,39206,39274)"} true;
         $t21 := $abort_code;
         assume {:print "$track_abort(56,24):", $t21} $t21 == $t21;
         goto L10;
@@ -7268,7 +7268,7 @@ L2:
     (($IsEqual'address'(ReadVec($shareholders#$1_pool_u64_Pool($Dereference($t0)), i), ReadVec($shareholders#$1_pool_u64_Pool($Dereference($t0)), j)) ==> $IsEqual'num'(i, j))))))));
 
     // goto L9 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:768:77+1
-    assume {:print "$at(2,39211,39212)"} true;
+    assume {:print "$at(2,39274,39275)"} true;
     goto L9;
 
     // label L8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:768:9+68
@@ -7285,12 +7285,12 @@ L8:
     return;
 
     // label L9 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:769:5+1
-    assume {:print "$at(2,39217,39218)"} true;
+    assume {:print "$at(2,39280,39281)"} true;
 L9:
 
     // assert Not(false) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:769:5+1
-    assume {:print "$at(2,39217,39218)"} true;
-    assert {:msg "assert_failed(2,39217,39218): function does not abort under this condition"}
+    assume {:print "$at(2,39280,39281)"} true;
+    assert {:msg "assert_failed(2,39280,39281): function does not abort under this condition"}
       !false;
 
     // return () at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:769:5+1
