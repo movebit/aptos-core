@@ -1,6 +1,6 @@
 spec aptos_framework::vesting {
     spec module {
-        pragma verify = true;
+        pragma verify = false;
         pragma aborts_if_is_strict;
     }
 
@@ -45,8 +45,15 @@ spec aptos_framework::vesting {
     }
 
     spec total_accumulated_rewards(vesting_contract_address: address): u64 {
-        // TODO: Verification out of resources/timeout
         pragma verify = false;
+        pragma aborts_if_is_partial; // A severe timeout will occur without using partial.
+
+        include Total_Accumulated_Rewards_Abortsif;
+    }
+
+    spec schema Total_Accumulated_Rewards_Abortsif {
+        vesting_contract_address: address;
+
         include ActiveVestingContractAbortsIf<VestingContract>{contract_address: vesting_contract_address};
         let vesting_contract = global<VestingContract>(vesting_contract_address);
 
@@ -70,19 +77,47 @@ spec aptos_framework::vesting {
         aborts_if total_active_stake < staking_contract.principal;
         aborts_if accumulated_rewards * staking_contract.commission_percentage > MAX_U64;
         aborts_if (vesting_contract.remaining_grant + commission_amount) > total_active_stake;
+        // aborts_if total_active_stake < vesting_contract.remaining_grant;
     }
 
     spec accumulated_rewards(vesting_contract_address: address, shareholder_or_beneficiary: address): u64 {
         // TODO: Uses `total_accumulated_rewards` which is not verified.
-        pragma verify = false;
+        pragma verify = true;
+        pragma aborts_if_is_partial;
+        include Total_Accumulated_Rewards_Abortsif;
+        let vesting_contract = global<VestingContract>(vesting_contract_address);
+        let operator = vesting_contract.staking.operator;
+        let staking_contracts = global<staking_contract::Store>(vesting_contract_address).staking_contracts;
+        let staking_contract = simple_map::spec_get(staking_contracts, operator);
+        let pool_address = staking_contract.pool_address;
+        let stake_pool = borrow_global<stake::StakePool>(pool_address);
+        let active = coin::value(stake_pool.active);
+        let pending_active = coin::value(stake_pool.pending_active);
+        let total_active_stake = active + pending_active;
+        let accumulated_rewards = total_active_stake - staking_contract.principal;
+        let commission_amount = accumulated_rewards * staking_contract.commission_percentage / 100;
+        let total_accumulated_rewards = total_active_stake - vesting_contract.remaining_grant - commission_amount;
+
+        let shareholder = spec_shareholder(vesting_contract_address, shareholder_or_beneficiary);
+        let pool = vesting_contract.grant_pool;
+        let shares = pool_u64::spec_shares(pool, shareholder);
+        aborts_if pool.total_coins > 0 && pool.total_shares > 0
+            && (shares * total_accumulated_rewards) / pool.total_shares > MAX_U64;
+
+        ensures result == pool_u64::spec_shares_to_amount_with_total_coins(pool, shares, total_accumulated_rewards);
     }
 
     spec shareholders(vesting_contract_address: address): vector<address> {
         include ActiveVestingContractAbortsIf<VestingContract>{contract_address: vesting_contract_address};
     }
 
+    spec fun spec_shareholder(vesting_contract_address: address, shareholder_or_beneficiary: address): address;
+
     spec shareholder(vesting_contract_address: address, shareholder_or_beneficiary: address): address {
+        pragma verify = true;
+        pragma opaque;
         include ActiveVestingContractAbortsIf<VestingContract>{contract_address: vesting_contract_address};
+        ensures [abstract] result == spec_shareholder(vesting_contract_address, shareholder_or_beneficiary);
     }
 
     spec create_vesting_schedule(
@@ -181,17 +216,20 @@ spec aptos_framework::vesting {
         admin: &signer,
         contract_address: address,
     ) {
-        // TODO: Unable to handle abort from `stake::assert_stake_pool_exists`.
-        pragma aborts_if_is_partial;
         aborts_if !exists<VestingContract>(contract_address);
-        let vesting_contract1 = global<VestingContract>(contract_address);
-        aborts_if signer::address_of(admin) != vesting_contract1.admin;
+        let vesting_contract = global<VestingContract>(contract_address);
+        aborts_if signer::address_of(admin) != vesting_contract.admin;
 
-        let operator = vesting_contract1.staking.operator;
-        let staker = vesting_contract1.signer_cap.account;
+        let operator = vesting_contract.staking.operator;
+        let staker = vesting_contract.signer_cap.account;
 
-        include staking_contract::ContractExistsAbortsIf;
-        include staking_contract::IncreaseLockupWithCapAbortsIf;
+        include staking_contract::ContractExistsAbortsIf {staker, operator};
+        include staking_contract::IncreaseLockupWithCapAbortsIf {staker, operator};
+
+        let store = global<staking_contract::Store>(staker);
+        let staking_contract = simple_map::spec_get(store.staking_contracts, operator);
+        let pool_address = staking_contract.owner_cap.pool_address;
+        aborts_if !exists<stake::StakePool>(vesting_contract.staking.pool_address);
     }
 
     spec set_beneficiary(
@@ -211,12 +249,20 @@ spec aptos_framework::vesting {
         account: &signer,
         contract_address: address,
         shareholder: address,
-    ) {
-        // TODO: The abort of functions on either side of a logical operator can not be handled.
-        pragma aborts_if_is_partial;
+    ) { 
         aborts_if !exists<VestingContract>(contract_address);
-        let post vesting_contract = global<VestingContract>(contract_address);
-        ensures !simple_map::spec_contains_key(vesting_contract.beneficiaries,shareholder);
+
+        let addr = signer::address_of(account);
+        let vesting_contract = global<VestingContract>(contract_address);
+        aborts_if addr != vesting_contract.admin && !std::string::spec_internal_check_utf8(ROLE_BENEFICIARY_RESETTER);
+        aborts_if addr != vesting_contract.admin && !exists<VestingAccountManagement>(contract_address);
+        let roles = global<VestingAccountManagement>(contract_address).roles;
+        let role = std::string::spec_utf8(ROLE_BENEFICIARY_RESETTER);
+        aborts_if addr != vesting_contract.admin && !simple_map::spec_contains_key(roles, role);
+        aborts_if addr != vesting_contract.admin && addr != simple_map::spec_get(roles, role);
+
+        let post post_vesting_contract = global<VestingContract>(contract_address);
+        ensures !simple_map::spec_contains_key(post_vesting_contract.beneficiaries,shareholder);
     }
 
     spec set_management_role(

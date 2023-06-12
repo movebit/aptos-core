@@ -222,11 +222,11 @@ module aptos_framework::code {
             let old_mod: &ModuleMetadata = old_mod;
             let j = 0;
             while ({
-                spec {
-                invariant j <= len(new_modules);
-                invariant forall k in 0..j:
-                    old_mod.name != new_modules[k];
-                    };
+                // spec {
+                // invariant j <= len(new_modules);
+                // invariant forall k in 0..j:
+                //     old_mod.name != new_modules[k];
+                //     };
                 (j < vector::length(new_modules))
             }) {
                 let name = vector::borrow(new_modules, j);

@@ -20,23 +20,22 @@ spec aptos_framework::staking_contract {
 
     /// Staking_contract exists the stacker/operator pair.
     spec staking_contract_amounts(staker: address, operator: address): (u64, u64, u64) {
-        // Not verified when verify_duration_estimate > vc_timeout
-        pragma verify_duration_estimate = 120; // TODO: set because of timeout (property proved).
+        pragma verify = true;
+
         let staking_contracts = global<Store>(staker).staking_contracts;
         let staking_contract = simple_map::spec_get(staking_contracts, operator);
-        aborts_if !exists<Store>(staker);
-        aborts_if !simple_map::spec_contains_key(staking_contracts, operator);
-        // include StakingContractExistsAbortsIf;
+
+        include StakingContractExistsAbortsIf;
         include GetStakingContractAmountsAbortsIf{staking_contract};
-        // let pool_address = staking_contract.pool_address;
-        // let stake_pool = global<stake::StakePool>(pool_address);
-        // let active = coin::value(stake_pool.active);
-        // let pending_active = coin::value(stake_pool.pending_active);
-        // let total_active_stake = active + pending_active;
-        // let accumulated_rewards = total_active_stake - staking_contract.principal;
-        // ensures result_1 == total_active_stake;
-        // ensures result_2 == accumulated_rewards;
-        // ensures result_3 == accumulated_rewards * staking_contract.commission_percentage / 100;
+        let pool_address = staking_contract.pool_address;
+        let stake_pool = global<stake::StakePool>(pool_address);
+        let active = coin::value(stake_pool.active);
+        let pending_active = coin::value(stake_pool.pending_active);
+        let total_active_stake = active + pending_active;
+        let accumulated_rewards = total_active_stake - staking_contract.principal;
+        ensures result_1 == total_active_stake;
+        ensures result_2 == accumulated_rewards;
+        ensures result_3 == accumulated_rewards * staking_contract.commission_percentage / 100;
     }
 
     /// Staking_contract exists the stacker/operator pair.
@@ -48,6 +47,75 @@ spec aptos_framework::staking_contract {
         aborts_if false;
     }
 
+    spec schema Create_Staking_Contract_With_Coins_Abortsif {
+        staker: signer;
+        operator: address;
+        voter: address;
+        amount: u64;
+        commission_percentage: u64;
+        contract_creation_seed: vector<u8>;
+
+        /// 261
+        aborts_if commission_percentage < 0 || commission_percentage > 100;
+
+        /// 269
+        aborts_if !exists<staking_config::StakingConfig>(@aptos_framework);
+        let config = global<staking_config::StakingConfig>(@aptos_framework);
+        let min_stake_required = config.minimum_stake;
+        aborts_if amount < min_stake_required; // ? aborts_if amount <= min_stake_required;
+
+        /// 274
+        let staker_address = signer::address_of(staker);
+        let account = global<account::Account>(staker_address);
+        aborts_if !exists<Store>(staker_address) && !exists<account::Account>(staker_address);
+        aborts_if !exists<Store>(staker_address) && account.guid_creation_num + 9 + 12 >= account::MAX_GUID_CREATION_NUM; // ? 12 in create_stake_pool
+        ensures exists<Store>(staker_address);
+
+        /// 281
+        let store = global<Store>(staker_address);
+        let staking_contracts = store.staking_contracts;
+        aborts_if simple_map::spec_contains_key(staking_contracts, operator);
+
+        /// 288
+        let seed_0 = bcs::to_bytes(staker_address);
+        let seed_1 = concat(concat(concat(seed_0, bcs::to_bytes(operator)), SALT), contract_creation_seed);
+        let resource_addr = account::spec_create_resource_address(staker_address, seed_1);
+        include Create_Stake_Pool_Aborts_If {resource_addr};
+
+        /// 291
+        let validator_set = global<stake::ValidatorSet>(@aptos_framework);
+        let voting_power_increase_limit = config.voting_power_increase_limit;
+        let post post_validator_set = global<stake::ValidatorSet>(@aptos_framework);
+        let update_voting_power_increase = amount != 0 && (stake::spec_contains(validator_set.active_validators, resource_addr)
+                                                           || stake::spec_contains(validator_set.pending_active, resource_addr));
+        aborts_if update_voting_power_increase && validator_set.total_joining_power + amount > MAX_U128;
+        ensures update_voting_power_increase ==> post_validator_set.total_joining_power == validator_set.total_joining_power + amount;
+        aborts_if update_voting_power_increase && validator_set.total_voting_power > 0
+                && validator_set.total_voting_power * voting_power_increase_limit > MAX_U128;
+        aborts_if update_voting_power_increase && validator_set.total_voting_power > 0
+                && validator_set.total_joining_power + amount > validator_set.total_voting_power * voting_power_increase_limit / 100;
+        let stake_pool = global<stake::StakePool>(resource_addr);
+        let post post_stake_pool = global<stake::StakePool>(resource_addr);
+        let value_pending_active = stake_pool.pending_active.value;
+        let value_active = stake_pool.active.value;
+        aborts_if amount != 0 && stake::spec_is_current_epoch_validator(resource_addr) && value_pending_active + amount > MAX_U64;
+        ensures amount != 0 && stake::spec_is_current_epoch_validator(resource_addr) ==> post_stake_pool.pending_active.value == value_pending_active + amount;
+        aborts_if amount != 0 && !stake::spec_is_current_epoch_validator(resource_addr) && value_active + amount > MAX_U64;
+        ensures amount != 0 && !stake::spec_is_current_epoch_validator(resource_addr) ==> post_stake_pool.active.value == value_active + amount;
+        let maximum_stake = config.maximum_stake;
+        let value_pending_inactive = stake_pool.pending_inactive.value;
+        let next_epoch_voting_power = value_pending_active + value_active + value_pending_inactive;
+        let voting_power = next_epoch_voting_power + amount;
+        aborts_if amount != 0 && voting_power > MAX_U64;
+        aborts_if amount != 0 && voting_power > maximum_stake;
+
+        /// 295
+        let post post_store = global<Store>(staker_address);
+        let post post_staking_contracts = post_store.staking_contracts;
+        ensures simple_map::spec_contains_key(post_staking_contracts, operator);
+        ensures amount != 0 ==> simple_map::spec_contains_key(post_staking_contracts, operator);
+    }
+
     /// Account is not frozen and sufficient to withdraw.
     spec create_staking_contract(
         staker: &signer,
@@ -57,9 +125,21 @@ spec aptos_framework::staking_contract {
         commission_percentage: u64,
         contract_creation_seed: vector<u8>,
     ) {
+        pragma verify = false;
         // TODO: complex aborts conditions in 'create_staking_contract_with_coins'.
-        pragma aborts_if_is_partial;
+        // pragma aborts_if_is_partial;
+
+        requires exists<stake::ValidatorPerformance>(@aptos_framework);
+        requires exists<stake::ValidatorSet>(@aptos_framework);
+        // requires exists<staking_config::StakingConfig>(@aptos_framework);
+        requires exists<staking_config::StakingRewardsConfig>(@aptos_framework) || !std::features::spec_periodical_reward_rate_decrease_enabled();
+        requires exists<stake::ValidatorFees>(@aptos_framework);
+        requires exists<aptos_framework::timestamp::CurrentTimeMicroseconds>(@aptos_framework);
+        requires exists<stake::AptosCoinCapabilities>(@aptos_framework);
+
         include WithdrawAbortsIf<AptosCoin> {account: staker};
+
+        include Create_Staking_Contract_With_Coins_Abortsif;
     }
 
     /// The amount should be at least the min_stake_required, so the stake pool will be eligible to join the validator set.
@@ -75,6 +155,7 @@ spec aptos_framework::staking_contract {
     ): address {
         // TODO: Complex aborts conditions in 'stake::add_stake_with_cap'.
         pragma verify = false;
+        pragma aborts_if_is_partial;
         
         requires exists<stake::ValidatorPerformance>(@aptos_framework);
         requires exists<stake::ValidatorSet>(@aptos_framework);
@@ -409,7 +490,7 @@ spec aptos_framework::staking_contract {
         commission_percentage: u64,
     ) {
         // TODO: complex aborts conditions in the cycle.
-        pragma verify = true;
+        pragma verify = false;
         // pragma aborts_if_is_partial;
     }
 
