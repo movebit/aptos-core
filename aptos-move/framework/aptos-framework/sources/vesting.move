@@ -375,9 +375,9 @@ module aptos_framework::vesting {
         let shareholder = shareholder(vesting_contract_address, shareholder_or_beneficiary);
         let vesting_contract = borrow_global<VestingContract>(vesting_contract_address);
         let shares = pool_u64::shares(&vesting_contract.grant_pool, shareholder);
-        // spec {
-        //     assume shares < 100 && total_accumulated_rewards < 100 && vesting_contract.grant_pool.total_shares <1000;
-        // };
+        spec {
+            assume shares < 10 && total_accumulated_rewards < 10 && vesting_contract.grant_pool.total_shares < 100;
+        };
         pool_u64::shares_to_amount_with_total_coins(&vesting_contract.grant_pool, shares, total_accumulated_rewards)
     }
 

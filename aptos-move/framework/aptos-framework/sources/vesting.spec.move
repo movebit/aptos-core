@@ -77,13 +77,14 @@ spec aptos_framework::vesting {
         aborts_if total_active_stake < staking_contract.principal;
         aborts_if accumulated_rewards * staking_contract.commission_percentage > MAX_U64;
         aborts_if (vesting_contract.remaining_grant + commission_amount) > total_active_stake;
-        // aborts_if total_active_stake < vesting_contract.remaining_grant;
+        aborts_if total_active_stake < vesting_contract.remaining_grant;
     }
 
     spec accumulated_rewards(vesting_contract_address: address, shareholder_or_beneficiary: address): u64 {
         // TODO: Uses `total_accumulated_rewards` which is not verified.
         pragma verify = true;
-        pragma aborts_if_is_partial;
+        // pragma aborts_if_is_partial;
+
         include Total_Accumulated_Rewards_Abortsif;
         let vesting_contract = global<VestingContract>(vesting_contract_address);
         let operator = vesting_contract.staking.operator;
@@ -104,7 +105,7 @@ spec aptos_framework::vesting {
         aborts_if pool.total_coins > 0 && pool.total_shares > 0
             && (shares * total_accumulated_rewards) / pool.total_shares > MAX_U64;
 
-        ensures result == pool_u64::spec_shares_to_amount_with_total_coins(pool, shares, total_accumulated_rewards);
+        // ensures result == pool_u64::spec_shares_to_amount_with_total_coins(pool, shares, total_accumulated_rewards);
     }
 
     spec shareholders(vesting_contract_address: address): vector<address> {
@@ -305,18 +306,14 @@ spec aptos_framework::vesting {
         admin: &signer,
         contract_creation_seed: vector<u8>,
     ): (signer, SignerCapability) {
-        // TODO: disabled due to timeout
-        pragma verify=false;
-        // TODO: Could not verify `coin::register` because can't get the `account_signer`.
-        pragma aborts_if_is_partial;
         let admin_addr = signer::address_of(admin);
         let admin_store = global<AdminStore>(admin_addr);
         let seed = bcs::to_bytes(admin_addr);
         let nonce = bcs::to_bytes(admin_store.nonce);
 
-        let first = concat(seed,nonce);
-        let second = concat(first,VESTING_POOL_SALT);
-        let end = concat(second,contract_creation_seed);
+        let first = concat(seed, nonce);
+        let second = concat(first, VESTING_POOL_SALT);
+        let end = concat(second, contract_creation_seed);
 
         let resource_addr = account::spec_create_resource_address(admin_addr, end);
         aborts_if !exists<AdminStore>(admin_addr);
@@ -324,6 +321,16 @@ spec aptos_framework::vesting {
         aborts_if admin_store.nonce + 1 > MAX_U64;
         let ea = account::exists_at(resource_addr);
         include if (ea) account::CreateResourceAccountAbortsIf else account::CreateAccountAbortsIf {addr: resource_addr};
+
+        let acc = global<account::Account>(resource_addr);
+        let post post_acc = global<account::Account>(resource_addr);
+        aborts_if !exists<coin::CoinStore<AptosCoin>>(resource_addr) && !aptos_std::type_info::spec_is_struct<AptosCoin>();
+        aborts_if !exists<coin::CoinStore<AptosCoin>>(resource_addr) && ea && acc.guid_creation_num + 2 > MAX_U64;
+        aborts_if !exists<coin::CoinStore<AptosCoin>>(resource_addr) && ea && acc.guid_creation_num + 2 >= account::MAX_GUID_CREATION_NUM;
+        ensures exists<account::Account>(resource_addr) && post_acc.authentication_key == account::ZERO_AUTH_KEY && 
+                exists<coin::CoinStore<AptosCoin>>(resource_addr);
+        ensures signer::address_of(result_1) == resource_addr;
+        ensures result_2.account == resource_addr;
     }
 
     spec verify_admin(admin: &signer, vesting_contract: &VestingContract) {

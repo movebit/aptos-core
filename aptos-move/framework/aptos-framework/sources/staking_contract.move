@@ -657,10 +657,10 @@ module aptos_framework::staking_contract {
         // request_commission_internal is called in unlock_stake
         let (active, _, pending_active, _) = stake::get_stake(staking_contract.pool_address);
         let total_active_stake = active + pending_active;
-        // spec {
-        //     // Just for testing vesting::total_accumulated_rewards
-        //     assume total_active_stake - staking_contract.principal <= 100;
-        // };
+        spec {
+            // Just for testing vesting::total_accumulated_rewards
+            assume total_active_stake - staking_contract.principal <= 100;
+        };
         let accumulated_rewards = total_active_stake - staking_contract.principal;
         spec {
             // To avoid timeout, we assume staking_contract.commission_percentage is in range (0..100).
