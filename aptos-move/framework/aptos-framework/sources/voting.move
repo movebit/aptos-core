@@ -250,7 +250,6 @@ module aptos_framework::voting {
         metadata: SimpleMap<String, vector<u8>>,
         is_multi_step_proposal: bool,
     ): u64 acquires VotingForum {
-        spec { assume !simple_map::spec_contains_key(metadata, std::string::spec_utf8(IS_MULTI_STEP_PROPOSAL_KEY)); };
         if (option::is_some(&early_resolution_vote_threshold)) {
             assert!(
                 min_vote_threshold <= *option::borrow(&early_resolution_vote_threshold),
@@ -263,7 +262,7 @@ module aptos_framework::voting {
         let voting_forum = borrow_global_mut<VotingForum<ProposalType>>(voting_forum_address);
         let proposal_id = voting_forum.next_proposal_id;
         voting_forum.next_proposal_id = voting_forum.next_proposal_id + 1;
-        // spec { assume !simple_map::spec_contains_key(metadata, std::string::spec_utf8(IS_MULTI_STEP_PROPOSAL_KEY)); };
+
         // Add a flag to indicate if this proposal is single-step or multi-step.
         simple_map::add(&mut metadata, utf8(IS_MULTI_STEP_PROPOSAL_KEY), to_bytes(&is_multi_step_proposal));
 
@@ -272,12 +271,10 @@ module aptos_framework::voting {
             // If the given proposal is a multi-step proposal, we will add a flag to indicate if this multi-step proposal is in execution.
             // This value is by default false. We turn this value to true when we start executing the multi-step proposal. This value
             // will be used to disable further voting after we started executing the multi-step proposal.
-            spec { assume !simple_map::spec_contains_key(metadata, is_multi_step_in_execution_key); };
             simple_map::add(&mut metadata, is_multi_step_in_execution_key, to_bytes(&false));
         // If the proposal is a single-step proposal, we check if the metadata passed by the client has the IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY key.
         // If they have the key, we will remove it, because a single-step proposal that doesn't need this key.
         } else if (simple_map::contains_key(&mut metadata, &is_multi_step_in_execution_key)) {
-            spec { assume simple_map::spec_contains_key(metadata, is_multi_step_in_execution_key); };
             simple_map::remove(&mut metadata, &is_multi_step_in_execution_key);
         };
 
