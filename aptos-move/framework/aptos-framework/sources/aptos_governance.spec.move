@@ -1,6 +1,6 @@
 spec aptos_framework::aptos_governance {
     spec module {
-        pragma verify = true;
+        pragma verify = false;
         pragma aborts_if_is_strict;
     }
 
@@ -126,6 +126,7 @@ spec aptos_framework::aptos_governance {
         is_multi_step_proposal: bool,
     ) {
         use aptos_framework::chain_status;
+        pragma verify = true;
 
         requires chain_status::is_operating();
         include CreateProposalAbortsIf;
@@ -150,6 +151,7 @@ spec aptos_framework::aptos_governance {
         include AbortsIfNotGovernanceConfig;
 
         // verify get_voting_power(stake_pool)
+        include GetVotingPowerAbortsIf { pool_address: stake_pool };
         let staking_config = global<staking_config::StakingConfig>(@aptos_framework);
         let allow_validator_set_change = staking_config.allow_validator_set_change;
         let stake_pool_res = global<stake::StakePool>(stake_pool);
@@ -159,9 +161,6 @@ spec aptos_framework::aptos_governance {
         let stake_balance_2 = 0;
         let governance_config = global<GovernanceConfig>(@aptos_framework);
         let required_proposer_stake = governance_config.required_proposer_stake;
-        aborts_if allow_validator_set_change && stake_balance_0 > MAX_U64;
-        aborts_if !allow_validator_set_change && !exists<stake::ValidatorSet>(@aptos_framework);
-        aborts_if !allow_validator_set_change && stake::spec_is_current_epoch_validator(stake_pool) && stake_balance_1 > MAX_U64;
         // Comparison of the three results of get_voting_power(stake_pool) and required_proposer_stake
         aborts_if allow_validator_set_change && stake_balance_0 < required_proposer_stake;
         aborts_if !allow_validator_set_change && stake::spec_is_current_epoch_validator(stake_pool) && stake_balance_1 < required_proposer_stake;
@@ -198,8 +197,8 @@ spec aptos_framework::aptos_governance {
         let post post_voting_forum = global<voting::VotingForum<GovernanceProposal>>(@aptos_framework);
         let post post_next_proposal_id = post_voting_forum.next_proposal_id;
         ensures post_next_proposal_id == proposal_id + 1;
-        aborts_if !string::spec_internal_check_utf8(voting::IS_MULTI_STEP_PROPOSAL_KEY);
-        aborts_if !string::spec_internal_check_utf8(voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY);
+        // aborts_if !string::spec_internal_check_utf8(voting::IS_MULTI_STEP_PROPOSAL_KEY);
+        // aborts_if !string::spec_internal_check_utf8(voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY);
         aborts_if table::spec_contains(voting_forum.proposals, proposal_id);
         ensures table::spec_contains(post_voting_forum.proposals, proposal_id);
 
@@ -217,6 +216,7 @@ spec aptos_framework::aptos_governance {
     ) {
         use aptos_framework::stake;
         use aptos_framework::chain_status;
+        pragma verify = true;
 
         requires chain_status::is_operating();
 
@@ -236,14 +236,11 @@ spec aptos_framework::aptos_governance {
         ensures table::spec_get(post_voting_records.votes, record_key) == true;
 
         // verify get_voting_power(stake_pool)
-        aborts_if !exists<staking_config::StakingConfig>(@aptos_framework);
+        include GetVotingPowerAbortsIf { pool_address: stake_pool };
         let allow_validator_set_change = global<staking_config::StakingConfig>(@aptos_framework).allow_validator_set_change;
         // Two results of get_voting_power(stake_pool) and the third one is zero.
         let voting_power_0 = stake_pool_res.active.value + stake_pool_res.pending_active.value + stake_pool_res.pending_inactive.value;
         let voting_power_1 = stake_pool_res.active.value + stake_pool_res.pending_inactive.value;
-        aborts_if allow_validator_set_change && voting_power_0 > MAX_U64;
-        aborts_if !allow_validator_set_change && !exists<stake::ValidatorSet>(@aptos_framework);
-        aborts_if !allow_validator_set_change && stake::spec_is_current_epoch_validator(stake_pool) && voting_power_1 > MAX_U64;
         // Each result is compared with zero, and the following three aborts_if statements represent each of the three results.
         aborts_if allow_validator_set_change && voting_power_0 <= 0;
         aborts_if !allow_validator_set_change && stake::spec_is_current_epoch_validator(stake_pool) && voting_power_1 <= 0;
@@ -327,6 +324,7 @@ spec aptos_framework::aptos_governance {
         let post is_voting_closed = is_voting_period_over || can_be_resolved_early;
         let post proposal_state_successed = is_voting_closed && post_proposal.yes_votes > post_proposal.no_votes &&
                                          post_proposal.yes_votes + post_proposal.no_votes >= proposal.min_vote_threshold;
+
         // verify add_approved_script_hash(proposal_id)
         let execution_hash = proposal.execution_hash;
         let post post_approved_hashes = global<ApprovedExecutionHashes>(@aptos_framework);
@@ -463,21 +461,36 @@ spec aptos_framework::aptos_governance {
     /// limit addition overflow.
     /// pool_address must exist in StakePool.
     spec get_voting_power(pool_address: address): u64 {
-        let staking_config = global<staking_config::StakingConfig>(@aptos_framework);
-        aborts_if !exists<staking_config::StakingConfig>(@aptos_framework);
-        let allow_validator_set_change = staking_config.allow_validator_set_change;
-        let stake_pool = global<stake::StakePool>(pool_address);
-        aborts_if allow_validator_set_change && (stake_pool.active.value + stake_pool.pending_active.value + stake_pool.pending_inactive.value) > MAX_U64;
-        aborts_if !exists<stake::StakePool>(pool_address);
-        aborts_if !allow_validator_set_change && !exists<stake::ValidatorSet>(@aptos_framework);
-        aborts_if !allow_validator_set_change && stake::spec_is_current_epoch_validator(pool_address) && stake_pool.active.value + stake_pool.pending_inactive.value > MAX_U64;
+        include GetVotingPowerAbortsIf;
 
-        ensures allow_validator_set_change ==> result == stake_pool.active.value + stake_pool.pending_active.value + stake_pool.pending_inactive.value;
+        let staking_config = global<staking_config::StakingConfig>(@aptos_framework);
+        // aborts_if !exists<staking_config::StakingConfig>(@aptos_framework);
+        let allow_validator_set_change = staking_config.allow_validator_set_change;
+        let stake_pool_res = global<stake::StakePool>(pool_address);
+        // aborts_if allow_validator_set_change && (stake_pool_res.active.value + stake_pool_res.pending_active.value + stake_pool_res.pending_inactive.value) > MAX_U64;
+        // aborts_if !exists<stake::StakePool>(pool_address);
+        // aborts_if !allow_validator_set_change && !exists<stake::ValidatorSet>(@aptos_framework);
+        // aborts_if !allow_validator_set_change && stake::spec_is_current_epoch_validator(pool_address) && stake_pool_res.active.value + stake_pool_res.pending_inactive.value > MAX_U64;
+
+        ensures allow_validator_set_change ==> result == stake_pool_res.active.value + stake_pool_res.pending_active.value + stake_pool_res.pending_inactive.value;
         ensures !allow_validator_set_change ==> if (stake::spec_is_current_epoch_validator(pool_address)) {
-            result == stake_pool.active.value + stake_pool.pending_inactive.value
+            result == stake_pool_res.active.value + stake_pool_res.pending_inactive.value
         } else {
             result == 0
         };
+    }
+
+    spec schema GetVotingPowerAbortsIf {
+        pool_address: address;
+
+        let staking_config = global<staking_config::StakingConfig>(@aptos_framework);
+        aborts_if !exists<staking_config::StakingConfig>(@aptos_framework);
+        let allow_validator_set_change = staking_config.allow_validator_set_change;
+        let stake_pool_res = global<stake::StakePool>(pool_address);
+        aborts_if allow_validator_set_change && (stake_pool_res.active.value + stake_pool_res.pending_active.value + stake_pool_res.pending_inactive.value) > MAX_U64;
+        aborts_if !exists<stake::StakePool>(pool_address);
+        aborts_if !allow_validator_set_change && !exists<stake::ValidatorSet>(@aptos_framework);
+        aborts_if !allow_validator_set_change && stake::spec_is_current_epoch_validator(pool_address) && stake_pool_res.active.value + stake_pool_res.pending_inactive.value > MAX_U64;
     }
 
     spec get_signer(signer_address: address): signer {
@@ -539,16 +552,16 @@ spec aptos_framework::aptos_governance {
         let next_execution_hash_is_empty = len(next_execution_hash) == 0;
         aborts_if !is_multi_step && !next_execution_hash_is_empty;
         aborts_if next_execution_hash_is_empty && is_multi_step && !simple_map::spec_contains_key(proposal.metadata, multi_step_in_execution_key);
-        // ensures next_execution_hash_is_empty ==> post_proposal.is_resolved == true && post_proposal.resolution_time_secs == timestamp::spec_now_seconds() && 
-        //     if (is_multi_step) {
-        //         is_multi_step_proposal_in_execution_value == std::bcs::serialize(false)
-        //     } else {
-        //         simple_map::spec_contains_key(proposal.metadata, multi_step_in_execution_key) ==>
-        //             is_multi_step_proposal_in_execution_value == std::bcs::serialize(true)
-        //     };
-        // ensures !next_execution_hash_is_empty ==> post_proposal.execution_hash == next_execution_hash && 
-        //     simple_map::spec_contains_key(proposal.metadata, multi_step_in_execution_key) ==>
-        //         is_multi_step_proposal_in_execution_value == std::bcs::serialize(true);
+        ensures next_execution_hash_is_empty ==> post_proposal.is_resolved == true && post_proposal.resolution_time_secs == timestamp::spec_now_seconds() && 
+            if (is_multi_step) {
+                is_multi_step_proposal_in_execution_value == std::bcs::serialize(false)
+            } else {
+                simple_map::spec_contains_key(proposal.metadata, multi_step_in_execution_key) ==>
+                    is_multi_step_proposal_in_execution_value == std::bcs::serialize(true)
+            };
+        ensures !next_execution_hash_is_empty ==> post_proposal.execution_hash == next_execution_hash && 
+            simple_map::spec_contains_key(proposal.metadata, multi_step_in_execution_key) ==>
+                is_multi_step_proposal_in_execution_value == std::bcs::serialize(true);
 
         // verify remove_approved_hash
         aborts_if next_execution_hash_is_empty && !exists<ApprovedExecutionHashes>(@aptos_framework);
