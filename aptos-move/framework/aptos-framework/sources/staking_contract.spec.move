@@ -1,6 +1,6 @@
 spec aptos_framework::staking_contract {
     spec module {
-        pragma verify = false;
+        pragma verify = true;
         pragma aborts_if_is_strict;
     }
 
@@ -20,6 +20,8 @@ spec aptos_framework::staking_contract {
 
     /// Staking_contract exists the stacker/operator pair.
     spec staking_contract_amounts(staker: address, operator: address): (u64, u64, u64) {
+        requires staking_contract.commission_percentage >= 0 && staking_contract.commission_percentage <= 100;
+
         let staking_contracts = global<Store>(staker).staking_contracts;
         let staking_contract = simple_map::spec_get(staking_contracts, operator);
 
@@ -62,7 +64,7 @@ spec aptos_framework::staking_contract {
 
         include WithdrawAbortsIf<AptosCoin> {account: staker};
 
-        include Create_Staking_Contract_With_Coins_Abortsif;
+        include CreateStakingContractWithCoinsAbortsif;
     }
 
     /// The amount should be at least the min_stake_required, so the stake pool will be eligible to join the validator set.
@@ -83,14 +85,12 @@ spec aptos_framework::staking_contract {
         include PreconditionsInCreateContract;
         
         let amount = coins.value;
-        include Create_Staking_Contract_With_Coins_Abortsif { amount };
+        include CreateStakingContractWithCoinsAbortsif { amount };
     }
 
     /// Account is not frozen and sufficient to withdraw.
     /// Staking_contract exists the stacker/operator pair.
     spec add_stake(staker: &signer, operator: address, amount: u64) {
-        pragma verify = false;
-
         // preconditions
         include stake::ResourceRequirement;
 
@@ -246,8 +246,6 @@ spec aptos_framework::staking_contract {
         voter: address,
         contract_creation_seed: vector<u8>,
     ): (signer, SignerCapability, OwnerCapability) {
-        pragma verify = true;
-
         // preconditions
         include stake::ResourceRequirement;
 
@@ -288,6 +286,12 @@ spec aptos_framework::staking_contract {
     /// The Account exists under the staker.
     /// The guid_creation_num of the ccount resource is up to MAX_U64.
     spec new_staking_contracts_holder(staker: &signer): Store {
+        include NewStakingContractsHolderAbortsIf;
+    }
+
+    spec schema NewStakingContractsHolderAbortsIf {
+        staker: signer;
+
         let addr = signer::address_of(staker);
         let account = global<account::Account>(addr);
         aborts_if !exists<account::Account>(addr);
@@ -367,7 +371,7 @@ spec aptos_framework::staking_contract {
         aborts_if !exists<timestamp::CurrentTimeMicroseconds>(@aptos_framework);
     }
 
-    spec schema Create_Staking_Contract_With_Coins_Abortsif {
+    spec schema CreateStakingContractWithCoinsAbortsif {
         staker: signer;
         operator: address;
         voter: address;
@@ -381,11 +385,10 @@ spec aptos_framework::staking_contract {
         let config = global<staking_config::StakingConfig>(@aptos_framework);
         let min_stake_required = config.minimum_stake;
         aborts_if amount < min_stake_required;
-
+        
+        // verify new_staking_contracts_holder()
+        include !exists<Store>(staker_address) ==> NewStakingContractsHolderAbortsIf;
         let staker_address = signer::address_of(staker);
-        let account = global<account::Account>(staker_address);
-        aborts_if !exists<Store>(staker_address) && !exists<account::Account>(staker_address);
-        aborts_if !exists<Store>(staker_address) && account.guid_creation_num + 9 + 12 >= account::MAX_GUID_CREATION_NUM; // 12 in create_stake_pool
         ensures exists<Store>(staker_address);
 
         let store = global<Store>(staker_address);
@@ -440,7 +443,6 @@ spec aptos_framework::staking_contract {
     spec schema PreconditionsInCreateContract {
         requires exists<stake::ValidatorPerformance>(@aptos_framework);
         requires exists<stake::ValidatorSet>(@aptos_framework);
-        // requires exists<staking_config::StakingConfig>(@aptos_framework);
         requires exists<staking_config::StakingRewardsConfig>(@aptos_framework) || !std::features::spec_periodical_reward_rate_decrease_enabled();
         requires exists<stake::ValidatorFees>(@aptos_framework);
         requires exists<aptos_framework::timestamp::CurrentTimeMicroseconds>(@aptos_framework);

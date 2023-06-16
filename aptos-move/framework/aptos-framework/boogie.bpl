@@ -5198,310 +5198,6 @@ $1_vector_index_of'address'(v: Vec (int), e: int) returns (res1: bool, res2: int
 
 
 // ----------------------------------------------------------------------------------
-// Native Vector implementation for element type `u64`
-
-// Not inlined. It appears faster this way.
-function $IsEqual'vec'u64''(v1: Vec (int), v2: Vec (int)): bool {
-    LenVec(v1) == LenVec(v2) &&
-    (forall i: int:: InRangeVec(v1, i) ==> $IsEqual'u64'(ReadVec(v1, i), ReadVec(v2, i)))
-}
-
-// Not inlined.
-function $IsPrefix'vec'u64''(v: Vec (int), prefix: Vec (int)): bool {
-    LenVec(v) >= LenVec(prefix) &&
-    (forall i: int:: InRangeVec(prefix, i) ==> $IsEqual'u64'(ReadVec(v, i), ReadVec(prefix, i)))
-}
-
-// Not inlined.
-function $IsSuffix'vec'u64''(v: Vec (int), suffix: Vec (int)): bool {
-    LenVec(v) >= LenVec(suffix) &&
-    (forall i: int:: InRangeVec(suffix, i) ==> $IsEqual'u64'(ReadVec(v, LenVec(v) - LenVec(suffix) + i), ReadVec(suffix, i)))
-}
-
-// Not inlined.
-function $IsValid'vec'u64''(v: Vec (int)): bool {
-    $IsValid'u64'(LenVec(v)) &&
-    (forall i: int:: InRangeVec(v, i) ==> $IsValid'u64'(ReadVec(v, i)))
-}
-
-
-function {:inline} $ContainsVec'u64'(v: Vec (int), e: int): bool {
-    (exists i: int :: $IsValid'u64'(i) && InRangeVec(v, i) && $IsEqual'u64'(ReadVec(v, i), e))
-}
-
-function $IndexOfVec'u64'(v: Vec (int), e: int): int;
-axiom (forall v: Vec (int), e: int:: {$IndexOfVec'u64'(v, e)}
-    (var i := $IndexOfVec'u64'(v, e);
-     if (!$ContainsVec'u64'(v, e)) then i == -1
-     else $IsValid'u64'(i) && InRangeVec(v, i) && $IsEqual'u64'(ReadVec(v, i), e) &&
-        (forall j: int :: $IsValid'u64'(j) && j >= 0 && j < i ==> !$IsEqual'u64'(ReadVec(v, j), e))));
-
-
-function {:inline} $RangeVec'u64'(v: Vec (int)): $Range {
-    $Range(0, LenVec(v))
-}
-
-
-function {:inline} $EmptyVec'u64'(): Vec (int) {
-    EmptyVec()
-}
-
-procedure {:inline 1} $1_vector_empty'u64'() returns (v: Vec (int)) {
-    v := EmptyVec();
-}
-
-function {:inline} $1_vector_$empty'u64'(): Vec (int) {
-    EmptyVec()
-}
-
-procedure {:inline 1} $1_vector_is_empty'u64'(v: Vec (int)) returns (b: bool) {
-    b := IsEmptyVec(v);
-}
-
-procedure {:inline 1} $1_vector_push_back'u64'(m: $Mutation (Vec (int)), val: int) returns (m': $Mutation (Vec (int))) {
-    m' := $UpdateMutation(m, ExtendVec($Dereference(m), val));
-}
-
-function {:inline} $1_vector_$push_back'u64'(v: Vec (int), val: int): Vec (int) {
-    ExtendVec(v, val)
-}
-
-procedure {:inline 1} $1_vector_pop_back'u64'(m: $Mutation (Vec (int))) returns (e: int, m': $Mutation (Vec (int))) {
-    var v: Vec (int);
-    var len: int;
-    v := $Dereference(m);
-    len := LenVec(v);
-    if (len == 0) {
-        call $ExecFailureAbort();
-        return;
-    }
-    e := ReadVec(v, len-1);
-    m' := $UpdateMutation(m, RemoveVec(v));
-}
-
-procedure {:inline 1} $1_vector_append'u64'(m: $Mutation (Vec (int)), other: Vec (int)) returns (m': $Mutation (Vec (int))) {
-    m' := $UpdateMutation(m, ConcatVec($Dereference(m), other));
-}
-
-procedure {:inline 1} $1_vector_reverse'u64'(m: $Mutation (Vec (int))) returns (m': $Mutation (Vec (int))) {
-    m' := $UpdateMutation(m, ReverseVec($Dereference(m)));
-}
-
-procedure {:inline 1} $1_vector_reverse_append'u64'(m: $Mutation (Vec (int)), other: Vec (int)) returns (m': $Mutation (Vec (int))) {
-    m' := $UpdateMutation(m, ConcatVec($Dereference(m), ReverseVec(other)));
-}
-
-procedure {:inline 1} $1_vector_trim_reverse'u64'(m: $Mutation (Vec (int)), new_len: int) returns (v: (Vec (int)), m': $Mutation (Vec (int))) {
-    var len: int;
-    v := $Dereference(m);
-    if (LenVec(v) < new_len) {
-        call $ExecFailureAbort();
-        return;
-    }
-    v := SliceVec(v, new_len, LenVec(v));
-    v := ReverseVec(v);
-    m' := $UpdateMutation(m, SliceVec($Dereference(m), 0, new_len));
-}
-
-procedure {:inline 1} $1_vector_trim'u64'(m: $Mutation (Vec (int)), new_len: int) returns (v: (Vec (int)), m': $Mutation (Vec (int))) {
-    var len: int;
-    v := $Dereference(m);
-    if (LenVec(v) < new_len) {
-        call $ExecFailureAbort();
-        return;
-    }
-    v := SliceVec(v, new_len, LenVec(v));
-    m' := $UpdateMutation(m, SliceVec($Dereference(m), 0, new_len));
-}
-
-procedure {:inline 1} $1_vector_reverse_slice'u64'(m: $Mutation (Vec (int)), left: int, right: int) returns (m': $Mutation (Vec (int))) {
-    var left_vec: Vec (int);
-    var mid_vec: Vec (int);
-    var right_vec: Vec (int);
-    var v: Vec (int);
-    if (left > right) {
-        call $ExecFailureAbort();
-        return;
-    }
-    if (left == right) {
-        m' := m;
-        return;
-    }
-    v := $Dereference(m);
-    if (!(right >= 0 && right <= LenVec(v))) {
-        call $ExecFailureAbort();
-        return;
-    }
-    left_vec := SliceVec(v, 0, left);
-    right_vec := SliceVec(v, right, LenVec(v));
-    mid_vec := ReverseVec(SliceVec(v, left, right));
-    m' := $UpdateMutation(m, ConcatVec(left_vec, ConcatVec(mid_vec, right_vec)));
-}
-
-procedure {:inline 1} $1_vector_rotate'u64'(m: $Mutation (Vec (int)), rot: int) returns (n: int, m': $Mutation (Vec (int))) {
-    var v: Vec (int);
-    var len: int;
-    var left_vec: Vec (int);
-    var right_vec: Vec (int);
-    v := $Dereference(m);
-    if (!(rot >= 0 && rot <= LenVec(v))) {
-        call $ExecFailureAbort();
-        return;
-    }
-    left_vec := SliceVec(v, 0, rot);
-    right_vec := SliceVec(v, rot, LenVec(v));
-    m' := $UpdateMutation(m, ConcatVec(right_vec, left_vec));
-    n := LenVec(v) - rot;
-}
-
-procedure {:inline 1} $1_vector_rotate_slice'u64'(m: $Mutation (Vec (int)), left: int, rot: int, right: int) returns (n: int, m': $Mutation (Vec (int))) {
-    var left_vec: Vec (int);
-    var mid_vec: Vec (int);
-    var right_vec: Vec (int);
-    var mid_left_vec: Vec (int);
-    var mid_right_vec: Vec (int);
-    var v: Vec (int);
-    v := $Dereference(m);
-    if (!(left <= rot && rot <= right)) {
-        call $ExecFailureAbort();
-        return;
-    }
-    if (!(right >= 0 && right <= LenVec(v))) {
-        call $ExecFailureAbort();
-        return;
-    }
-    v := $Dereference(m);
-    left_vec := SliceVec(v, 0, left);
-    right_vec := SliceVec(v, right, LenVec(v));
-    mid_left_vec := SliceVec(v, left, rot);
-    mid_right_vec := SliceVec(v, rot, right);
-    mid_vec := ConcatVec(mid_right_vec, mid_left_vec);
-    m' := $UpdateMutation(m, ConcatVec(left_vec, ConcatVec(mid_vec, right_vec)));
-    n := left + (right - rot);
-}
-
-procedure {:inline 1} $1_vector_insert'u64'(m: $Mutation (Vec (int)), i: int, e: int) returns (m': $Mutation (Vec (int))) {
-    var left_vec: Vec (int);
-    var right_vec: Vec (int);
-    var v: Vec (int);
-    v := $Dereference(m);
-    if (!(i >= 0 && i <= LenVec(v))) {
-        call $ExecFailureAbort();
-        return;
-    }
-    if (i == LenVec(v)) {
-        m' := $UpdateMutation(m, ExtendVec(v, e));
-    } else {
-        left_vec := ExtendVec(SliceVec(v, 0, i), e);
-        right_vec := SliceVec(v, i, LenVec(v));
-        m' := $UpdateMutation(m, ConcatVec(left_vec, right_vec));
-    }
-}
-
-procedure {:inline 1} $1_vector_length'u64'(v: Vec (int)) returns (l: int) {
-    l := LenVec(v);
-}
-
-function {:inline} $1_vector_$length'u64'(v: Vec (int)): int {
-    LenVec(v)
-}
-
-procedure {:inline 1} $1_vector_borrow'u64'(v: Vec (int), i: int) returns (dst: int) {
-    if (!InRangeVec(v, i)) {
-        call $ExecFailureAbort();
-        return;
-    }
-    dst := ReadVec(v, i);
-}
-
-function {:inline} $1_vector_$borrow'u64'(v: Vec (int), i: int): int {
-    ReadVec(v, i)
-}
-
-procedure {:inline 1} $1_vector_borrow_mut'u64'(m: $Mutation (Vec (int)), index: int)
-returns (dst: $Mutation (int), m': $Mutation (Vec (int)))
-{
-    var v: Vec (int);
-    v := $Dereference(m);
-    if (!InRangeVec(v, index)) {
-        call $ExecFailureAbort();
-        return;
-    }
-    dst := $Mutation(l#$Mutation(m), ExtendVec(p#$Mutation(m), index), ReadVec(v, index));
-    m' := m;
-}
-
-function {:inline} $1_vector_$borrow_mut'u64'(v: Vec (int), i: int): int {
-    ReadVec(v, i)
-}
-
-procedure {:inline 1} $1_vector_destroy_empty'u64'(v: Vec (int)) {
-    if (!IsEmptyVec(v)) {
-      call $ExecFailureAbort();
-    }
-}
-
-procedure {:inline 1} $1_vector_swap'u64'(m: $Mutation (Vec (int)), i: int, j: int) returns (m': $Mutation (Vec (int)))
-{
-    var v: Vec (int);
-    v := $Dereference(m);
-    if (!InRangeVec(v, i) || !InRangeVec(v, j)) {
-        call $ExecFailureAbort();
-        return;
-    }
-    m' := $UpdateMutation(m, SwapVec(v, i, j));
-}
-
-function {:inline} $1_vector_$swap'u64'(v: Vec (int), i: int, j: int): Vec (int) {
-    SwapVec(v, i, j)
-}
-
-procedure {:inline 1} $1_vector_remove'u64'(m: $Mutation (Vec (int)), i: int) returns (e: int, m': $Mutation (Vec (int)))
-{
-    var v: Vec (int);
-
-    v := $Dereference(m);
-
-    if (!InRangeVec(v, i)) {
-        call $ExecFailureAbort();
-        return;
-    }
-    e := ReadVec(v, i);
-    m' := $UpdateMutation(m, RemoveAtVec(v, i));
-}
-
-procedure {:inline 1} $1_vector_swap_remove'u64'(m: $Mutation (Vec (int)), i: int) returns (e: int, m': $Mutation (Vec (int)))
-{
-    var len: int;
-    var v: Vec (int);
-
-    v := $Dereference(m);
-    len := LenVec(v);
-    if (!InRangeVec(v, i)) {
-        call $ExecFailureAbort();
-        return;
-    }
-    e := ReadVec(v, i);
-    m' := $UpdateMutation(m, RemoveVec(SwapVec(v, i, len-1)));
-}
-
-procedure {:inline 1} $1_vector_contains'u64'(v: Vec (int), e: int) returns (res: bool)  {
-    res := $ContainsVec'u64'(v, e);
-}
-
-procedure {:inline 1}
-$1_vector_index_of'u64'(v: Vec (int), e: int) returns (res1: bool, res2: int) {
-    res2 := $IndexOfVec'u64'(v, e);
-    if (res2 >= 0) {
-        res1 := true;
-    } else {
-        res1 := false;
-        res2 := 0;
-    }
-}
-
-
-// ----------------------------------------------------------------------------------
 // Native Vector implementation for element type `u8`
 
 // Not inlined. It appears faster this way.
@@ -5796,310 +5492,6 @@ procedure {:inline 1} $1_vector_contains'u8'(v: Vec (int), e: int) returns (res:
 procedure {:inline 1}
 $1_vector_index_of'u8'(v: Vec (int), e: int) returns (res1: bool, res2: int) {
     res2 := $IndexOfVec'u8'(v, e);
-    if (res2 >= 0) {
-        res1 := true;
-    } else {
-        res1 := false;
-        res2 := 0;
-    }
-}
-
-
-// ----------------------------------------------------------------------------------
-// Native Vector implementation for element type `bv64`
-
-// Not inlined. It appears faster this way.
-function $IsEqual'vec'bv64''(v1: Vec (bv64), v2: Vec (bv64)): bool {
-    LenVec(v1) == LenVec(v2) &&
-    (forall i: int:: InRangeVec(v1, i) ==> $IsEqual'bv64'(ReadVec(v1, i), ReadVec(v2, i)))
-}
-
-// Not inlined.
-function $IsPrefix'vec'bv64''(v: Vec (bv64), prefix: Vec (bv64)): bool {
-    LenVec(v) >= LenVec(prefix) &&
-    (forall i: int:: InRangeVec(prefix, i) ==> $IsEqual'bv64'(ReadVec(v, i), ReadVec(prefix, i)))
-}
-
-// Not inlined.
-function $IsSuffix'vec'bv64''(v: Vec (bv64), suffix: Vec (bv64)): bool {
-    LenVec(v) >= LenVec(suffix) &&
-    (forall i: int:: InRangeVec(suffix, i) ==> $IsEqual'bv64'(ReadVec(v, LenVec(v) - LenVec(suffix) + i), ReadVec(suffix, i)))
-}
-
-// Not inlined.
-function $IsValid'vec'bv64''(v: Vec (bv64)): bool {
-    $IsValid'u64'(LenVec(v)) &&
-    (forall i: int:: InRangeVec(v, i) ==> $IsValid'bv64'(ReadVec(v, i)))
-}
-
-
-function {:inline} $ContainsVec'bv64'(v: Vec (bv64), e: bv64): bool {
-    (exists i: int :: $IsValid'u64'(i) && InRangeVec(v, i) && $IsEqual'bv64'(ReadVec(v, i), e))
-}
-
-function $IndexOfVec'bv64'(v: Vec (bv64), e: bv64): int;
-axiom (forall v: Vec (bv64), e: bv64:: {$IndexOfVec'bv64'(v, e)}
-    (var i := $IndexOfVec'bv64'(v, e);
-     if (!$ContainsVec'bv64'(v, e)) then i == -1
-     else $IsValid'u64'(i) && InRangeVec(v, i) && $IsEqual'bv64'(ReadVec(v, i), e) &&
-        (forall j: int :: $IsValid'u64'(j) && j >= 0 && j < i ==> !$IsEqual'bv64'(ReadVec(v, j), e))));
-
-
-function {:inline} $RangeVec'bv64'(v: Vec (bv64)): $Range {
-    $Range(0, LenVec(v))
-}
-
-
-function {:inline} $EmptyVec'bv64'(): Vec (bv64) {
-    EmptyVec()
-}
-
-procedure {:inline 1} $1_vector_empty'bv64'() returns (v: Vec (bv64)) {
-    v := EmptyVec();
-}
-
-function {:inline} $1_vector_$empty'bv64'(): Vec (bv64) {
-    EmptyVec()
-}
-
-procedure {:inline 1} $1_vector_is_empty'bv64'(v: Vec (bv64)) returns (b: bool) {
-    b := IsEmptyVec(v);
-}
-
-procedure {:inline 1} $1_vector_push_back'bv64'(m: $Mutation (Vec (bv64)), val: bv64) returns (m': $Mutation (Vec (bv64))) {
-    m' := $UpdateMutation(m, ExtendVec($Dereference(m), val));
-}
-
-function {:inline} $1_vector_$push_back'bv64'(v: Vec (bv64), val: bv64): Vec (bv64) {
-    ExtendVec(v, val)
-}
-
-procedure {:inline 1} $1_vector_pop_back'bv64'(m: $Mutation (Vec (bv64))) returns (e: bv64, m': $Mutation (Vec (bv64))) {
-    var v: Vec (bv64);
-    var len: int;
-    v := $Dereference(m);
-    len := LenVec(v);
-    if (len == 0) {
-        call $ExecFailureAbort();
-        return;
-    }
-    e := ReadVec(v, len-1);
-    m' := $UpdateMutation(m, RemoveVec(v));
-}
-
-procedure {:inline 1} $1_vector_append'bv64'(m: $Mutation (Vec (bv64)), other: Vec (bv64)) returns (m': $Mutation (Vec (bv64))) {
-    m' := $UpdateMutation(m, ConcatVec($Dereference(m), other));
-}
-
-procedure {:inline 1} $1_vector_reverse'bv64'(m: $Mutation (Vec (bv64))) returns (m': $Mutation (Vec (bv64))) {
-    m' := $UpdateMutation(m, ReverseVec($Dereference(m)));
-}
-
-procedure {:inline 1} $1_vector_reverse_append'bv64'(m: $Mutation (Vec (bv64)), other: Vec (bv64)) returns (m': $Mutation (Vec (bv64))) {
-    m' := $UpdateMutation(m, ConcatVec($Dereference(m), ReverseVec(other)));
-}
-
-procedure {:inline 1} $1_vector_trim_reverse'bv64'(m: $Mutation (Vec (bv64)), new_len: int) returns (v: (Vec (bv64)), m': $Mutation (Vec (bv64))) {
-    var len: int;
-    v := $Dereference(m);
-    if (LenVec(v) < new_len) {
-        call $ExecFailureAbort();
-        return;
-    }
-    v := SliceVec(v, new_len, LenVec(v));
-    v := ReverseVec(v);
-    m' := $UpdateMutation(m, SliceVec($Dereference(m), 0, new_len));
-}
-
-procedure {:inline 1} $1_vector_trim'bv64'(m: $Mutation (Vec (bv64)), new_len: int) returns (v: (Vec (bv64)), m': $Mutation (Vec (bv64))) {
-    var len: int;
-    v := $Dereference(m);
-    if (LenVec(v) < new_len) {
-        call $ExecFailureAbort();
-        return;
-    }
-    v := SliceVec(v, new_len, LenVec(v));
-    m' := $UpdateMutation(m, SliceVec($Dereference(m), 0, new_len));
-}
-
-procedure {:inline 1} $1_vector_reverse_slice'bv64'(m: $Mutation (Vec (bv64)), left: int, right: int) returns (m': $Mutation (Vec (bv64))) {
-    var left_vec: Vec (bv64);
-    var mid_vec: Vec (bv64);
-    var right_vec: Vec (bv64);
-    var v: Vec (bv64);
-    if (left > right) {
-        call $ExecFailureAbort();
-        return;
-    }
-    if (left == right) {
-        m' := m;
-        return;
-    }
-    v := $Dereference(m);
-    if (!(right >= 0 && right <= LenVec(v))) {
-        call $ExecFailureAbort();
-        return;
-    }
-    left_vec := SliceVec(v, 0, left);
-    right_vec := SliceVec(v, right, LenVec(v));
-    mid_vec := ReverseVec(SliceVec(v, left, right));
-    m' := $UpdateMutation(m, ConcatVec(left_vec, ConcatVec(mid_vec, right_vec)));
-}
-
-procedure {:inline 1} $1_vector_rotate'bv64'(m: $Mutation (Vec (bv64)), rot: int) returns (n: int, m': $Mutation (Vec (bv64))) {
-    var v: Vec (bv64);
-    var len: int;
-    var left_vec: Vec (bv64);
-    var right_vec: Vec (bv64);
-    v := $Dereference(m);
-    if (!(rot >= 0 && rot <= LenVec(v))) {
-        call $ExecFailureAbort();
-        return;
-    }
-    left_vec := SliceVec(v, 0, rot);
-    right_vec := SliceVec(v, rot, LenVec(v));
-    m' := $UpdateMutation(m, ConcatVec(right_vec, left_vec));
-    n := LenVec(v) - rot;
-}
-
-procedure {:inline 1} $1_vector_rotate_slice'bv64'(m: $Mutation (Vec (bv64)), left: int, rot: int, right: int) returns (n: int, m': $Mutation (Vec (bv64))) {
-    var left_vec: Vec (bv64);
-    var mid_vec: Vec (bv64);
-    var right_vec: Vec (bv64);
-    var mid_left_vec: Vec (bv64);
-    var mid_right_vec: Vec (bv64);
-    var v: Vec (bv64);
-    v := $Dereference(m);
-    if (!(left <= rot && rot <= right)) {
-        call $ExecFailureAbort();
-        return;
-    }
-    if (!(right >= 0 && right <= LenVec(v))) {
-        call $ExecFailureAbort();
-        return;
-    }
-    v := $Dereference(m);
-    left_vec := SliceVec(v, 0, left);
-    right_vec := SliceVec(v, right, LenVec(v));
-    mid_left_vec := SliceVec(v, left, rot);
-    mid_right_vec := SliceVec(v, rot, right);
-    mid_vec := ConcatVec(mid_right_vec, mid_left_vec);
-    m' := $UpdateMutation(m, ConcatVec(left_vec, ConcatVec(mid_vec, right_vec)));
-    n := left + (right - rot);
-}
-
-procedure {:inline 1} $1_vector_insert'bv64'(m: $Mutation (Vec (bv64)), i: int, e: bv64) returns (m': $Mutation (Vec (bv64))) {
-    var left_vec: Vec (bv64);
-    var right_vec: Vec (bv64);
-    var v: Vec (bv64);
-    v := $Dereference(m);
-    if (!(i >= 0 && i <= LenVec(v))) {
-        call $ExecFailureAbort();
-        return;
-    }
-    if (i == LenVec(v)) {
-        m' := $UpdateMutation(m, ExtendVec(v, e));
-    } else {
-        left_vec := ExtendVec(SliceVec(v, 0, i), e);
-        right_vec := SliceVec(v, i, LenVec(v));
-        m' := $UpdateMutation(m, ConcatVec(left_vec, right_vec));
-    }
-}
-
-procedure {:inline 1} $1_vector_length'bv64'(v: Vec (bv64)) returns (l: int) {
-    l := LenVec(v);
-}
-
-function {:inline} $1_vector_$length'bv64'(v: Vec (bv64)): int {
-    LenVec(v)
-}
-
-procedure {:inline 1} $1_vector_borrow'bv64'(v: Vec (bv64), i: int) returns (dst: bv64) {
-    if (!InRangeVec(v, i)) {
-        call $ExecFailureAbort();
-        return;
-    }
-    dst := ReadVec(v, i);
-}
-
-function {:inline} $1_vector_$borrow'bv64'(v: Vec (bv64), i: int): bv64 {
-    ReadVec(v, i)
-}
-
-procedure {:inline 1} $1_vector_borrow_mut'bv64'(m: $Mutation (Vec (bv64)), index: int)
-returns (dst: $Mutation (bv64), m': $Mutation (Vec (bv64)))
-{
-    var v: Vec (bv64);
-    v := $Dereference(m);
-    if (!InRangeVec(v, index)) {
-        call $ExecFailureAbort();
-        return;
-    }
-    dst := $Mutation(l#$Mutation(m), ExtendVec(p#$Mutation(m), index), ReadVec(v, index));
-    m' := m;
-}
-
-function {:inline} $1_vector_$borrow_mut'bv64'(v: Vec (bv64), i: int): bv64 {
-    ReadVec(v, i)
-}
-
-procedure {:inline 1} $1_vector_destroy_empty'bv64'(v: Vec (bv64)) {
-    if (!IsEmptyVec(v)) {
-      call $ExecFailureAbort();
-    }
-}
-
-procedure {:inline 1} $1_vector_swap'bv64'(m: $Mutation (Vec (bv64)), i: int, j: int) returns (m': $Mutation (Vec (bv64)))
-{
-    var v: Vec (bv64);
-    v := $Dereference(m);
-    if (!InRangeVec(v, i) || !InRangeVec(v, j)) {
-        call $ExecFailureAbort();
-        return;
-    }
-    m' := $UpdateMutation(m, SwapVec(v, i, j));
-}
-
-function {:inline} $1_vector_$swap'bv64'(v: Vec (bv64), i: int, j: int): Vec (bv64) {
-    SwapVec(v, i, j)
-}
-
-procedure {:inline 1} $1_vector_remove'bv64'(m: $Mutation (Vec (bv64)), i: int) returns (e: bv64, m': $Mutation (Vec (bv64)))
-{
-    var v: Vec (bv64);
-
-    v := $Dereference(m);
-
-    if (!InRangeVec(v, i)) {
-        call $ExecFailureAbort();
-        return;
-    }
-    e := ReadVec(v, i);
-    m' := $UpdateMutation(m, RemoveAtVec(v, i));
-}
-
-procedure {:inline 1} $1_vector_swap_remove'bv64'(m: $Mutation (Vec (bv64)), i: int) returns (e: bv64, m': $Mutation (Vec (bv64)))
-{
-    var len: int;
-    var v: Vec (bv64);
-
-    v := $Dereference(m);
-    len := LenVec(v);
-    if (!InRangeVec(v, i)) {
-        call $ExecFailureAbort();
-        return;
-    }
-    e := ReadVec(v, i);
-    m' := $UpdateMutation(m, RemoveVec(SwapVec(v, i, len-1)));
-}
-
-procedure {:inline 1} $1_vector_contains'bv64'(v: Vec (bv64), e: bv64) returns (res: bool)  {
-    res := $ContainsVec'bv64'(v, e);
-}
-
-procedure {:inline 1}
-$1_vector_index_of'bv64'(v: Vec (bv64), e: bv64) returns (res1: bool, res2: int) {
-    res2 := $IndexOfVec'bv64'(v, e);
     if (res2 >= 0) {
         res1 := true;
     } else {
@@ -6427,9 +5819,9 @@ axiom (
 
 
 // ----------------------------------------------------------------------------------
-// Native Table implementation for type `(address,$1_coin_Coin'$1_aptos_coin_AptosCoin')`
+// Native Table implementation for type `(address,u64)`
 
-function $IsEqual'$1_table_Table'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'''(t1: Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin'), t2: Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin')): bool {
+function $IsEqual'$1_simple_map_SimpleMap'address_u64''(t1: Table int (int), t2: Table int (int)): bool {
     LenTable(t1) == LenTable(t2) &&
     (forall k: int :: ContainsTable(t1, k) <==> ContainsTable(t2, k)) &&
     (forall k: int :: ContainsTable(t1, k) ==> GetTable(t1, k) == GetTable(t2, k)) &&
@@ -6437,24 +5829,27 @@ function $IsEqual'$1_table_Table'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'''
 }
 
 // Not inlined.
-function $IsValid'$1_table_Table'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'''(t: Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin')): bool {
+function $IsValid'$1_simple_map_SimpleMap'address_u64''(t: Table int (int)): bool {
     $IsValid'u64'(LenTable(t)) &&
-    (forall i: int:: ContainsTable(t, i) ==> $IsValid'$1_coin_Coin'$1_aptos_coin_AptosCoin''(GetTable(t, i)))
+    (forall i: int:: ContainsTable(t, i) ==> $IsValid'u64'(GetTable(t, i)))
 }
-procedure {:inline 2} $1_table_new'address_$1_coin_Coin'$1_aptos_coin_AptosCoin''() returns (v: Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin')) {
+procedure {:inline 2} $1_simple_map_create'address_u64'() returns (v: Table int (int)) {
     v := EmptyTable();
 }
-procedure {:inline 2} $1_table_destroy'address_$1_coin_Coin'$1_aptos_coin_AptosCoin''(t: Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin')) {
+procedure {:inline 2} $1_simple_map_destroy_empty'address_u64'(t: Table int (int)) {
     if (LenTable(t) != 0) {
         call $Abort($StdError(1/*INVALID_STATE*/, 102/*ENOT_EMPTY*/));
     }
 }
-procedure {:inline 2} $1_table_contains'address_$1_coin_Coin'$1_aptos_coin_AptosCoin''(t: (Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin')), k: int) returns (r: bool) {
+procedure {:inline 2} $1_simple_map_length'address_u64'(t: (Table int (int))) returns (l: int) {
+    l := LenTable(t);
+}
+procedure {:inline 2} $1_simple_map_contains_key'address_u64'(t: (Table int (int)), k: int) returns (r: bool) {
     r := ContainsTable(t, $EncodeKey'address'(k));
 }
-procedure {:inline 2} $1_table_add'address_$1_coin_Coin'$1_aptos_coin_AptosCoin''(m: $Mutation (Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin')), k: int, v: $1_coin_Coin'$1_aptos_coin_AptosCoin') returns (m': $Mutation(Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin'))) {
+procedure {:inline 2} $1_simple_map_add'address_u64'(m: $Mutation (Table int (int)), k: int, v: int) returns (m': $Mutation(Table int (int))) {
     var enc_k: int;
-    var t: Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin');
+    var t: Table int (int);
     enc_k := $EncodeKey'address'(k);
     t := $Dereference(m);
     if (ContainsTable(t, enc_k)) {
@@ -6463,31 +5858,21 @@ procedure {:inline 2} $1_table_add'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'
         m' := $UpdateMutation(m, AddTable(t, enc_k, v));
     }
 }
-procedure {:inline 2} $1_table_upsert'address_$1_coin_Coin'$1_aptos_coin_AptosCoin''(m: $Mutation (Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin')), k: int, v: $1_coin_Coin'$1_aptos_coin_AptosCoin') returns (m': $Mutation(Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin'))) {
+procedure {:inline 2} $1_simple_map_remove'address_u64'(m: $Mutation (Table int (int)), k: int)
+returns (k': int, v: int, m': $Mutation(Table int (int))) {
     var enc_k: int;
-    var t: Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin');
-    enc_k := $EncodeKey'address'(k);
-    t := $Dereference(m);
-    if (ContainsTable(t, enc_k)) {
-        m' := $UpdateMutation(m, UpdateTable(t, enc_k, v));
-    } else {
-        m' := $UpdateMutation(m, AddTable(t, enc_k, v));
-    }
-}
-procedure {:inline 2} $1_table_remove'address_$1_coin_Coin'$1_aptos_coin_AptosCoin''(m: $Mutation (Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin')), k: int)
-returns (v: $1_coin_Coin'$1_aptos_coin_AptosCoin', m': $Mutation(Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin'))) {
-    var enc_k: int;
-    var t: Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin');
+    var t: Table int (int);
     enc_k := $EncodeKey'address'(k);
     t := $Dereference(m);
     if (!ContainsTable(t, enc_k)) {
         call $Abort($StdError(7/*INVALID_ARGUMENTS*/, 101/*ENOT_FOUND*/));
     } else {
+        k' := k;
         v := GetTable(t, enc_k);
         m' := $UpdateMutation(m, RemoveTable(t, enc_k));
     }
 }
-procedure {:inline 2} $1_table_borrow'address_$1_coin_Coin'$1_aptos_coin_AptosCoin''(t: Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin'), k: int) returns (v: $1_coin_Coin'$1_aptos_coin_AptosCoin') {
+procedure {:inline 2} $1_simple_map_borrow'address_u64'(t: Table int (int), k: int) returns (v: int) {
     var enc_k: int;
     enc_k := $EncodeKey'address'(k);
     if (!ContainsTable(t, enc_k)) {
@@ -6496,10 +5881,10 @@ procedure {:inline 2} $1_table_borrow'address_$1_coin_Coin'$1_aptos_coin_AptosCo
         v := GetTable(t, $EncodeKey'address'(k));
     }
 }
-procedure {:inline 2} $1_table_borrow_mut'address_$1_coin_Coin'$1_aptos_coin_AptosCoin''(m: $Mutation (Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin')), k: int)
-returns (dst: $Mutation ($1_coin_Coin'$1_aptos_coin_AptosCoin'), m': $Mutation (Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin'))) {
+procedure {:inline 2} $1_simple_map_borrow_mut'address_u64'(m: $Mutation (Table int (int)), k: int)
+returns (dst: $Mutation (int), m': $Mutation (Table int (int))) {
     var enc_k: int;
-    var t: Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin');
+    var t: Table int (int);
     enc_k := $EncodeKey'address'(k);
     t := $Dereference(m);
     if (!ContainsTable(t, enc_k)) {
@@ -6509,36 +5894,121 @@ returns (dst: $Mutation ($1_coin_Coin'$1_aptos_coin_AptosCoin'), m': $Mutation (
         m' := m;
     }
 }
-procedure {:inline 2} $1_table_borrow_mut_with_default'address_$1_coin_Coin'$1_aptos_coin_AptosCoin''(m: $Mutation (Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin')), k: int, default: $1_coin_Coin'$1_aptos_coin_AptosCoin')
-returns (dst: $Mutation ($1_coin_Coin'$1_aptos_coin_AptosCoin'), m': $Mutation (Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin'))) {
-    var enc_k: int;
-    var t: Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin');
-    var t': Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin');
-    enc_k := $EncodeKey'address'(k);
-    t := $Dereference(m);
-    if (!ContainsTable(t, enc_k)) {
-        m' := $UpdateMutation(m, AddTable(t, enc_k, default));
-        t' := $Dereference(m');
-        dst := $Mutation(l#$Mutation(m'), ExtendVec(p#$Mutation(m'), enc_k), GetTable(t', enc_k));
-    } else {
-        dst := $Mutation(l#$Mutation(m), ExtendVec(p#$Mutation(m), enc_k), GetTable(t, enc_k));
-        m' := m;
-    }
+function {:inline} $1_simple_map_spec_len'address_u64'(t: (Table int (int))): int {
+    LenTable(t)
 }
-function {:inline} $1_table_spec_contains'address_$1_coin_Coin'$1_aptos_coin_AptosCoin''(t: (Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin')), k: int): bool {
+function {:inline} $1_simple_map_spec_contains_key'address_u64'(t: (Table int (int)), k: int): bool {
     ContainsTable(t, $EncodeKey'address'(k))
 }
-function {:inline} $1_table_spec_set'address_$1_coin_Coin'$1_aptos_coin_AptosCoin''(t: Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin'), k: int, v: $1_coin_Coin'$1_aptos_coin_AptosCoin'): Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin') {
+function {:inline} $1_simple_map_spec_set'address_u64'(t: Table int (int), k: int, v: int): Table int (int) {
     (var enc_k := $EncodeKey'address'(k);
     if (ContainsTable(t, enc_k)) then
         UpdateTable(t, enc_k, v)
     else
         AddTable(t, enc_k, v))
 }
-function {:inline} $1_table_spec_remove'address_$1_coin_Coin'$1_aptos_coin_AptosCoin''(t: Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin'), k: int): Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin') {
+function {:inline} $1_simple_map_spec_remove'address_u64'(t: Table int (int), k: int): Table int (int) {
     RemoveTable(t, $EncodeKey'address'(k))
 }
-function {:inline} $1_table_spec_get'address_$1_coin_Coin'$1_aptos_coin_AptosCoin''(t: Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin'), k: int): $1_coin_Coin'$1_aptos_coin_AptosCoin' {
+function {:inline} $1_simple_map_spec_get'address_u64'(t: Table int (int), k: int): int {
+    GetTable(t, $EncodeKey'address'(k))
+}
+
+
+
+// ----------------------------------------------------------------------------------
+// Native Table implementation for type `(address,$1_staking_contract_StakingContract)`
+
+function $IsEqual'$1_simple_map_SimpleMap'address_$1_staking_contract_StakingContract''(t1: Table int ($1_staking_contract_StakingContract), t2: Table int ($1_staking_contract_StakingContract)): bool {
+    LenTable(t1) == LenTable(t2) &&
+    (forall k: int :: ContainsTable(t1, k) <==> ContainsTable(t2, k)) &&
+    (forall k: int :: ContainsTable(t1, k) ==> GetTable(t1, k) == GetTable(t2, k)) &&
+    (forall k: int :: ContainsTable(t2, k) ==> GetTable(t1, k) == GetTable(t2, k))
+}
+
+// Not inlined.
+function $IsValid'$1_simple_map_SimpleMap'address_$1_staking_contract_StakingContract''(t: Table int ($1_staking_contract_StakingContract)): bool {
+    $IsValid'u64'(LenTable(t)) &&
+    (forall i: int:: ContainsTable(t, i) ==> $IsValid'$1_staking_contract_StakingContract'(GetTable(t, i)))
+}
+procedure {:inline 2} $1_simple_map_create'address_$1_staking_contract_StakingContract'() returns (v: Table int ($1_staking_contract_StakingContract)) {
+    v := EmptyTable();
+}
+procedure {:inline 2} $1_simple_map_destroy_empty'address_$1_staking_contract_StakingContract'(t: Table int ($1_staking_contract_StakingContract)) {
+    if (LenTable(t) != 0) {
+        call $Abort($StdError(1/*INVALID_STATE*/, 102/*ENOT_EMPTY*/));
+    }
+}
+procedure {:inline 2} $1_simple_map_length'address_$1_staking_contract_StakingContract'(t: (Table int ($1_staking_contract_StakingContract))) returns (l: int) {
+    l := LenTable(t);
+}
+procedure {:inline 2} $1_simple_map_contains_key'address_$1_staking_contract_StakingContract'(t: (Table int ($1_staking_contract_StakingContract)), k: int) returns (r: bool) {
+    r := ContainsTable(t, $EncodeKey'address'(k));
+}
+procedure {:inline 2} $1_simple_map_add'address_$1_staking_contract_StakingContract'(m: $Mutation (Table int ($1_staking_contract_StakingContract)), k: int, v: $1_staking_contract_StakingContract) returns (m': $Mutation(Table int ($1_staking_contract_StakingContract))) {
+    var enc_k: int;
+    var t: Table int ($1_staking_contract_StakingContract);
+    enc_k := $EncodeKey'address'(k);
+    t := $Dereference(m);
+    if (ContainsTable(t, enc_k)) {
+        call $Abort($StdError(7/*INVALID_ARGUMENTS*/, 100/*EALREADY_EXISTS*/));
+    } else {
+        m' := $UpdateMutation(m, AddTable(t, enc_k, v));
+    }
+}
+procedure {:inline 2} $1_simple_map_remove'address_$1_staking_contract_StakingContract'(m: $Mutation (Table int ($1_staking_contract_StakingContract)), k: int)
+returns (k': int, v: $1_staking_contract_StakingContract, m': $Mutation(Table int ($1_staking_contract_StakingContract))) {
+    var enc_k: int;
+    var t: Table int ($1_staking_contract_StakingContract);
+    enc_k := $EncodeKey'address'(k);
+    t := $Dereference(m);
+    if (!ContainsTable(t, enc_k)) {
+        call $Abort($StdError(7/*INVALID_ARGUMENTS*/, 101/*ENOT_FOUND*/));
+    } else {
+        k' := k;
+        v := GetTable(t, enc_k);
+        m' := $UpdateMutation(m, RemoveTable(t, enc_k));
+    }
+}
+procedure {:inline 2} $1_simple_map_borrow'address_$1_staking_contract_StakingContract'(t: Table int ($1_staking_contract_StakingContract), k: int) returns (v: $1_staking_contract_StakingContract) {
+    var enc_k: int;
+    enc_k := $EncodeKey'address'(k);
+    if (!ContainsTable(t, enc_k)) {
+        call $Abort($StdError(7/*INVALID_ARGUMENTS*/, 101/*ENOT_FOUND*/));
+    } else {
+        v := GetTable(t, $EncodeKey'address'(k));
+    }
+}
+procedure {:inline 2} $1_simple_map_borrow_mut'address_$1_staking_contract_StakingContract'(m: $Mutation (Table int ($1_staking_contract_StakingContract)), k: int)
+returns (dst: $Mutation ($1_staking_contract_StakingContract), m': $Mutation (Table int ($1_staking_contract_StakingContract))) {
+    var enc_k: int;
+    var t: Table int ($1_staking_contract_StakingContract);
+    enc_k := $EncodeKey'address'(k);
+    t := $Dereference(m);
+    if (!ContainsTable(t, enc_k)) {
+        call $Abort($StdError(7/*INVALID_ARGUMENTS*/, 101/*ENOT_FOUND*/));
+    } else {
+        dst := $Mutation(l#$Mutation(m), ExtendVec(p#$Mutation(m), enc_k), GetTable(t, enc_k));
+        m' := m;
+    }
+}
+function {:inline} $1_simple_map_spec_len'address_$1_staking_contract_StakingContract'(t: (Table int ($1_staking_contract_StakingContract))): int {
+    LenTable(t)
+}
+function {:inline} $1_simple_map_spec_contains_key'address_$1_staking_contract_StakingContract'(t: (Table int ($1_staking_contract_StakingContract)), k: int): bool {
+    ContainsTable(t, $EncodeKey'address'(k))
+}
+function {:inline} $1_simple_map_spec_set'address_$1_staking_contract_StakingContract'(t: Table int ($1_staking_contract_StakingContract), k: int, v: $1_staking_contract_StakingContract): Table int ($1_staking_contract_StakingContract) {
+    (var enc_k := $EncodeKey'address'(k);
+    if (ContainsTable(t, enc_k)) then
+        UpdateTable(t, enc_k, v)
+    else
+        AddTable(t, enc_k, v))
+}
+function {:inline} $1_simple_map_spec_remove'address_$1_staking_contract_StakingContract'(t: Table int ($1_staking_contract_StakingContract), k: int): Table int ($1_staking_contract_StakingContract) {
+    RemoveTable(t, $EncodeKey'address'(k))
+}
+function {:inline} $1_simple_map_spec_get'address_$1_staking_contract_StakingContract'(t: Table int ($1_staking_contract_StakingContract), k: int): $1_staking_contract_StakingContract {
     GetTable(t, $EncodeKey'address'(k))
 }
 
@@ -6695,38 +6165,6 @@ procedure {:inline 1} $1_Signature_ed25519_verify(
 // ==================================================================================
 // Native bcs::serialize
 
-// ----------------------------------------------------------------------------------
-// Native BCS implementation for element type `address`
-
-// Serialize is modeled as an uninterpreted function, with an additional
-// axiom to say it's an injection.
-
-function $1_bcs_serialize'address'(v: int): Vec int;
-
-axiom (forall v1, v2: int :: {$1_bcs_serialize'address'(v1), $1_bcs_serialize'address'(v2)}
-   $IsEqual'address'(v1, v2) <==> $IsEqual'vec'u8''($1_bcs_serialize'address'(v1), $1_bcs_serialize'address'(v2)));
-
-// This says that serialize returns a non-empty vec<u8>
-
-axiom (forall v: int :: {$1_bcs_serialize'address'(v)}
-     ( var r := $1_bcs_serialize'address'(v); $IsValid'vec'u8''(r) && LenVec(r) > 0 ));
-
-
-procedure $1_bcs_to_bytes'address'(v: int) returns (res: Vec int);
-ensures res == $1_bcs_serialize'address'(v);
-
-function {:inline} $1_bcs_$to_bytes'address'(v: int): Vec int {
-    $1_bcs_serialize'address'(v)
-}
-
-// Serialized addresses should have the same length.
-const $serialized_address_len: int;
-// Serialized addresses should have the same length
-axiom (forall v: int :: {$1_bcs_serialize'address'(v)}
-     ( var r := $1_bcs_serialize'address'(v); LenVec(r) == $serialized_address_len));
-
-
-
 
 // ==================================================================================
 // Native Event module
@@ -6809,14 +6247,8 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <address>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'address'($1_from_bcs_deserialize'address'(b1), $1_from_bcs_deserialize'address'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <signer>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'signer'($1_from_bcs_deserialize'signer'(b1), $1_from_bcs_deserialize'signer'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <vector<u8>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''($1_from_bcs_deserialize'vec'u8''(b1), $1_from_bcs_deserialize'vec'u8''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <vector<u64>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u64''($1_from_bcs_deserialize'vec'u64''(b1), $1_from_bcs_deserialize'vec'u64''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <vector<address>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'address''($1_from_bcs_deserialize'vec'address''(b1), $1_from_bcs_deserialize'vec'address''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
@@ -6839,12 +6271,6 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <vector<#0>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'#0''($1_from_bcs_deserialize'vec'#0''(b1), $1_from_bcs_deserialize'vec'#0''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <option::Option<u64>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_option_Option'u64''($1_from_bcs_deserialize'$1_option_Option'u64''(b1), $1_from_bcs_deserialize'$1_option_Option'u64''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <option::Option<address>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_option_Option'address''($1_from_bcs_deserialize'$1_option_Option'address''(b1), $1_from_bcs_deserialize'$1_option_Option'address''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <option::Option<aggregator::Aggregator>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_option_Option'$1_aggregator_Aggregator''($1_from_bcs_deserialize'$1_option_Option'$1_aggregator_Aggregator''(b1), $1_from_bcs_deserialize'$1_option_Option'$1_aggregator_Aggregator''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
@@ -6860,26 +6286,11 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <type_info::TypeInfo>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_type_info_TypeInfo'($1_from_bcs_deserialize'$1_type_info_TypeInfo'(b1), $1_from_bcs_deserialize'$1_type_info_TypeInfo'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <table::Table<address, coin::Coin<aptos_coin::AptosCoin>>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_table_Table'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'''($1_from_bcs_deserialize'$1_table_Table'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'''(b1), $1_from_bcs_deserialize'$1_table_Table'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <guid::GUID>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_guid_GUID'($1_from_bcs_deserialize'$1_guid_GUID'(b1), $1_from_bcs_deserialize'$1_guid_GUID'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <guid::ID>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_guid_ID'($1_from_bcs_deserialize'$1_guid_ID'(b1), $1_from_bcs_deserialize'$1_guid_ID'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <event::EventHandle<account::CoinRegisterEvent>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_event_EventHandle'$1_account_CoinRegisterEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_account_CoinRegisterEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_account_CoinRegisterEvent''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <event::EventHandle<account::KeyRotationEvent>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_event_EventHandle'$1_account_KeyRotationEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_account_KeyRotationEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_account_KeyRotationEvent''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <event::EventHandle<coin::DepositEvent>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_event_EventHandle'$1_coin_DepositEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_coin_DepositEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_coin_DepositEvent''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <event::EventHandle<coin::WithdrawEvent>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_event_EventHandle'$1_coin_WithdrawEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_coin_WithdrawEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_coin_WithdrawEvent''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <event::EventHandle<stake::AddStakeEvent>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_event_EventHandle'$1_stake_AddStakeEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_stake_AddStakeEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_stake_AddStakeEvent''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
@@ -6917,17 +6328,32 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <event::EventHandle<stake::WithdrawStakeEvent>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_event_EventHandle'$1_stake_WithdrawStakeEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_stake_WithdrawStakeEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_stake_WithdrawStakeEvent''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <event::EventHandle<reconfiguration::NewEpochEvent>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <event::EventHandle<staking_contract::AddStakeEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <account::Account>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_account_Account'($1_from_bcs_deserialize'$1_account_Account'(b1), $1_from_bcs_deserialize'$1_account_Account'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <event::EventHandle<staking_contract::UnlockStakeEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <account::CapabilityOffer<account::RotationCapability>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_account_CapabilityOffer'$1_account_RotationCapability''($1_from_bcs_deserialize'$1_account_CapabilityOffer'$1_account_RotationCapability''(b1), $1_from_bcs_deserialize'$1_account_CapabilityOffer'$1_account_RotationCapability''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <event::EventHandle<staking_contract::AddDistributionEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <account::CapabilityOffer<account::SignerCapability>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_account_CapabilityOffer'$1_account_SignerCapability''($1_from_bcs_deserialize'$1_account_CapabilityOffer'$1_account_SignerCapability''(b1), $1_from_bcs_deserialize'$1_account_CapabilityOffer'$1_account_SignerCapability''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <event::EventHandle<staking_contract::CreateStakingContractEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <event::EventHandle<staking_contract::DistributeEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_event_EventHandle'$1_staking_contract_DistributeEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_DistributeEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_DistributeEvent''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <event::EventHandle<staking_contract::RequestCommissionEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <event::EventHandle<staking_contract::ResetLockupEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <event::EventHandle<staking_contract::SwitchOperatorEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <event::EventHandle<staking_contract::UpdateVoterEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <account::SignerCapability>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_account_SignerCapability'($1_from_bcs_deserialize'$1_account_SignerCapability'(b1), $1_from_bcs_deserialize'$1_account_SignerCapability'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
@@ -6947,15 +6373,6 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <coin::CoinInfo<aptos_coin::AptosCoin>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_coin_CoinInfo'$1_aptos_coin_AptosCoin''($1_from_bcs_deserialize'$1_coin_CoinInfo'$1_aptos_coin_AptosCoin''(b1), $1_from_bcs_deserialize'$1_coin_CoinInfo'$1_aptos_coin_AptosCoin''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <coin::CoinStore<aptos_coin::AptosCoin>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''($1_from_bcs_deserialize'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''(b1), $1_from_bcs_deserialize'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <coin::MintCapability<aptos_coin::AptosCoin>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_coin_MintCapability'$1_aptos_coin_AptosCoin''($1_from_bcs_deserialize'$1_coin_MintCapability'$1_aptos_coin_AptosCoin''(b1), $1_from_bcs_deserialize'$1_coin_MintCapability'$1_aptos_coin_AptosCoin''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <coin::WithdrawEvent>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_coin_WithdrawEvent'($1_from_bcs_deserialize'$1_coin_WithdrawEvent'(b1), $1_from_bcs_deserialize'$1_coin_WithdrawEvent'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <coin::Ghost$supply<aptos_coin::AptosCoin>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin''($1_from_bcs_deserialize'$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin''(b1), $1_from_bcs_deserialize'$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
@@ -6965,35 +6382,14 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <aptos_coin::AptosCoin>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_aptos_coin_AptosCoin'($1_from_bcs_deserialize'$1_aptos_coin_AptosCoin'(b1), $1_from_bcs_deserialize'$1_aptos_coin_AptosCoin'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <chain_status::GenesisEndMarker>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_chain_status_GenesisEndMarker'($1_from_bcs_deserialize'$1_chain_status_GenesisEndMarker'(b1), $1_from_bcs_deserialize'$1_chain_status_GenesisEndMarker'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <simple_map::SimpleMap<address, u64>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_simple_map_SimpleMap'address_u64''($1_from_bcs_deserialize'$1_simple_map_SimpleMap'address_u64''(b1), $1_from_bcs_deserialize'$1_simple_map_SimpleMap'address_u64''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <timestamp::CurrentTimeMicroseconds>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_timestamp_CurrentTimeMicroseconds'($1_from_bcs_deserialize'$1_timestamp_CurrentTimeMicroseconds'(b1), $1_from_bcs_deserialize'$1_timestamp_CurrentTimeMicroseconds'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <fixed_point64::FixedPoint64>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_fixed_point64_FixedPoint64'($1_from_bcs_deserialize'$1_fixed_point64_FixedPoint64'(b1), $1_from_bcs_deserialize'$1_fixed_point64_FixedPoint64'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <staking_config::StakingConfig>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_staking_config_StakingConfig'($1_from_bcs_deserialize'$1_staking_config_StakingConfig'(b1), $1_from_bcs_deserialize'$1_staking_config_StakingConfig'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <staking_config::StakingRewardsConfig>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_staking_config_StakingRewardsConfig'($1_from_bcs_deserialize'$1_staking_config_StakingRewardsConfig'(b1), $1_from_bcs_deserialize'$1_staking_config_StakingRewardsConfig'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <stake::AddStakeEvent>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_stake_AddStakeEvent'($1_from_bcs_deserialize'$1_stake_AddStakeEvent'(b1), $1_from_bcs_deserialize'$1_stake_AddStakeEvent'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <stake::AllowedValidators>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_stake_AllowedValidators'($1_from_bcs_deserialize'$1_stake_AllowedValidators'(b1), $1_from_bcs_deserialize'$1_stake_AllowedValidators'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <stake::AptosCoinCapabilities>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_stake_AptosCoinCapabilities'($1_from_bcs_deserialize'$1_stake_AptosCoinCapabilities'(b1), $1_from_bcs_deserialize'$1_stake_AptosCoinCapabilities'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <simple_map::SimpleMap<address, staking_contract::StakingContract>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_simple_map_SimpleMap'address_$1_staking_contract_StakingContract''($1_from_bcs_deserialize'$1_simple_map_SimpleMap'address_$1_staking_contract_StakingContract''(b1), $1_from_bcs_deserialize'$1_simple_map_SimpleMap'address_$1_staking_contract_StakingContract''(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <stake::OwnerCapability>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_stake_OwnerCapability'($1_from_bcs_deserialize'$1_stake_OwnerCapability'(b1), $1_from_bcs_deserialize'$1_stake_OwnerCapability'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <stake::SetOperatorEvent>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_stake_SetOperatorEvent'($1_from_bcs_deserialize'$1_stake_SetOperatorEvent'(b1), $1_from_bcs_deserialize'$1_stake_SetOperatorEvent'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <stake::StakePool>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_stake_StakePool'($1_from_bcs_deserialize'$1_stake_StakePool'(b1), $1_from_bcs_deserialize'$1_stake_StakePool'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
@@ -7001,20 +6397,20 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <stake::ValidatorConfig>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_stake_ValidatorConfig'($1_from_bcs_deserialize'$1_stake_ValidatorConfig'(b1), $1_from_bcs_deserialize'$1_stake_ValidatorConfig'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <stake::ValidatorFees>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_stake_ValidatorFees'($1_from_bcs_deserialize'$1_stake_ValidatorFees'(b1), $1_from_bcs_deserialize'$1_stake_ValidatorFees'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <stake::ValidatorInfo>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_stake_ValidatorInfo'($1_from_bcs_deserialize'$1_stake_ValidatorInfo'(b1), $1_from_bcs_deserialize'$1_stake_ValidatorInfo'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
-
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <stake::ValidatorPerformance>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_stake_ValidatorPerformance'($1_from_bcs_deserialize'$1_stake_ValidatorPerformance'(b1), $1_from_bcs_deserialize'$1_stake_ValidatorPerformance'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <stake::ValidatorSet>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_stake_ValidatorSet'($1_from_bcs_deserialize'$1_stake_ValidatorSet'(b1), $1_from_bcs_deserialize'$1_stake_ValidatorSet'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <reconfiguration::Configuration>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_reconfiguration_Configuration'($1_from_bcs_deserialize'$1_reconfiguration_Configuration'(b1), $1_from_bcs_deserialize'$1_reconfiguration_Configuration'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <pool_u64::Pool>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_pool_u64_Pool'($1_from_bcs_deserialize'$1_pool_u64_Pool'(b1), $1_from_bcs_deserialize'$1_pool_u64_Pool'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <staking_contract::StakingContract>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_staking_contract_StakingContract'($1_from_bcs_deserialize'$1_staking_contract_StakingContract'(b1), $1_from_bcs_deserialize'$1_staking_contract_StakingContract'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <staking_contract::Store>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'$1_staking_contract_Store'($1_from_bcs_deserialize'$1_staking_contract_Store'(b1), $1_from_bcs_deserialize'$1_staking_contract_Store'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:14:9+116, instance <#0>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'#0'($1_from_bcs_deserialize'#0'(b1), $1_from_bcs_deserialize'#0'(b2)) ==> $IsEqual'vec'u8''(b1, b2))));
@@ -7037,14 +6433,8 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <address>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'address'(b1), $1_from_bcs_deserializable'address'(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <signer>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'signer'(b1), $1_from_bcs_deserializable'signer'(b2)))));
-
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <vector<u8>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'vec'u8''(b1), $1_from_bcs_deserializable'vec'u8''(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <vector<u64>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'vec'u64''(b1), $1_from_bcs_deserializable'vec'u64''(b2)))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <vector<address>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'vec'address''(b1), $1_from_bcs_deserializable'vec'address''(b2)))));
@@ -7067,12 +6457,6 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <vector<#0>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'vec'#0''(b1), $1_from_bcs_deserializable'vec'#0''(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <option::Option<u64>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_option_Option'u64''(b1), $1_from_bcs_deserializable'$1_option_Option'u64''(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <option::Option<address>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_option_Option'address''(b1), $1_from_bcs_deserializable'$1_option_Option'address''(b2)))));
-
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <option::Option<aggregator::Aggregator>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_option_Option'$1_aggregator_Aggregator''(b1), $1_from_bcs_deserializable'$1_option_Option'$1_aggregator_Aggregator''(b2)))));
 
@@ -7088,26 +6472,11 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <type_info::TypeInfo>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_type_info_TypeInfo'(b1), $1_from_bcs_deserializable'$1_type_info_TypeInfo'(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <table::Table<address, coin::Coin<aptos_coin::AptosCoin>>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_table_Table'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'''(b1), $1_from_bcs_deserializable'$1_table_Table'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'''(b2)))));
-
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <guid::GUID>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_guid_GUID'(b1), $1_from_bcs_deserializable'$1_guid_GUID'(b2)))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <guid::ID>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_guid_ID'(b1), $1_from_bcs_deserializable'$1_guid_ID'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <event::EventHandle<account::CoinRegisterEvent>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_event_EventHandle'$1_account_CoinRegisterEvent''(b1), $1_from_bcs_deserializable'$1_event_EventHandle'$1_account_CoinRegisterEvent''(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <event::EventHandle<account::KeyRotationEvent>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_event_EventHandle'$1_account_KeyRotationEvent''(b1), $1_from_bcs_deserializable'$1_event_EventHandle'$1_account_KeyRotationEvent''(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <event::EventHandle<coin::DepositEvent>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_event_EventHandle'$1_coin_DepositEvent''(b1), $1_from_bcs_deserializable'$1_event_EventHandle'$1_coin_DepositEvent''(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <event::EventHandle<coin::WithdrawEvent>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_event_EventHandle'$1_coin_WithdrawEvent''(b1), $1_from_bcs_deserializable'$1_event_EventHandle'$1_coin_WithdrawEvent''(b2)))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <event::EventHandle<stake::AddStakeEvent>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_event_EventHandle'$1_stake_AddStakeEvent''(b1), $1_from_bcs_deserializable'$1_event_EventHandle'$1_stake_AddStakeEvent''(b2)))));
@@ -7145,17 +6514,32 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <event::EventHandle<stake::WithdrawStakeEvent>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_event_EventHandle'$1_stake_WithdrawStakeEvent''(b1), $1_from_bcs_deserializable'$1_event_EventHandle'$1_stake_WithdrawStakeEvent''(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <event::EventHandle<reconfiguration::NewEpochEvent>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''(b1), $1_from_bcs_deserializable'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''(b2)))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <event::EventHandle<staking_contract::AddStakeEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''(b1), $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <account::Account>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_account_Account'(b1), $1_from_bcs_deserializable'$1_account_Account'(b2)))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <event::EventHandle<staking_contract::UnlockStakeEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''(b1), $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <account::CapabilityOffer<account::RotationCapability>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_account_CapabilityOffer'$1_account_RotationCapability''(b1), $1_from_bcs_deserializable'$1_account_CapabilityOffer'$1_account_RotationCapability''(b2)))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <event::EventHandle<staking_contract::AddDistributionEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''(b1), $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <account::CapabilityOffer<account::SignerCapability>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_account_CapabilityOffer'$1_account_SignerCapability''(b1), $1_from_bcs_deserializable'$1_account_CapabilityOffer'$1_account_SignerCapability''(b2)))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <event::EventHandle<staking_contract::CreateStakingContractEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''(b1), $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''(b2)))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <event::EventHandle<staking_contract::DistributeEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_DistributeEvent''(b1), $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_DistributeEvent''(b2)))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <event::EventHandle<staking_contract::RequestCommissionEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''(b1), $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''(b2)))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <event::EventHandle<staking_contract::ResetLockupEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''(b1), $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''(b2)))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <event::EventHandle<staking_contract::SwitchOperatorEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''(b1), $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''(b2)))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <event::EventHandle<staking_contract::UpdateVoterEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''(b1), $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''(b2)))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <account::SignerCapability>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_account_SignerCapability'(b1), $1_from_bcs_deserializable'$1_account_SignerCapability'(b2)))));
@@ -7175,15 +6559,6 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <coin::CoinInfo<aptos_coin::AptosCoin>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_coin_CoinInfo'$1_aptos_coin_AptosCoin''(b1), $1_from_bcs_deserializable'$1_coin_CoinInfo'$1_aptos_coin_AptosCoin''(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <coin::CoinStore<aptos_coin::AptosCoin>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''(b1), $1_from_bcs_deserializable'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <coin::MintCapability<aptos_coin::AptosCoin>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_coin_MintCapability'$1_aptos_coin_AptosCoin''(b1), $1_from_bcs_deserializable'$1_coin_MintCapability'$1_aptos_coin_AptosCoin''(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <coin::WithdrawEvent>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_coin_WithdrawEvent'(b1), $1_from_bcs_deserializable'$1_coin_WithdrawEvent'(b2)))));
-
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <coin::Ghost$supply<aptos_coin::AptosCoin>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin''(b1), $1_from_bcs_deserializable'$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin''(b2)))));
 
@@ -7193,35 +6568,14 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <aptos_coin::AptosCoin>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_aptos_coin_AptosCoin'(b1), $1_from_bcs_deserializable'$1_aptos_coin_AptosCoin'(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <chain_status::GenesisEndMarker>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_chain_status_GenesisEndMarker'(b1), $1_from_bcs_deserializable'$1_chain_status_GenesisEndMarker'(b2)))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <simple_map::SimpleMap<address, u64>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_simple_map_SimpleMap'address_u64''(b1), $1_from_bcs_deserializable'$1_simple_map_SimpleMap'address_u64''(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <timestamp::CurrentTimeMicroseconds>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_timestamp_CurrentTimeMicroseconds'(b1), $1_from_bcs_deserializable'$1_timestamp_CurrentTimeMicroseconds'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <fixed_point64::FixedPoint64>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_fixed_point64_FixedPoint64'(b1), $1_from_bcs_deserializable'$1_fixed_point64_FixedPoint64'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <staking_config::StakingConfig>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_staking_config_StakingConfig'(b1), $1_from_bcs_deserializable'$1_staking_config_StakingConfig'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <staking_config::StakingRewardsConfig>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_staking_config_StakingRewardsConfig'(b1), $1_from_bcs_deserializable'$1_staking_config_StakingRewardsConfig'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <stake::AddStakeEvent>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_stake_AddStakeEvent'(b1), $1_from_bcs_deserializable'$1_stake_AddStakeEvent'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <stake::AllowedValidators>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_stake_AllowedValidators'(b1), $1_from_bcs_deserializable'$1_stake_AllowedValidators'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <stake::AptosCoinCapabilities>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_stake_AptosCoinCapabilities'(b1), $1_from_bcs_deserializable'$1_stake_AptosCoinCapabilities'(b2)))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <simple_map::SimpleMap<address, staking_contract::StakingContract>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_simple_map_SimpleMap'address_$1_staking_contract_StakingContract''(b1), $1_from_bcs_deserializable'$1_simple_map_SimpleMap'address_$1_staking_contract_StakingContract''(b2)))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <stake::OwnerCapability>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_stake_OwnerCapability'(b1), $1_from_bcs_deserializable'$1_stake_OwnerCapability'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <stake::SetOperatorEvent>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_stake_SetOperatorEvent'(b1), $1_from_bcs_deserializable'$1_stake_SetOperatorEvent'(b2)))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <stake::StakePool>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_stake_StakePool'(b1), $1_from_bcs_deserializable'$1_stake_StakePool'(b2)))));
@@ -7229,20 +6583,20 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <stake::ValidatorConfig>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_stake_ValidatorConfig'(b1), $1_from_bcs_deserializable'$1_stake_ValidatorConfig'(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <stake::ValidatorFees>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_stake_ValidatorFees'(b1), $1_from_bcs_deserializable'$1_stake_ValidatorFees'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <stake::ValidatorInfo>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_stake_ValidatorInfo'(b1), $1_from_bcs_deserializable'$1_stake_ValidatorInfo'(b2)))));
-
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <stake::ValidatorPerformance>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_stake_ValidatorPerformance'(b1), $1_from_bcs_deserializable'$1_stake_ValidatorPerformance'(b2)))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <stake::ValidatorSet>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_stake_ValidatorSet'(b1), $1_from_bcs_deserializable'$1_stake_ValidatorSet'(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <reconfiguration::Configuration>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_reconfiguration_Configuration'(b1), $1_from_bcs_deserializable'$1_reconfiguration_Configuration'(b2)))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <pool_u64::Pool>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_pool_u64_Pool'(b1), $1_from_bcs_deserializable'$1_pool_u64_Pool'(b2)))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <staking_contract::StakingContract>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_staking_contract_StakingContract'(b1), $1_from_bcs_deserializable'$1_staking_contract_StakingContract'(b2)))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <staking_contract::Store>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'$1_staking_contract_Store'(b1), $1_from_bcs_deserializable'$1_staking_contract_Store'(b2)))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:18:9+124, instance <#0>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'bool'($1_from_bcs_deserializable'#0'(b1), $1_from_bcs_deserializable'#0'(b2)))));
@@ -7265,14 +6619,8 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <address>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'address'($1_from_bcs_deserialize'address'(b1), $1_from_bcs_deserialize'address'(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <signer>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'signer'($1_from_bcs_deserialize'signer'(b1), $1_from_bcs_deserialize'signer'(b2)))));
-
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <vector<u8>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'vec'u8''($1_from_bcs_deserialize'vec'u8''(b1), $1_from_bcs_deserialize'vec'u8''(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <vector<u64>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'vec'u64''($1_from_bcs_deserialize'vec'u64''(b1), $1_from_bcs_deserialize'vec'u64''(b2)))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <vector<address>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'vec'address''($1_from_bcs_deserialize'vec'address''(b1), $1_from_bcs_deserialize'vec'address''(b2)))));
@@ -7295,12 +6643,6 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <vector<#0>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'vec'#0''($1_from_bcs_deserialize'vec'#0''(b1), $1_from_bcs_deserialize'vec'#0''(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <option::Option<u64>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_option_Option'u64''($1_from_bcs_deserialize'$1_option_Option'u64''(b1), $1_from_bcs_deserialize'$1_option_Option'u64''(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <option::Option<address>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_option_Option'address''($1_from_bcs_deserialize'$1_option_Option'address''(b1), $1_from_bcs_deserialize'$1_option_Option'address''(b2)))));
-
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <option::Option<aggregator::Aggregator>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_option_Option'$1_aggregator_Aggregator''($1_from_bcs_deserialize'$1_option_Option'$1_aggregator_Aggregator''(b1), $1_from_bcs_deserialize'$1_option_Option'$1_aggregator_Aggregator''(b2)))));
 
@@ -7316,26 +6658,11 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <type_info::TypeInfo>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_type_info_TypeInfo'($1_from_bcs_deserialize'$1_type_info_TypeInfo'(b1), $1_from_bcs_deserialize'$1_type_info_TypeInfo'(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <table::Table<address, coin::Coin<aptos_coin::AptosCoin>>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_table_Table'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'''($1_from_bcs_deserialize'$1_table_Table'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'''(b1), $1_from_bcs_deserialize'$1_table_Table'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'''(b2)))));
-
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <guid::GUID>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_guid_GUID'($1_from_bcs_deserialize'$1_guid_GUID'(b1), $1_from_bcs_deserialize'$1_guid_GUID'(b2)))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <guid::ID>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_guid_ID'($1_from_bcs_deserialize'$1_guid_ID'(b1), $1_from_bcs_deserialize'$1_guid_ID'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <event::EventHandle<account::CoinRegisterEvent>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_event_EventHandle'$1_account_CoinRegisterEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_account_CoinRegisterEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_account_CoinRegisterEvent''(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <event::EventHandle<account::KeyRotationEvent>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_event_EventHandle'$1_account_KeyRotationEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_account_KeyRotationEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_account_KeyRotationEvent''(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <event::EventHandle<coin::DepositEvent>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_event_EventHandle'$1_coin_DepositEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_coin_DepositEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_coin_DepositEvent''(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <event::EventHandle<coin::WithdrawEvent>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_event_EventHandle'$1_coin_WithdrawEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_coin_WithdrawEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_coin_WithdrawEvent''(b2)))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <event::EventHandle<stake::AddStakeEvent>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_event_EventHandle'$1_stake_AddStakeEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_stake_AddStakeEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_stake_AddStakeEvent''(b2)))));
@@ -7373,17 +6700,32 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <event::EventHandle<stake::WithdrawStakeEvent>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_event_EventHandle'$1_stake_WithdrawStakeEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_stake_WithdrawStakeEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_stake_WithdrawStakeEvent''(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <event::EventHandle<reconfiguration::NewEpochEvent>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''(b2)))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <event::EventHandle<staking_contract::AddStakeEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <account::Account>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_account_Account'($1_from_bcs_deserialize'$1_account_Account'(b1), $1_from_bcs_deserialize'$1_account_Account'(b2)))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <event::EventHandle<staking_contract::UnlockStakeEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <account::CapabilityOffer<account::RotationCapability>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_account_CapabilityOffer'$1_account_RotationCapability''($1_from_bcs_deserialize'$1_account_CapabilityOffer'$1_account_RotationCapability''(b1), $1_from_bcs_deserialize'$1_account_CapabilityOffer'$1_account_RotationCapability''(b2)))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <event::EventHandle<staking_contract::AddDistributionEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <account::CapabilityOffer<account::SignerCapability>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_account_CapabilityOffer'$1_account_SignerCapability''($1_from_bcs_deserialize'$1_account_CapabilityOffer'$1_account_SignerCapability''(b1), $1_from_bcs_deserialize'$1_account_CapabilityOffer'$1_account_SignerCapability''(b2)))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <event::EventHandle<staking_contract::CreateStakingContractEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''(b2)))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <event::EventHandle<staking_contract::DistributeEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_event_EventHandle'$1_staking_contract_DistributeEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_DistributeEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_DistributeEvent''(b2)))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <event::EventHandle<staking_contract::RequestCommissionEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''(b2)))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <event::EventHandle<staking_contract::ResetLockupEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''(b2)))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <event::EventHandle<staking_contract::SwitchOperatorEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''(b2)))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <event::EventHandle<staking_contract::UpdateVoterEvent>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''($1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''(b1), $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''(b2)))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <account::SignerCapability>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_account_SignerCapability'($1_from_bcs_deserialize'$1_account_SignerCapability'(b1), $1_from_bcs_deserialize'$1_account_SignerCapability'(b2)))));
@@ -7403,15 +6745,6 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <coin::CoinInfo<aptos_coin::AptosCoin>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_coin_CoinInfo'$1_aptos_coin_AptosCoin''($1_from_bcs_deserialize'$1_coin_CoinInfo'$1_aptos_coin_AptosCoin''(b1), $1_from_bcs_deserialize'$1_coin_CoinInfo'$1_aptos_coin_AptosCoin''(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <coin::CoinStore<aptos_coin::AptosCoin>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''($1_from_bcs_deserialize'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''(b1), $1_from_bcs_deserialize'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <coin::MintCapability<aptos_coin::AptosCoin>>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_coin_MintCapability'$1_aptos_coin_AptosCoin''($1_from_bcs_deserialize'$1_coin_MintCapability'$1_aptos_coin_AptosCoin''(b1), $1_from_bcs_deserialize'$1_coin_MintCapability'$1_aptos_coin_AptosCoin''(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <coin::WithdrawEvent>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_coin_WithdrawEvent'($1_from_bcs_deserialize'$1_coin_WithdrawEvent'(b1), $1_from_bcs_deserialize'$1_coin_WithdrawEvent'(b2)))));
-
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <coin::Ghost$supply<aptos_coin::AptosCoin>>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin''($1_from_bcs_deserialize'$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin''(b1), $1_from_bcs_deserialize'$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin''(b2)))));
 
@@ -7421,35 +6754,14 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <aptos_coin::AptosCoin>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_aptos_coin_AptosCoin'($1_from_bcs_deserialize'$1_aptos_coin_AptosCoin'(b1), $1_from_bcs_deserialize'$1_aptos_coin_AptosCoin'(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <chain_status::GenesisEndMarker>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_chain_status_GenesisEndMarker'($1_from_bcs_deserialize'$1_chain_status_GenesisEndMarker'(b1), $1_from_bcs_deserialize'$1_chain_status_GenesisEndMarker'(b2)))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <simple_map::SimpleMap<address, u64>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_simple_map_SimpleMap'address_u64''($1_from_bcs_deserialize'$1_simple_map_SimpleMap'address_u64''(b1), $1_from_bcs_deserialize'$1_simple_map_SimpleMap'address_u64''(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <timestamp::CurrentTimeMicroseconds>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_timestamp_CurrentTimeMicroseconds'($1_from_bcs_deserialize'$1_timestamp_CurrentTimeMicroseconds'(b1), $1_from_bcs_deserialize'$1_timestamp_CurrentTimeMicroseconds'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <fixed_point64::FixedPoint64>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_fixed_point64_FixedPoint64'($1_from_bcs_deserialize'$1_fixed_point64_FixedPoint64'(b1), $1_from_bcs_deserialize'$1_fixed_point64_FixedPoint64'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <staking_config::StakingConfig>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_staking_config_StakingConfig'($1_from_bcs_deserialize'$1_staking_config_StakingConfig'(b1), $1_from_bcs_deserialize'$1_staking_config_StakingConfig'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <staking_config::StakingRewardsConfig>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_staking_config_StakingRewardsConfig'($1_from_bcs_deserialize'$1_staking_config_StakingRewardsConfig'(b1), $1_from_bcs_deserialize'$1_staking_config_StakingRewardsConfig'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <stake::AddStakeEvent>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_stake_AddStakeEvent'($1_from_bcs_deserialize'$1_stake_AddStakeEvent'(b1), $1_from_bcs_deserialize'$1_stake_AddStakeEvent'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <stake::AllowedValidators>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_stake_AllowedValidators'($1_from_bcs_deserialize'$1_stake_AllowedValidators'(b1), $1_from_bcs_deserialize'$1_stake_AllowedValidators'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <stake::AptosCoinCapabilities>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_stake_AptosCoinCapabilities'($1_from_bcs_deserialize'$1_stake_AptosCoinCapabilities'(b1), $1_from_bcs_deserialize'$1_stake_AptosCoinCapabilities'(b2)))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <simple_map::SimpleMap<address, staking_contract::StakingContract>>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_simple_map_SimpleMap'address_$1_staking_contract_StakingContract''($1_from_bcs_deserialize'$1_simple_map_SimpleMap'address_$1_staking_contract_StakingContract''(b1), $1_from_bcs_deserialize'$1_simple_map_SimpleMap'address_$1_staking_contract_StakingContract''(b2)))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <stake::OwnerCapability>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_stake_OwnerCapability'($1_from_bcs_deserialize'$1_stake_OwnerCapability'(b1), $1_from_bcs_deserialize'$1_stake_OwnerCapability'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <stake::SetOperatorEvent>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_stake_SetOperatorEvent'($1_from_bcs_deserialize'$1_stake_SetOperatorEvent'(b1), $1_from_bcs_deserialize'$1_stake_SetOperatorEvent'(b2)))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <stake::StakePool>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_stake_StakePool'($1_from_bcs_deserialize'$1_stake_StakePool'(b1), $1_from_bcs_deserialize'$1_stake_StakePool'(b2)))));
@@ -7457,33 +6769,23 @@ axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <stake::ValidatorConfig>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_stake_ValidatorConfig'($1_from_bcs_deserialize'$1_stake_ValidatorConfig'(b1), $1_from_bcs_deserialize'$1_stake_ValidatorConfig'(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <stake::ValidatorFees>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_stake_ValidatorFees'($1_from_bcs_deserialize'$1_stake_ValidatorFees'(b1), $1_from_bcs_deserialize'$1_stake_ValidatorFees'(b2)))));
-
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <stake::ValidatorInfo>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_stake_ValidatorInfo'($1_from_bcs_deserialize'$1_stake_ValidatorInfo'(b1), $1_from_bcs_deserialize'$1_stake_ValidatorInfo'(b2)))));
-
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <stake::ValidatorPerformance>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_stake_ValidatorPerformance'($1_from_bcs_deserialize'$1_stake_ValidatorPerformance'(b1), $1_from_bcs_deserialize'$1_stake_ValidatorPerformance'(b2)))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <stake::ValidatorSet>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_stake_ValidatorSet'($1_from_bcs_deserialize'$1_stake_ValidatorSet'(b1), $1_from_bcs_deserialize'$1_stake_ValidatorSet'(b2)))));
 
-// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <reconfiguration::Configuration>
-axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_reconfiguration_Configuration'($1_from_bcs_deserialize'$1_reconfiguration_Configuration'(b1), $1_from_bcs_deserialize'$1_reconfiguration_Configuration'(b2)))));
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <pool_u64::Pool>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_pool_u64_Pool'($1_from_bcs_deserialize'$1_pool_u64_Pool'(b1), $1_from_bcs_deserialize'$1_pool_u64_Pool'(b2)))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <staking_contract::StakingContract>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_staking_contract_StakingContract'($1_from_bcs_deserialize'$1_staking_contract_StakingContract'(b1), $1_from_bcs_deserialize'$1_staking_contract_StakingContract'(b2)))));
+
+// axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <staking_contract::Store>
+axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'$1_staking_contract_Store'($1_from_bcs_deserialize'$1_staking_contract_Store'(b1), $1_from_bcs_deserialize'$1_staking_contract_Store'(b2)))));
 
 // axiom at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:21:9+118, instance <#0>
 axiom (forall b1: Vec (int), b2: Vec (int) :: $IsValid'vec'u8''(b1) ==> $IsValid'vec'u8''(b2) ==> (($IsEqual'vec'u8''(b1, b2) ==> $IsEqual'#0'($1_from_bcs_deserialize'#0'(b1), $1_from_bcs_deserialize'#0'(b2)))));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/vector.move:146:5+86
-function {:inline} $1_vector_$is_empty'u64'(v: Vec (int)): bool {
-    $IsEqual'u64'($1_vector_$length'u64'(v), 0)
-}
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/vector.move:146:5+86
-function {:inline} $1_vector_$is_empty'address'(v: Vec (int)): bool {
-    $IsEqual'u64'($1_vector_$length'address'(v), 0)
-}
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/vector.move:146:5+86
 function {:inline} $1_vector_$is_empty'$1_aggregator_Aggregator'(v: Vec ($1_aggregator_Aggregator)): bool {
@@ -7495,9 +6797,10 @@ function {:inline} $1_vector_$is_empty'$1_optional_aggregator_Integer'(v: Vec ($
     $IsEqual'u64'($1_vector_$length'$1_optional_aggregator_Integer'(v), 0)
 }
 
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/option.move:102:5+145
-function {:inline} $1_option_$borrow'u64'(t: $1_option_Option'u64'): int {
-    $1_vector_$borrow'u64'($vec#$1_option_Option'u64'(t), 0)
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/vector.move:608:9+110
+function {:inline} $1_vector_spec_contains'address'(v: Vec (int), e: int): bool {
+    (var $range_0 := v; (exists $i_1: int :: InRangeVec($range_0, $i_1) && (var x := ReadVec($range_0, $i_1);
+    ($IsEqual'address'(x, e)))))
 }
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/option.move:102:5+145
@@ -7511,11 +6814,6 @@ function {:inline} $1_option_$borrow'$1_optional_aggregator_Integer'(t: $1_optio
 }
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/option.move:61:5+95
-function {:inline} $1_option_$is_none'u64'(t: $1_option_Option'u64'): bool {
-    $1_vector_$is_empty'u64'($vec#$1_option_Option'u64'(t))
-}
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/option.move:61:5+95
 function {:inline} $1_option_$is_none'$1_aggregator_Aggregator'(t: $1_option_Option'$1_aggregator_Aggregator'): bool {
     $1_vector_$is_empty'$1_aggregator_Aggregator'($vec#$1_option_Option'$1_aggregator_Aggregator'(t))
 }
@@ -7523,11 +6821,6 @@ function {:inline} $1_option_$is_none'$1_aggregator_Aggregator'(t: $1_option_Opt
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/option.move:61:5+95
 function {:inline} $1_option_$is_none'$1_optional_aggregator_Integer'(t: $1_option_Option'$1_optional_aggregator_Integer'): bool {
     $1_vector_$is_empty'$1_optional_aggregator_Integer'($vec#$1_option_Option'$1_optional_aggregator_Integer'(t))
-}
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/option.move:74:5+96
-function {:inline} $1_option_$is_some'u64'(t: $1_option_Option'u64'): bool {
-    !$1_vector_$is_empty'u64'($vec#$1_option_Option'u64'(t))
 }
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/option.move:74:5+96
@@ -7539,50 +6832,6 @@ function {:inline} $1_option_$is_some'$1_aggregator_Aggregator'(t: $1_option_Opt
 function {:inline} $1_option_$is_some'$1_optional_aggregator_Integer'(t: $1_option_Option'$1_optional_aggregator_Integer'): bool {
     !$1_vector_$is_empty'$1_optional_aggregator_Integer'($vec#$1_option_Option'$1_optional_aggregator_Integer'(t))
 }
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/option.move:34:10+78
-function {:inline} $1_option_spec_none'address'(): $1_option_Option'address' {
-    $1_option_Option'address'($EmptyVec'address'())
-}
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/option.move:47:10+89
-function {:inline} $1_option_spec_some'address'(e: int): $1_option_Option'address' {
-    $1_option_Option'address'(MakeVec1(e))
-}
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/option.move:69:10+91
-function {:inline} $1_option_spec_is_none'address'(t: $1_option_Option'address'): bool {
-    $1_vector_$is_empty'address'($vec#$1_option_Option'address'(t))
-}
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/option.move:82:10+92
-function {:inline} $1_option_spec_is_some'u64'(t: $1_option_Option'u64'): bool {
-    !$1_vector_$is_empty'u64'($vec#$1_option_Option'u64'(t))
-}
-
-// struct option::Option<u64> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/option.move:7:5+81
-type {:datatype} $1_option_Option'u64';
-function {:constructor} $1_option_Option'u64'($vec: Vec (int)): $1_option_Option'u64';
-function {:inline} $Update'$1_option_Option'u64''_vec(s: $1_option_Option'u64', x: Vec (int)): $1_option_Option'u64' {
-    $1_option_Option'u64'(x)
-}
-function $IsValid'$1_option_Option'u64''(s: $1_option_Option'u64'): bool {
-    $IsValid'vec'u64''($vec#$1_option_Option'u64'(s))
-}
-function {:inline} $IsEqual'$1_option_Option'u64''(s1: $1_option_Option'u64', s2: $1_option_Option'u64'): bool {
-    $IsEqual'vec'u64''($vec#$1_option_Option'u64'(s1), $vec#$1_option_Option'u64'(s2))}
-
-// struct option::Option<address> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/option.move:7:5+81
-type {:datatype} $1_option_Option'address';
-function {:constructor} $1_option_Option'address'($vec: Vec (int)): $1_option_Option'address';
-function {:inline} $Update'$1_option_Option'address''_vec(s: $1_option_Option'address', x: Vec (int)): $1_option_Option'address' {
-    $1_option_Option'address'(x)
-}
-function $IsValid'$1_option_Option'address''(s: $1_option_Option'address'): bool {
-    $IsValid'vec'address''($vec#$1_option_Option'address'(s))
-}
-function {:inline} $IsEqual'$1_option_Option'address''(s1: $1_option_Option'address', s2: $1_option_Option'address'): bool {
-    $IsEqual'vec'address''($vec#$1_option_Option'address'(s1), $vec#$1_option_Option'address'(s2))}
 
 // struct option::Option<aggregator::Aggregator> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/option.move:7:5+81
 type {:datatype} $1_option_Option'$1_aggregator_Aggregator';
@@ -7632,108 +6881,6 @@ function $IsValid'$1_string_String'(s: $1_string_String): bool {
 function {:inline} $IsEqual'$1_string_String'(s1: $1_string_String, s2: $1_string_String): bool {
     $IsEqual'vec'u8''($bytes#$1_string_String(s1), $bytes#$1_string_String(s2))}
 
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/signer.move:12:5+77
-function {:inline} $1_signer_$address_of(s: $signer): int {
-    $1_signer_$borrow_address(s)
-}
-
-// fun signer::address_of [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/signer.move:12:5+77
-procedure {:inline 1} $1_signer_address_of(_$t0: $signer) returns ($ret0: int)
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: int;
-    var $t0: $signer;
-    var $temp_0'address': int;
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[s]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/signer.move:12:5+1
-    assume {:print "$at(14,396,397)"} true;
-    assume {:print "$track_local(3,0,0):", $t0} $t0 == $t0;
-
-    // $t1 := signer::borrow_address($t0) on_abort goto L2 with $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/signer.move:13:10+17
-    assume {:print "$at(14,450,467)"} true;
-    call $t1 := $1_signer_borrow_address($t0);
-    if ($abort_flag) {
-        assume {:print "$at(14,450,467)"} true;
-        $t2 := $abort_code;
-        assume {:print "$track_abort(3,0):", $t2} $t2 == $t2;
-        goto L2;
-    }
-
-    // trace_return[0]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/signer.move:13:9+18
-    assume {:print "$track_return(3,0,0):", $t1} $t1 == $t1;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/signer.move:14:5+1
-    assume {:print "$at(14,472,473)"} true;
-L1:
-
-    // return $t1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/signer.move:14:5+1
-    assume {:print "$at(14,472,473)"} true;
-    $ret0 := $t1;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/signer.move:14:5+1
-L2:
-
-    // abort($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/signer.move:14:5+1
-    assume {:print "$at(14,472,473)"} true;
-    $abort_code := $t2;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun error::already_exists [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:83:3+71
-procedure {:inline 1} $1_error_already_exists(_$t0: int) returns ($ret0: int)
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: int;
-    var $t3: int;
-    var $t0: int;
-    var $temp_0'u64': int;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[r]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:83:3+1
-    assume {:print "$at(10,3585,3586)"} true;
-    assume {:print "$track_local(4,1,0):", $t0} $t0 == $t0;
-
-    // $t1 := 8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:83:54+14
-    $t1 := 8;
-    assume $IsValid'u64'($t1);
-
-    // assume Identical($t2, Shl($t1, 16)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:69:5+29
-    assume {:print "$at(10,2844,2873)"} true;
-    assume ($t2 == $shlU64($t1, 16));
-
-    // $t3 := opaque begin: error::canonical($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:83:44+28
-    assume {:print "$at(10,3626,3654)"} true;
-
-    // assume WellFormed($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:83:44+28
-    assume $IsValid'u64'($t3);
-
-    // assume Eq<u64>($t3, $t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:83:44+28
-    assume $IsEqual'u64'($t3, $t1);
-
-    // $t3 := opaque end: error::canonical($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:83:44+28
-
-    // trace_return[0]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:83:44+28
-    assume {:print "$track_return(4,1,0):", $t3} $t3 == $t3;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:83:73+1
-L1:
-
-    // return $t3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:83:73+1
-    assume {:print "$at(10,3655,3656)"} true;
-    $ret0 := $t3;
-    return;
-
-}
-
 // fun error::invalid_argument [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:76:3+76
 procedure {:inline 1} $1_error_invalid_argument(_$t0: int) returns ($ret0: int)
 {
@@ -7777,54 +6924,6 @@ L1:
 
     // return $t3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:76:78+1
     assume {:print "$at(10,3157,3158)"} true;
-    $ret0 := $t3;
-    return;
-
-}
-
-// fun error::invalid_state [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:78:3+70
-procedure {:inline 1} $1_error_invalid_state(_$t0: int) returns ($ret0: int)
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: int;
-    var $t3: int;
-    var $t0: int;
-    var $temp_0'u64': int;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[r]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:78:3+1
-    assume {:print "$at(10,3232,3233)"} true;
-    assume {:print "$track_local(4,5,0):", $t0} $t0 == $t0;
-
-    // $t1 := 3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:78:54+13
-    $t1 := 3;
-    assume $IsValid'u64'($t1);
-
-    // assume Identical($t2, Shl($t1, 16)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:69:5+29
-    assume {:print "$at(10,2844,2873)"} true;
-    assume ($t2 == $shlU64($t1, 16));
-
-    // $t3 := opaque begin: error::canonical($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:78:44+27
-    assume {:print "$at(10,3273,3300)"} true;
-
-    // assume WellFormed($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:78:44+27
-    assume $IsValid'u64'($t3);
-
-    // assume Eq<u64>($t3, $t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:78:44+27
-    assume $IsEqual'u64'($t3, $t1);
-
-    // $t3 := opaque end: error::canonical($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:78:44+27
-
-    // trace_return[0]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:78:44+27
-    assume {:print "$track_return(4,5,0):", $t3} $t3 == $t3;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:78:72+1
-L1:
-
-    // return $t3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:78:72+1
-    assume {:print "$at(10,3301,3302)"} true;
     $ret0 := $t3;
     return;
 
@@ -7876,113 +6975,6 @@ L1:
     $ret0 := $t3;
     return;
 
-}
-
-// fun error::out_of_range [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:77:3+68
-procedure {:inline 1} $1_error_out_of_range(_$t0: int) returns ($ret0: int)
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: int;
-    var $t3: int;
-    var $t0: int;
-    var $temp_0'u64': int;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[r]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:77:3+1
-    assume {:print "$at(10,3161,3162)"} true;
-    assume {:print "$track_local(4,8,0):", $t0} $t0 == $t0;
-
-    // $t1 := 2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:77:53+12
-    $t1 := 2;
-    assume $IsValid'u64'($t1);
-
-    // assume Identical($t2, Shl($t1, 16)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:69:5+29
-    assume {:print "$at(10,2844,2873)"} true;
-    assume ($t2 == $shlU64($t1, 16));
-
-    // $t3 := opaque begin: error::canonical($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:77:43+26
-    assume {:print "$at(10,3201,3227)"} true;
-
-    // assume WellFormed($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:77:43+26
-    assume $IsValid'u64'($t3);
-
-    // assume Eq<u64>($t3, $t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:77:43+26
-    assume $IsEqual'u64'($t3, $t1);
-
-    // $t3 := opaque end: error::canonical($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:77:43+26
-
-    // trace_return[0]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:77:43+26
-    assume {:print "$track_return(4,8,0):", $t3} $t3 == $t3;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:77:70+1
-L1:
-
-    // return $t3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:77:70+1
-    assume {:print "$at(10,3228,3229)"} true;
-    $ret0 := $t3;
-    return;
-
-}
-
-// fun error::permission_denied [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:80:3+77
-procedure {:inline 1} $1_error_permission_denied(_$t0: int) returns ($ret0: int)
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: int;
-    var $t3: int;
-    var $t0: int;
-    var $temp_0'u64': int;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[r]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:80:3+1
-    assume {:print "$at(10,3381,3382)"} true;
-    assume {:print "$track_local(4,9,0):", $t0} $t0 == $t0;
-
-    // $t1 := 5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:80:57+17
-    $t1 := 5;
-    assume $IsValid'u64'($t1);
-
-    // assume Identical($t2, Shl($t1, 16)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:69:5+29
-    assume {:print "$at(10,2844,2873)"} true;
-    assume ($t2 == $shlU64($t1, 16));
-
-    // $t3 := opaque begin: error::canonical($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:80:47+31
-    assume {:print "$at(10,3425,3456)"} true;
-
-    // assume WellFormed($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:80:47+31
-    assume $IsValid'u64'($t3);
-
-    // assume Eq<u64>($t3, $t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:80:47+31
-    assume $IsEqual'u64'($t3, $t1);
-
-    // $t3 := opaque end: error::canonical($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:80:47+31
-
-    // trace_return[0]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:80:47+31
-    assume {:print "$track_return(4,9,0):", $t3} $t3 == $t3;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:80:79+1
-L1:
-
-    // return $t3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/error.move:80:79+1
-    assume {:print "$at(10,3457,3458)"} true;
-    $ret0 := $t3;
-    return;
-
-}
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/configs/features.spec.move:38:10+40
-function  $1_features_spec_is_enabled(feature: int): bool;
-axiom (forall feature: int ::
-(var $$res := $1_features_spec_is_enabled(feature);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/../move-stdlib/sources/configs/features.spec.move:40:10+121
-function {:inline} $1_features_spec_periodical_reward_rate_decrease_enabled(): bool {
-    $1_features_spec_is_enabled(16)
 }
 
 // struct type_info::TypeInfo at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/type_info.move:17:5+145
@@ -8037,94 +7029,6 @@ function {:inline} $IsEqual'$1_guid_ID'(s1: $1_guid_ID, s2: $1_guid_ID): bool {
     s1 == s2
 }
 
-// fun guid::create [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/guid.move:23:5+286
-procedure {:inline 1} $1_guid_create(_$t0: int, _$t1: $Mutation (int)) returns ($ret0: $1_guid_GUID, $ret1: $Mutation (int))
-{
-    // declare local variables
-    var $t2: int;
-    var $t3: int;
-    var $t4: int;
-    var $t5: int;
-    var $t6: int;
-    var $t7: $1_guid_ID;
-    var $t8: $1_guid_GUID;
-    var $t0: int;
-    var $t1: $Mutation (int);
-    var $temp_0'$1_guid_GUID': $1_guid_GUID;
-    var $temp_0'address': int;
-    var $temp_0'u64': int;
-    $t0 := _$t0;
-    $t1 := _$t1;
-
-    // bytecode translation starts here
-    // trace_local[addr]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/guid.move:23:5+1
-    assume {:print "$at(118,836,837)"} true;
-    assume {:print "$track_local(13,0,0):", $t0} $t0 == $t0;
-
-    // trace_local[creation_num_ref]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/guid.move:23:5+1
-    $temp_0'u64' := $Dereference($t1);
-    assume {:print "$track_local(13,0,1):", $temp_0'u64'} $temp_0'u64' == $temp_0'u64';
-
-    // $t3 := read_ref($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/guid.move:24:28+17
-    assume {:print "$at(118,940,957)"} true;
-    $t3 := $Dereference($t1);
-
-    // trace_local[creation_num]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/guid.move:24:13+12
-    assume {:print "$track_local(13,0,2):", $t3} $t3 == $t3;
-
-    // $t4 := 1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/guid.move:25:44+1
-    assume {:print "$at(118,1002,1003)"} true;
-    $t4 := 1;
-    assume $IsValid'u64'($t4);
-
-    // $t5 := +($t3, $t4) on_abort goto L2 with $t6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/guid.move:25:42+1
-    call $t5 := $AddU64($t3, $t4);
-    if ($abort_flag) {
-        assume {:print "$at(118,1000,1001)"} true;
-        $t6 := $abort_code;
-        assume {:print "$track_abort(13,0):", $t6} $t6 == $t6;
-        goto L2;
-    }
-
-    // write_ref($t1, $t5) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/guid.move:25:9+36
-    $t1 := $UpdateMutation($t1, $t5);
-
-    // $t7 := pack guid::ID($t3, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/guid.move:27:17+70
-    assume {:print "$at(118,1036,1106)"} true;
-    $t7 := $1_guid_ID($t3, $t0);
-
-    // $t8 := pack guid::GUID($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/guid.move:26:9+103
-    assume {:print "$at(118,1013,1116)"} true;
-    $t8 := $1_guid_GUID($t7);
-
-    // trace_return[0]($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/guid.move:26:9+103
-    assume {:print "$track_return(13,0,0):", $t8} $t8 == $t8;
-
-    // trace_local[creation_num_ref]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/guid.move:26:9+103
-    $temp_0'u64' := $Dereference($t1);
-    assume {:print "$track_local(13,0,1):", $temp_0'u64'} $temp_0'u64' == $temp_0'u64';
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/guid.move:32:5+1
-    assume {:print "$at(118,1121,1122)"} true;
-L1:
-
-    // return $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/guid.move:32:5+1
-    assume {:print "$at(118,1121,1122)"} true;
-    $ret0 := $t8;
-    $ret1 := $t1;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/guid.move:32:5+1
-L2:
-
-    // abort($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/guid.move:32:5+1
-    assume {:print "$at(118,1121,1122)"} true;
-    $abort_code := $t6;
-    $abort_flag := true;
-    return;
-
-}
-
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
 function  $1_from_bcs_deserialize'bool'(bytes: Vec (int)): bool;
 axiom (forall bytes: Vec (int) ::
@@ -8162,22 +7066,10 @@ axiom (forall bytes: Vec (int) ::
 $IsValid'address'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'signer'(bytes: Vec (int)): $signer;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'signer'(bytes);
-$IsValid'signer'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
 function  $1_from_bcs_deserialize'vec'u8''(bytes: Vec (int)): Vec (int);
 axiom (forall bytes: Vec (int) ::
 (var $$res := $1_from_bcs_deserialize'vec'u8''(bytes);
 $IsValid'vec'u8''($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'vec'u64''(bytes: Vec (int)): Vec (int);
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'vec'u64''(bytes);
-$IsValid'vec'u64''($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
 function  $1_from_bcs_deserialize'vec'address''(bytes: Vec (int)): Vec (int);
@@ -8222,18 +7114,6 @@ axiom (forall bytes: Vec (int) ::
 $IsValid'vec'#0''($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_option_Option'u64''(bytes: Vec (int)): $1_option_Option'u64';
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_option_Option'u64''(bytes);
-$IsValid'$1_option_Option'u64''($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_option_Option'address''(bytes: Vec (int)): $1_option_Option'address';
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_option_Option'address''(bytes);
-$IsValid'$1_option_Option'address''($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
 function  $1_from_bcs_deserialize'$1_option_Option'$1_aggregator_Aggregator''(bytes: Vec (int)): $1_option_Option'$1_aggregator_Aggregator';
 axiom (forall bytes: Vec (int) ::
 (var $$res := $1_from_bcs_deserialize'$1_option_Option'$1_aggregator_Aggregator''(bytes);
@@ -8264,12 +7144,6 @@ axiom (forall bytes: Vec (int) ::
 $IsValid'$1_type_info_TypeInfo'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_table_Table'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'''(bytes: Vec (int)): Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin');
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_table_Table'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'''(bytes);
-$IsValid'$1_table_Table'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'''($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
 function  $1_from_bcs_deserialize'$1_guid_GUID'(bytes: Vec (int)): $1_guid_GUID;
 axiom (forall bytes: Vec (int) ::
 (var $$res := $1_from_bcs_deserialize'$1_guid_GUID'(bytes);
@@ -8280,30 +7154,6 @@ function  $1_from_bcs_deserialize'$1_guid_ID'(bytes: Vec (int)): $1_guid_ID;
 axiom (forall bytes: Vec (int) ::
 (var $$res := $1_from_bcs_deserialize'$1_guid_ID'(bytes);
 $IsValid'$1_guid_ID'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_event_EventHandle'$1_account_CoinRegisterEvent''(bytes: Vec (int)): $1_event_EventHandle'$1_account_CoinRegisterEvent';
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_event_EventHandle'$1_account_CoinRegisterEvent''(bytes);
-$IsValid'$1_event_EventHandle'$1_account_CoinRegisterEvent''($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_event_EventHandle'$1_account_KeyRotationEvent''(bytes: Vec (int)): $1_event_EventHandle'$1_account_KeyRotationEvent';
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_event_EventHandle'$1_account_KeyRotationEvent''(bytes);
-$IsValid'$1_event_EventHandle'$1_account_KeyRotationEvent''($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_event_EventHandle'$1_coin_DepositEvent''(bytes: Vec (int)): $1_event_EventHandle'$1_coin_DepositEvent';
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_event_EventHandle'$1_coin_DepositEvent''(bytes);
-$IsValid'$1_event_EventHandle'$1_coin_DepositEvent''($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_event_EventHandle'$1_coin_WithdrawEvent''(bytes: Vec (int)): $1_event_EventHandle'$1_coin_WithdrawEvent';
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_event_EventHandle'$1_coin_WithdrawEvent''(bytes);
-$IsValid'$1_event_EventHandle'$1_coin_WithdrawEvent''($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
 function  $1_from_bcs_deserialize'$1_event_EventHandle'$1_stake_AddStakeEvent''(bytes: Vec (int)): $1_event_EventHandle'$1_stake_AddStakeEvent';
@@ -8378,28 +7228,58 @@ axiom (forall bytes: Vec (int) ::
 $IsValid'$1_event_EventHandle'$1_stake_WithdrawStakeEvent''($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''(bytes: Vec (int)): $1_event_EventHandle'$1_reconfiguration_NewEpochEvent';
+function  $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''(bytes: Vec (int)): $1_event_EventHandle'$1_staking_contract_AddStakeEvent';
 axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''(bytes);
-$IsValid'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''($$res)));
+(var $$res := $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''(bytes);
+$IsValid'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_account_Account'(bytes: Vec (int)): $1_account_Account;
+function  $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''(bytes: Vec (int)): $1_event_EventHandle'$1_staking_contract_UnlockStakeEvent';
 axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_account_Account'(bytes);
-$IsValid'$1_account_Account'($$res)));
+(var $$res := $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''(bytes);
+$IsValid'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_account_CapabilityOffer'$1_account_RotationCapability''(bytes: Vec (int)): $1_account_CapabilityOffer'$1_account_RotationCapability';
+function  $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''(bytes: Vec (int)): $1_event_EventHandle'$1_staking_contract_AddDistributionEvent';
 axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_account_CapabilityOffer'$1_account_RotationCapability''(bytes);
-$IsValid'$1_account_CapabilityOffer'$1_account_RotationCapability''($$res)));
+(var $$res := $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''(bytes);
+$IsValid'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_account_CapabilityOffer'$1_account_SignerCapability''(bytes: Vec (int)): $1_account_CapabilityOffer'$1_account_SignerCapability';
+function  $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''(bytes: Vec (int)): $1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent';
 axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_account_CapabilityOffer'$1_account_SignerCapability''(bytes);
-$IsValid'$1_account_CapabilityOffer'$1_account_SignerCapability''($$res)));
+(var $$res := $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''(bytes);
+$IsValid'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''($$res)));
+
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
+function  $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_DistributeEvent''(bytes: Vec (int)): $1_event_EventHandle'$1_staking_contract_DistributeEvent';
+axiom (forall bytes: Vec (int) ::
+(var $$res := $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_DistributeEvent''(bytes);
+$IsValid'$1_event_EventHandle'$1_staking_contract_DistributeEvent''($$res)));
+
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
+function  $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''(bytes: Vec (int)): $1_event_EventHandle'$1_staking_contract_RequestCommissionEvent';
+axiom (forall bytes: Vec (int) ::
+(var $$res := $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''(bytes);
+$IsValid'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''($$res)));
+
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
+function  $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''(bytes: Vec (int)): $1_event_EventHandle'$1_staking_contract_ResetLockupEvent';
+axiom (forall bytes: Vec (int) ::
+(var $$res := $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''(bytes);
+$IsValid'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''($$res)));
+
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
+function  $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''(bytes: Vec (int)): $1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent';
+axiom (forall bytes: Vec (int) ::
+(var $$res := $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''(bytes);
+$IsValid'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''($$res)));
+
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
+function  $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''(bytes: Vec (int)): $1_event_EventHandle'$1_staking_contract_UpdateVoterEvent';
+axiom (forall bytes: Vec (int) ::
+(var $$res := $1_from_bcs_deserialize'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''(bytes);
+$IsValid'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
 function  $1_from_bcs_deserialize'$1_account_SignerCapability'(bytes: Vec (int)): $1_account_SignerCapability;
@@ -8438,24 +7318,6 @@ axiom (forall bytes: Vec (int) ::
 $IsValid'$1_coin_CoinInfo'$1_aptos_coin_AptosCoin''($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''(bytes: Vec (int)): $1_coin_CoinStore'$1_aptos_coin_AptosCoin';
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''(bytes);
-$IsValid'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_coin_MintCapability'$1_aptos_coin_AptosCoin''(bytes: Vec (int)): $1_coin_MintCapability'$1_aptos_coin_AptosCoin';
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_coin_MintCapability'$1_aptos_coin_AptosCoin''(bytes);
-$IsValid'$1_coin_MintCapability'$1_aptos_coin_AptosCoin''($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_coin_WithdrawEvent'(bytes: Vec (int)): $1_coin_WithdrawEvent;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_coin_WithdrawEvent'(bytes);
-$IsValid'$1_coin_WithdrawEvent'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
 function  $1_from_bcs_deserialize'$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin''(bytes: Vec (int)): $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin';
 axiom (forall bytes: Vec (int) ::
 (var $$res := $1_from_bcs_deserialize'$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin''(bytes);
@@ -8474,64 +7336,22 @@ axiom (forall bytes: Vec (int) ::
 $IsValid'$1_aptos_coin_AptosCoin'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_chain_status_GenesisEndMarker'(bytes: Vec (int)): $1_chain_status_GenesisEndMarker;
+function  $1_from_bcs_deserialize'$1_simple_map_SimpleMap'address_u64''(bytes: Vec (int)): Table int (int);
 axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_chain_status_GenesisEndMarker'(bytes);
-$IsValid'$1_chain_status_GenesisEndMarker'($$res)));
+(var $$res := $1_from_bcs_deserialize'$1_simple_map_SimpleMap'address_u64''(bytes);
+$IsValid'$1_simple_map_SimpleMap'address_u64''($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_timestamp_CurrentTimeMicroseconds'(bytes: Vec (int)): $1_timestamp_CurrentTimeMicroseconds;
+function  $1_from_bcs_deserialize'$1_simple_map_SimpleMap'address_$1_staking_contract_StakingContract''(bytes: Vec (int)): Table int ($1_staking_contract_StakingContract);
 axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_timestamp_CurrentTimeMicroseconds'(bytes);
-$IsValid'$1_timestamp_CurrentTimeMicroseconds'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_fixed_point64_FixedPoint64'(bytes: Vec (int)): $1_fixed_point64_FixedPoint64;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_fixed_point64_FixedPoint64'(bytes);
-$IsValid'$1_fixed_point64_FixedPoint64'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_staking_config_StakingConfig'(bytes: Vec (int)): $1_staking_config_StakingConfig;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_staking_config_StakingConfig'(bytes);
-$IsValid'$1_staking_config_StakingConfig'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_staking_config_StakingRewardsConfig'(bytes: Vec (int)): $1_staking_config_StakingRewardsConfig;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_staking_config_StakingRewardsConfig'(bytes);
-$IsValid'$1_staking_config_StakingRewardsConfig'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_stake_AddStakeEvent'(bytes: Vec (int)): $1_stake_AddStakeEvent;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_stake_AddStakeEvent'(bytes);
-$IsValid'$1_stake_AddStakeEvent'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_stake_AllowedValidators'(bytes: Vec (int)): $1_stake_AllowedValidators;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_stake_AllowedValidators'(bytes);
-$IsValid'$1_stake_AllowedValidators'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_stake_AptosCoinCapabilities'(bytes: Vec (int)): $1_stake_AptosCoinCapabilities;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_stake_AptosCoinCapabilities'(bytes);
-$IsValid'$1_stake_AptosCoinCapabilities'($$res)));
+(var $$res := $1_from_bcs_deserialize'$1_simple_map_SimpleMap'address_$1_staking_contract_StakingContract''(bytes);
+$IsValid'$1_simple_map_SimpleMap'address_$1_staking_contract_StakingContract''($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
 function  $1_from_bcs_deserialize'$1_stake_OwnerCapability'(bytes: Vec (int)): $1_stake_OwnerCapability;
 axiom (forall bytes: Vec (int) ::
 (var $$res := $1_from_bcs_deserialize'$1_stake_OwnerCapability'(bytes);
 $IsValid'$1_stake_OwnerCapability'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_stake_SetOperatorEvent'(bytes: Vec (int)): $1_stake_SetOperatorEvent;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_stake_SetOperatorEvent'(bytes);
-$IsValid'$1_stake_SetOperatorEvent'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
 function  $1_from_bcs_deserialize'$1_stake_StakePool'(bytes: Vec (int)): $1_stake_StakePool;
@@ -8546,18 +7366,6 @@ axiom (forall bytes: Vec (int) ::
 $IsValid'$1_stake_ValidatorConfig'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_stake_ValidatorFees'(bytes: Vec (int)): $1_stake_ValidatorFees;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_stake_ValidatorFees'(bytes);
-$IsValid'$1_stake_ValidatorFees'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_stake_ValidatorInfo'(bytes: Vec (int)): $1_stake_ValidatorInfo;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_stake_ValidatorInfo'(bytes);
-$IsValid'$1_stake_ValidatorInfo'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
 function  $1_from_bcs_deserialize'$1_stake_ValidatorPerformance'(bytes: Vec (int)): $1_stake_ValidatorPerformance;
 axiom (forall bytes: Vec (int) ::
 (var $$res := $1_from_bcs_deserialize'$1_stake_ValidatorPerformance'(bytes);
@@ -8570,10 +7378,22 @@ axiom (forall bytes: Vec (int) ::
 $IsValid'$1_stake_ValidatorSet'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
-function  $1_from_bcs_deserialize'$1_reconfiguration_Configuration'(bytes: Vec (int)): $1_reconfiguration_Configuration;
+function  $1_from_bcs_deserialize'$1_pool_u64_Pool'(bytes: Vec (int)): $1_pool_u64_Pool;
 axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserialize'$1_reconfiguration_Configuration'(bytes);
-$IsValid'$1_reconfiguration_Configuration'($$res)));
+(var $$res := $1_from_bcs_deserialize'$1_pool_u64_Pool'(bytes);
+$IsValid'$1_pool_u64_Pool'($$res)));
+
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
+function  $1_from_bcs_deserialize'$1_staking_contract_StakingContract'(bytes: Vec (int)): $1_staking_contract_StakingContract;
+axiom (forall bytes: Vec (int) ::
+(var $$res := $1_from_bcs_deserialize'$1_staking_contract_StakingContract'(bytes);
+$IsValid'$1_staking_contract_StakingContract'($$res)));
+
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
+function  $1_from_bcs_deserialize'$1_staking_contract_Store'(bytes: Vec (int)): $1_staking_contract_Store;
+axiom (forall bytes: Vec (int) ::
+(var $$res := $1_from_bcs_deserialize'$1_staking_contract_Store'(bytes);
+$IsValid'$1_staking_contract_Store'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:7:9+41
 function  $1_from_bcs_deserialize'#0'(bytes: Vec (int)): #0;
@@ -8618,21 +7438,9 @@ axiom (forall bytes: Vec (int) ::
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'signer'(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'signer'(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
 function  $1_from_bcs_deserializable'vec'u8''(bytes: Vec (int)): bool;
 axiom (forall bytes: Vec (int) ::
 (var $$res := $1_from_bcs_deserializable'vec'u8''(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'vec'u64''(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'vec'u64''(bytes);
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
@@ -8678,18 +7486,6 @@ axiom (forall bytes: Vec (int) ::
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_option_Option'u64''(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_option_Option'u64''(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_option_Option'address''(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_option_Option'address''(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
 function  $1_from_bcs_deserializable'$1_option_Option'$1_aggregator_Aggregator''(bytes: Vec (int)): bool;
 axiom (forall bytes: Vec (int) ::
 (var $$res := $1_from_bcs_deserializable'$1_option_Option'$1_aggregator_Aggregator''(bytes);
@@ -8720,12 +7516,6 @@ axiom (forall bytes: Vec (int) ::
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_table_Table'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'''(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_table_Table'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'''(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
 function  $1_from_bcs_deserializable'$1_guid_GUID'(bytes: Vec (int)): bool;
 axiom (forall bytes: Vec (int) ::
 (var $$res := $1_from_bcs_deserializable'$1_guid_GUID'(bytes);
@@ -8735,30 +7525,6 @@ $IsValid'bool'($$res)));
 function  $1_from_bcs_deserializable'$1_guid_ID'(bytes: Vec (int)): bool;
 axiom (forall bytes: Vec (int) ::
 (var $$res := $1_from_bcs_deserializable'$1_guid_ID'(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_event_EventHandle'$1_account_CoinRegisterEvent''(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_event_EventHandle'$1_account_CoinRegisterEvent''(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_event_EventHandle'$1_account_KeyRotationEvent''(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_event_EventHandle'$1_account_KeyRotationEvent''(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_event_EventHandle'$1_coin_DepositEvent''(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_event_EventHandle'$1_coin_DepositEvent''(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_event_EventHandle'$1_coin_WithdrawEvent''(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_event_EventHandle'$1_coin_WithdrawEvent''(bytes);
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
@@ -8834,27 +7600,57 @@ axiom (forall bytes: Vec (int) ::
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''(bytes: Vec (int)): bool;
+function  $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''(bytes: Vec (int)): bool;
 axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''(bytes);
+(var $$res := $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''(bytes);
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_account_Account'(bytes: Vec (int)): bool;
+function  $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''(bytes: Vec (int)): bool;
 axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_account_Account'(bytes);
+(var $$res := $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''(bytes);
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_account_CapabilityOffer'$1_account_RotationCapability''(bytes: Vec (int)): bool;
+function  $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''(bytes: Vec (int)): bool;
 axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_account_CapabilityOffer'$1_account_RotationCapability''(bytes);
+(var $$res := $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''(bytes);
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_account_CapabilityOffer'$1_account_SignerCapability''(bytes: Vec (int)): bool;
+function  $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''(bytes: Vec (int)): bool;
 axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_account_CapabilityOffer'$1_account_SignerCapability''(bytes);
+(var $$res := $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''(bytes);
+$IsValid'bool'($$res)));
+
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
+function  $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_DistributeEvent''(bytes: Vec (int)): bool;
+axiom (forall bytes: Vec (int) ::
+(var $$res := $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_DistributeEvent''(bytes);
+$IsValid'bool'($$res)));
+
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
+function  $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''(bytes: Vec (int)): bool;
+axiom (forall bytes: Vec (int) ::
+(var $$res := $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''(bytes);
+$IsValid'bool'($$res)));
+
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
+function  $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''(bytes: Vec (int)): bool;
+axiom (forall bytes: Vec (int) ::
+(var $$res := $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''(bytes);
+$IsValid'bool'($$res)));
+
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
+function  $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''(bytes: Vec (int)): bool;
+axiom (forall bytes: Vec (int) ::
+(var $$res := $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''(bytes);
+$IsValid'bool'($$res)));
+
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
+function  $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''(bytes: Vec (int)): bool;
+axiom (forall bytes: Vec (int) ::
+(var $$res := $1_from_bcs_deserializable'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''(bytes);
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
@@ -8894,24 +7690,6 @@ axiom (forall bytes: Vec (int) ::
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_coin_MintCapability'$1_aptos_coin_AptosCoin''(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_coin_MintCapability'$1_aptos_coin_AptosCoin''(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_coin_WithdrawEvent'(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_coin_WithdrawEvent'(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
 function  $1_from_bcs_deserializable'$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin''(bytes: Vec (int)): bool;
 axiom (forall bytes: Vec (int) ::
 (var $$res := $1_from_bcs_deserializable'$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin''(bytes);
@@ -8930,63 +7708,21 @@ axiom (forall bytes: Vec (int) ::
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_chain_status_GenesisEndMarker'(bytes: Vec (int)): bool;
+function  $1_from_bcs_deserializable'$1_simple_map_SimpleMap'address_u64''(bytes: Vec (int)): bool;
 axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_chain_status_GenesisEndMarker'(bytes);
+(var $$res := $1_from_bcs_deserializable'$1_simple_map_SimpleMap'address_u64''(bytes);
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_timestamp_CurrentTimeMicroseconds'(bytes: Vec (int)): bool;
+function  $1_from_bcs_deserializable'$1_simple_map_SimpleMap'address_$1_staking_contract_StakingContract''(bytes: Vec (int)): bool;
 axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_timestamp_CurrentTimeMicroseconds'(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_fixed_point64_FixedPoint64'(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_fixed_point64_FixedPoint64'(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_staking_config_StakingConfig'(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_staking_config_StakingConfig'(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_staking_config_StakingRewardsConfig'(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_staking_config_StakingRewardsConfig'(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_stake_AddStakeEvent'(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_stake_AddStakeEvent'(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_stake_AllowedValidators'(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_stake_AllowedValidators'(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_stake_AptosCoinCapabilities'(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_stake_AptosCoinCapabilities'(bytes);
+(var $$res := $1_from_bcs_deserializable'$1_simple_map_SimpleMap'address_$1_staking_contract_StakingContract''(bytes);
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
 function  $1_from_bcs_deserializable'$1_stake_OwnerCapability'(bytes: Vec (int)): bool;
 axiom (forall bytes: Vec (int) ::
 (var $$res := $1_from_bcs_deserializable'$1_stake_OwnerCapability'(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_stake_SetOperatorEvent'(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_stake_SetOperatorEvent'(bytes);
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
@@ -9002,18 +7738,6 @@ axiom (forall bytes: Vec (int) ::
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_stake_ValidatorFees'(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_stake_ValidatorFees'(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_stake_ValidatorInfo'(bytes: Vec (int)): bool;
-axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_stake_ValidatorInfo'(bytes);
-$IsValid'bool'($$res)));
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
 function  $1_from_bcs_deserializable'$1_stake_ValidatorPerformance'(bytes: Vec (int)): bool;
 axiom (forall bytes: Vec (int) ::
 (var $$res := $1_from_bcs_deserializable'$1_stake_ValidatorPerformance'(bytes);
@@ -9026,9 +7750,21 @@ axiom (forall bytes: Vec (int) ::
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
-function  $1_from_bcs_deserializable'$1_reconfiguration_Configuration'(bytes: Vec (int)): bool;
+function  $1_from_bcs_deserializable'$1_pool_u64_Pool'(bytes: Vec (int)): bool;
 axiom (forall bytes: Vec (int) ::
-(var $$res := $1_from_bcs_deserializable'$1_reconfiguration_Configuration'(bytes);
+(var $$res := $1_from_bcs_deserializable'$1_pool_u64_Pool'(bytes);
+$IsValid'bool'($$res)));
+
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
+function  $1_from_bcs_deserializable'$1_staking_contract_StakingContract'(bytes: Vec (int)): bool;
+axiom (forall bytes: Vec (int) ::
+(var $$res := $1_from_bcs_deserializable'$1_staking_contract_StakingContract'(bytes);
+$IsValid'bool'($$res)));
+
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
+function  $1_from_bcs_deserializable'$1_staking_contract_Store'(bytes: Vec (int)): bool;
+axiom (forall bytes: Vec (int) ::
+(var $$res := $1_from_bcs_deserializable'$1_staking_contract_Store'(bytes);
 $IsValid'bool'($$res)));
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/from_bcs.spec.move:11:9+47
@@ -9036,74 +7772,6 @@ function  $1_from_bcs_deserializable'#0'(bytes: Vec (int)): bool;
 axiom (forall bytes: Vec (int) ::
 (var $$res := $1_from_bcs_deserializable'#0'(bytes);
 $IsValid'bool'($$res)));
-
-// struct event::EventHandle<account::CoinRegisterEvent> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:16:5+224
-type {:datatype} $1_event_EventHandle'$1_account_CoinRegisterEvent';
-function {:constructor} $1_event_EventHandle'$1_account_CoinRegisterEvent'($counter: int, $guid: $1_guid_GUID): $1_event_EventHandle'$1_account_CoinRegisterEvent';
-function {:inline} $Update'$1_event_EventHandle'$1_account_CoinRegisterEvent''_counter(s: $1_event_EventHandle'$1_account_CoinRegisterEvent', x: int): $1_event_EventHandle'$1_account_CoinRegisterEvent' {
-    $1_event_EventHandle'$1_account_CoinRegisterEvent'(x, $guid#$1_event_EventHandle'$1_account_CoinRegisterEvent'(s))
-}
-function {:inline} $Update'$1_event_EventHandle'$1_account_CoinRegisterEvent''_guid(s: $1_event_EventHandle'$1_account_CoinRegisterEvent', x: $1_guid_GUID): $1_event_EventHandle'$1_account_CoinRegisterEvent' {
-    $1_event_EventHandle'$1_account_CoinRegisterEvent'($counter#$1_event_EventHandle'$1_account_CoinRegisterEvent'(s), x)
-}
-function $IsValid'$1_event_EventHandle'$1_account_CoinRegisterEvent''(s: $1_event_EventHandle'$1_account_CoinRegisterEvent'): bool {
-    $IsValid'u64'($counter#$1_event_EventHandle'$1_account_CoinRegisterEvent'(s))
-      && $IsValid'$1_guid_GUID'($guid#$1_event_EventHandle'$1_account_CoinRegisterEvent'(s))
-}
-function {:inline} $IsEqual'$1_event_EventHandle'$1_account_CoinRegisterEvent''(s1: $1_event_EventHandle'$1_account_CoinRegisterEvent', s2: $1_event_EventHandle'$1_account_CoinRegisterEvent'): bool {
-    s1 == s2
-}
-
-// struct event::EventHandle<account::KeyRotationEvent> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:16:5+224
-type {:datatype} $1_event_EventHandle'$1_account_KeyRotationEvent';
-function {:constructor} $1_event_EventHandle'$1_account_KeyRotationEvent'($counter: int, $guid: $1_guid_GUID): $1_event_EventHandle'$1_account_KeyRotationEvent';
-function {:inline} $Update'$1_event_EventHandle'$1_account_KeyRotationEvent''_counter(s: $1_event_EventHandle'$1_account_KeyRotationEvent', x: int): $1_event_EventHandle'$1_account_KeyRotationEvent' {
-    $1_event_EventHandle'$1_account_KeyRotationEvent'(x, $guid#$1_event_EventHandle'$1_account_KeyRotationEvent'(s))
-}
-function {:inline} $Update'$1_event_EventHandle'$1_account_KeyRotationEvent''_guid(s: $1_event_EventHandle'$1_account_KeyRotationEvent', x: $1_guid_GUID): $1_event_EventHandle'$1_account_KeyRotationEvent' {
-    $1_event_EventHandle'$1_account_KeyRotationEvent'($counter#$1_event_EventHandle'$1_account_KeyRotationEvent'(s), x)
-}
-function $IsValid'$1_event_EventHandle'$1_account_KeyRotationEvent''(s: $1_event_EventHandle'$1_account_KeyRotationEvent'): bool {
-    $IsValid'u64'($counter#$1_event_EventHandle'$1_account_KeyRotationEvent'(s))
-      && $IsValid'$1_guid_GUID'($guid#$1_event_EventHandle'$1_account_KeyRotationEvent'(s))
-}
-function {:inline} $IsEqual'$1_event_EventHandle'$1_account_KeyRotationEvent''(s1: $1_event_EventHandle'$1_account_KeyRotationEvent', s2: $1_event_EventHandle'$1_account_KeyRotationEvent'): bool {
-    s1 == s2
-}
-
-// struct event::EventHandle<coin::DepositEvent> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:16:5+224
-type {:datatype} $1_event_EventHandle'$1_coin_DepositEvent';
-function {:constructor} $1_event_EventHandle'$1_coin_DepositEvent'($counter: int, $guid: $1_guid_GUID): $1_event_EventHandle'$1_coin_DepositEvent';
-function {:inline} $Update'$1_event_EventHandle'$1_coin_DepositEvent''_counter(s: $1_event_EventHandle'$1_coin_DepositEvent', x: int): $1_event_EventHandle'$1_coin_DepositEvent' {
-    $1_event_EventHandle'$1_coin_DepositEvent'(x, $guid#$1_event_EventHandle'$1_coin_DepositEvent'(s))
-}
-function {:inline} $Update'$1_event_EventHandle'$1_coin_DepositEvent''_guid(s: $1_event_EventHandle'$1_coin_DepositEvent', x: $1_guid_GUID): $1_event_EventHandle'$1_coin_DepositEvent' {
-    $1_event_EventHandle'$1_coin_DepositEvent'($counter#$1_event_EventHandle'$1_coin_DepositEvent'(s), x)
-}
-function $IsValid'$1_event_EventHandle'$1_coin_DepositEvent''(s: $1_event_EventHandle'$1_coin_DepositEvent'): bool {
-    $IsValid'u64'($counter#$1_event_EventHandle'$1_coin_DepositEvent'(s))
-      && $IsValid'$1_guid_GUID'($guid#$1_event_EventHandle'$1_coin_DepositEvent'(s))
-}
-function {:inline} $IsEqual'$1_event_EventHandle'$1_coin_DepositEvent''(s1: $1_event_EventHandle'$1_coin_DepositEvent', s2: $1_event_EventHandle'$1_coin_DepositEvent'): bool {
-    s1 == s2
-}
-
-// struct event::EventHandle<coin::WithdrawEvent> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:16:5+224
-type {:datatype} $1_event_EventHandle'$1_coin_WithdrawEvent';
-function {:constructor} $1_event_EventHandle'$1_coin_WithdrawEvent'($counter: int, $guid: $1_guid_GUID): $1_event_EventHandle'$1_coin_WithdrawEvent';
-function {:inline} $Update'$1_event_EventHandle'$1_coin_WithdrawEvent''_counter(s: $1_event_EventHandle'$1_coin_WithdrawEvent', x: int): $1_event_EventHandle'$1_coin_WithdrawEvent' {
-    $1_event_EventHandle'$1_coin_WithdrawEvent'(x, $guid#$1_event_EventHandle'$1_coin_WithdrawEvent'(s))
-}
-function {:inline} $Update'$1_event_EventHandle'$1_coin_WithdrawEvent''_guid(s: $1_event_EventHandle'$1_coin_WithdrawEvent', x: $1_guid_GUID): $1_event_EventHandle'$1_coin_WithdrawEvent' {
-    $1_event_EventHandle'$1_coin_WithdrawEvent'($counter#$1_event_EventHandle'$1_coin_WithdrawEvent'(s), x)
-}
-function $IsValid'$1_event_EventHandle'$1_coin_WithdrawEvent''(s: $1_event_EventHandle'$1_coin_WithdrawEvent'): bool {
-    $IsValid'u64'($counter#$1_event_EventHandle'$1_coin_WithdrawEvent'(s))
-      && $IsValid'$1_guid_GUID'($guid#$1_event_EventHandle'$1_coin_WithdrawEvent'(s))
-}
-function {:inline} $IsEqual'$1_event_EventHandle'$1_coin_WithdrawEvent''(s1: $1_event_EventHandle'$1_coin_WithdrawEvent', s2: $1_event_EventHandle'$1_coin_WithdrawEvent'): bool {
-    s1 == s2
-}
 
 // struct event::EventHandle<stake::AddStakeEvent> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:16:5+224
 type {:datatype} $1_event_EventHandle'$1_stake_AddStakeEvent';
@@ -9309,681 +7977,156 @@ function {:inline} $IsEqual'$1_event_EventHandle'$1_stake_WithdrawStakeEvent''(s
     s1 == s2
 }
 
-// struct event::EventHandle<reconfiguration::NewEpochEvent> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:16:5+224
-type {:datatype} $1_event_EventHandle'$1_reconfiguration_NewEpochEvent';
-function {:constructor} $1_event_EventHandle'$1_reconfiguration_NewEpochEvent'($counter: int, $guid: $1_guid_GUID): $1_event_EventHandle'$1_reconfiguration_NewEpochEvent';
-function {:inline} $Update'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''_counter(s: $1_event_EventHandle'$1_reconfiguration_NewEpochEvent', x: int): $1_event_EventHandle'$1_reconfiguration_NewEpochEvent' {
-    $1_event_EventHandle'$1_reconfiguration_NewEpochEvent'(x, $guid#$1_event_EventHandle'$1_reconfiguration_NewEpochEvent'(s))
+// struct event::EventHandle<staking_contract::AddStakeEvent> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:16:5+224
+type {:datatype} $1_event_EventHandle'$1_staking_contract_AddStakeEvent';
+function {:constructor} $1_event_EventHandle'$1_staking_contract_AddStakeEvent'($counter: int, $guid: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_AddStakeEvent';
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''_counter(s: $1_event_EventHandle'$1_staking_contract_AddStakeEvent', x: int): $1_event_EventHandle'$1_staking_contract_AddStakeEvent' {
+    $1_event_EventHandle'$1_staking_contract_AddStakeEvent'(x, $guid#$1_event_EventHandle'$1_staking_contract_AddStakeEvent'(s))
 }
-function {:inline} $Update'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''_guid(s: $1_event_EventHandle'$1_reconfiguration_NewEpochEvent', x: $1_guid_GUID): $1_event_EventHandle'$1_reconfiguration_NewEpochEvent' {
-    $1_event_EventHandle'$1_reconfiguration_NewEpochEvent'($counter#$1_event_EventHandle'$1_reconfiguration_NewEpochEvent'(s), x)
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''_guid(s: $1_event_EventHandle'$1_staking_contract_AddStakeEvent', x: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_AddStakeEvent' {
+    $1_event_EventHandle'$1_staking_contract_AddStakeEvent'($counter#$1_event_EventHandle'$1_staking_contract_AddStakeEvent'(s), x)
 }
-function $IsValid'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''(s: $1_event_EventHandle'$1_reconfiguration_NewEpochEvent'): bool {
-    $IsValid'u64'($counter#$1_event_EventHandle'$1_reconfiguration_NewEpochEvent'(s))
-      && $IsValid'$1_guid_GUID'($guid#$1_event_EventHandle'$1_reconfiguration_NewEpochEvent'(s))
+function $IsValid'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''(s: $1_event_EventHandle'$1_staking_contract_AddStakeEvent'): bool {
+    $IsValid'u64'($counter#$1_event_EventHandle'$1_staking_contract_AddStakeEvent'(s))
+      && $IsValid'$1_guid_GUID'($guid#$1_event_EventHandle'$1_staking_contract_AddStakeEvent'(s))
 }
-function {:inline} $IsEqual'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''(s1: $1_event_EventHandle'$1_reconfiguration_NewEpochEvent', s2: $1_event_EventHandle'$1_reconfiguration_NewEpochEvent'): bool {
+function {:inline} $IsEqual'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''(s1: $1_event_EventHandle'$1_staking_contract_AddStakeEvent', s2: $1_event_EventHandle'$1_staking_contract_AddStakeEvent'): bool {
     s1 == s2
 }
 
-// fun event::new_event_handle<account::CoinRegisterEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+165
-procedure {:inline 1} $1_event_new_event_handle'$1_account_CoinRegisterEvent'(_$t0: $1_guid_GUID) returns ($ret0: $1_event_EventHandle'$1_account_CoinRegisterEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_event_EventHandle'$1_account_CoinRegisterEvent';
-    var $t0: $1_guid_GUID;
-    var $temp_0'$1_event_EventHandle'$1_account_CoinRegisterEvent'': $1_event_EventHandle'$1_account_CoinRegisterEvent';
-    var $temp_0'$1_guid_GUID': $1_guid_GUID;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[guid]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+1
-    assume {:print "$at(110,978,979)"} true;
-    assume {:print "$track_local(15,4,0):", $t0} $t0 == $t0;
-
-    // $t1 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:26:22+1
-    assume {:print "$at(110,1107,1108)"} true;
-    $t1 := 0;
-    assume $IsValid'u64'($t1);
-
-    // $t2 := pack event::EventHandle<#0>($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$at(110,1069,1137)"} true;
-    $t2 := $1_event_EventHandle'$1_account_CoinRegisterEvent'($t1, $t0);
-
-    // trace_return[0]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$track_return(15,4,0):", $t2} $t2 == $t2;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-L1:
-
-    // return $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-    $ret0 := $t2;
-    return;
-
+// struct event::EventHandle<staking_contract::UnlockStakeEvent> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:16:5+224
+type {:datatype} $1_event_EventHandle'$1_staking_contract_UnlockStakeEvent';
+function {:constructor} $1_event_EventHandle'$1_staking_contract_UnlockStakeEvent'($counter: int, $guid: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_UnlockStakeEvent';
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''_counter(s: $1_event_EventHandle'$1_staking_contract_UnlockStakeEvent', x: int): $1_event_EventHandle'$1_staking_contract_UnlockStakeEvent' {
+    $1_event_EventHandle'$1_staking_contract_UnlockStakeEvent'(x, $guid#$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent'(s))
+}
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''_guid(s: $1_event_EventHandle'$1_staking_contract_UnlockStakeEvent', x: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_UnlockStakeEvent' {
+    $1_event_EventHandle'$1_staking_contract_UnlockStakeEvent'($counter#$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent'(s), x)
+}
+function $IsValid'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''(s: $1_event_EventHandle'$1_staking_contract_UnlockStakeEvent'): bool {
+    $IsValid'u64'($counter#$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent'(s))
+      && $IsValid'$1_guid_GUID'($guid#$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent'(s))
+}
+function {:inline} $IsEqual'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''(s1: $1_event_EventHandle'$1_staking_contract_UnlockStakeEvent', s2: $1_event_EventHandle'$1_staking_contract_UnlockStakeEvent'): bool {
+    s1 == s2
 }
 
-// fun event::new_event_handle<account::KeyRotationEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+165
-procedure {:inline 1} $1_event_new_event_handle'$1_account_KeyRotationEvent'(_$t0: $1_guid_GUID) returns ($ret0: $1_event_EventHandle'$1_account_KeyRotationEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_event_EventHandle'$1_account_KeyRotationEvent';
-    var $t0: $1_guid_GUID;
-    var $temp_0'$1_event_EventHandle'$1_account_KeyRotationEvent'': $1_event_EventHandle'$1_account_KeyRotationEvent';
-    var $temp_0'$1_guid_GUID': $1_guid_GUID;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[guid]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+1
-    assume {:print "$at(110,978,979)"} true;
-    assume {:print "$track_local(15,4,0):", $t0} $t0 == $t0;
-
-    // $t1 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:26:22+1
-    assume {:print "$at(110,1107,1108)"} true;
-    $t1 := 0;
-    assume $IsValid'u64'($t1);
-
-    // $t2 := pack event::EventHandle<#0>($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$at(110,1069,1137)"} true;
-    $t2 := $1_event_EventHandle'$1_account_KeyRotationEvent'($t1, $t0);
-
-    // trace_return[0]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$track_return(15,4,0):", $t2} $t2 == $t2;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-L1:
-
-    // return $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-    $ret0 := $t2;
-    return;
-
+// struct event::EventHandle<staking_contract::AddDistributionEvent> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:16:5+224
+type {:datatype} $1_event_EventHandle'$1_staking_contract_AddDistributionEvent';
+function {:constructor} $1_event_EventHandle'$1_staking_contract_AddDistributionEvent'($counter: int, $guid: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_AddDistributionEvent';
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''_counter(s: $1_event_EventHandle'$1_staking_contract_AddDistributionEvent', x: int): $1_event_EventHandle'$1_staking_contract_AddDistributionEvent' {
+    $1_event_EventHandle'$1_staking_contract_AddDistributionEvent'(x, $guid#$1_event_EventHandle'$1_staking_contract_AddDistributionEvent'(s))
+}
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''_guid(s: $1_event_EventHandle'$1_staking_contract_AddDistributionEvent', x: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_AddDistributionEvent' {
+    $1_event_EventHandle'$1_staking_contract_AddDistributionEvent'($counter#$1_event_EventHandle'$1_staking_contract_AddDistributionEvent'(s), x)
+}
+function $IsValid'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''(s: $1_event_EventHandle'$1_staking_contract_AddDistributionEvent'): bool {
+    $IsValid'u64'($counter#$1_event_EventHandle'$1_staking_contract_AddDistributionEvent'(s))
+      && $IsValid'$1_guid_GUID'($guid#$1_event_EventHandle'$1_staking_contract_AddDistributionEvent'(s))
+}
+function {:inline} $IsEqual'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''(s1: $1_event_EventHandle'$1_staking_contract_AddDistributionEvent', s2: $1_event_EventHandle'$1_staking_contract_AddDistributionEvent'): bool {
+    s1 == s2
 }
 
-// fun event::new_event_handle<stake::AddStakeEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+165
-procedure {:inline 1} $1_event_new_event_handle'$1_stake_AddStakeEvent'(_$t0: $1_guid_GUID) returns ($ret0: $1_event_EventHandle'$1_stake_AddStakeEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_event_EventHandle'$1_stake_AddStakeEvent';
-    var $t0: $1_guid_GUID;
-    var $temp_0'$1_event_EventHandle'$1_stake_AddStakeEvent'': $1_event_EventHandle'$1_stake_AddStakeEvent';
-    var $temp_0'$1_guid_GUID': $1_guid_GUID;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[guid]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+1
-    assume {:print "$at(110,978,979)"} true;
-    assume {:print "$track_local(15,4,0):", $t0} $t0 == $t0;
-
-    // $t1 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:26:22+1
-    assume {:print "$at(110,1107,1108)"} true;
-    $t1 := 0;
-    assume $IsValid'u64'($t1);
-
-    // $t2 := pack event::EventHandle<#0>($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$at(110,1069,1137)"} true;
-    $t2 := $1_event_EventHandle'$1_stake_AddStakeEvent'($t1, $t0);
-
-    // trace_return[0]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$track_return(15,4,0):", $t2} $t2 == $t2;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-L1:
-
-    // return $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-    $ret0 := $t2;
-    return;
-
+// struct event::EventHandle<staking_contract::CreateStakingContractEvent> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:16:5+224
+type {:datatype} $1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent';
+function {:constructor} $1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent'($counter: int, $guid: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent';
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''_counter(s: $1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent', x: int): $1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent' {
+    $1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent'(x, $guid#$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent'(s))
+}
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''_guid(s: $1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent', x: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent' {
+    $1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent'($counter#$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent'(s), x)
+}
+function $IsValid'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''(s: $1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent'): bool {
+    $IsValid'u64'($counter#$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent'(s))
+      && $IsValid'$1_guid_GUID'($guid#$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent'(s))
+}
+function {:inline} $IsEqual'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''(s1: $1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent', s2: $1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent'): bool {
+    s1 == s2
 }
 
-// fun event::new_event_handle<stake::DistributeRewardsEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+165
-procedure {:inline 1} $1_event_new_event_handle'$1_stake_DistributeRewardsEvent'(_$t0: $1_guid_GUID) returns ($ret0: $1_event_EventHandle'$1_stake_DistributeRewardsEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_event_EventHandle'$1_stake_DistributeRewardsEvent';
-    var $t0: $1_guid_GUID;
-    var $temp_0'$1_event_EventHandle'$1_stake_DistributeRewardsEvent'': $1_event_EventHandle'$1_stake_DistributeRewardsEvent';
-    var $temp_0'$1_guid_GUID': $1_guid_GUID;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[guid]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+1
-    assume {:print "$at(110,978,979)"} true;
-    assume {:print "$track_local(15,4,0):", $t0} $t0 == $t0;
-
-    // $t1 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:26:22+1
-    assume {:print "$at(110,1107,1108)"} true;
-    $t1 := 0;
-    assume $IsValid'u64'($t1);
-
-    // $t2 := pack event::EventHandle<#0>($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$at(110,1069,1137)"} true;
-    $t2 := $1_event_EventHandle'$1_stake_DistributeRewardsEvent'($t1, $t0);
-
-    // trace_return[0]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$track_return(15,4,0):", $t2} $t2 == $t2;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-L1:
-
-    // return $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-    $ret0 := $t2;
-    return;
-
+// struct event::EventHandle<staking_contract::DistributeEvent> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:16:5+224
+type {:datatype} $1_event_EventHandle'$1_staking_contract_DistributeEvent';
+function {:constructor} $1_event_EventHandle'$1_staking_contract_DistributeEvent'($counter: int, $guid: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_DistributeEvent';
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_DistributeEvent''_counter(s: $1_event_EventHandle'$1_staking_contract_DistributeEvent', x: int): $1_event_EventHandle'$1_staking_contract_DistributeEvent' {
+    $1_event_EventHandle'$1_staking_contract_DistributeEvent'(x, $guid#$1_event_EventHandle'$1_staking_contract_DistributeEvent'(s))
+}
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_DistributeEvent''_guid(s: $1_event_EventHandle'$1_staking_contract_DistributeEvent', x: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_DistributeEvent' {
+    $1_event_EventHandle'$1_staking_contract_DistributeEvent'($counter#$1_event_EventHandle'$1_staking_contract_DistributeEvent'(s), x)
+}
+function $IsValid'$1_event_EventHandle'$1_staking_contract_DistributeEvent''(s: $1_event_EventHandle'$1_staking_contract_DistributeEvent'): bool {
+    $IsValid'u64'($counter#$1_event_EventHandle'$1_staking_contract_DistributeEvent'(s))
+      && $IsValid'$1_guid_GUID'($guid#$1_event_EventHandle'$1_staking_contract_DistributeEvent'(s))
+}
+function {:inline} $IsEqual'$1_event_EventHandle'$1_staking_contract_DistributeEvent''(s1: $1_event_EventHandle'$1_staking_contract_DistributeEvent', s2: $1_event_EventHandle'$1_staking_contract_DistributeEvent'): bool {
+    s1 == s2
 }
 
-// fun event::new_event_handle<stake::IncreaseLockupEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+165
-procedure {:inline 1} $1_event_new_event_handle'$1_stake_IncreaseLockupEvent'(_$t0: $1_guid_GUID) returns ($ret0: $1_event_EventHandle'$1_stake_IncreaseLockupEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_event_EventHandle'$1_stake_IncreaseLockupEvent';
-    var $t0: $1_guid_GUID;
-    var $temp_0'$1_event_EventHandle'$1_stake_IncreaseLockupEvent'': $1_event_EventHandle'$1_stake_IncreaseLockupEvent';
-    var $temp_0'$1_guid_GUID': $1_guid_GUID;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[guid]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+1
-    assume {:print "$at(110,978,979)"} true;
-    assume {:print "$track_local(15,4,0):", $t0} $t0 == $t0;
-
-    // $t1 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:26:22+1
-    assume {:print "$at(110,1107,1108)"} true;
-    $t1 := 0;
-    assume $IsValid'u64'($t1);
-
-    // $t2 := pack event::EventHandle<#0>($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$at(110,1069,1137)"} true;
-    $t2 := $1_event_EventHandle'$1_stake_IncreaseLockupEvent'($t1, $t0);
-
-    // trace_return[0]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$track_return(15,4,0):", $t2} $t2 == $t2;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-L1:
-
-    // return $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-    $ret0 := $t2;
-    return;
-
+// struct event::EventHandle<staking_contract::RequestCommissionEvent> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:16:5+224
+type {:datatype} $1_event_EventHandle'$1_staking_contract_RequestCommissionEvent';
+function {:constructor} $1_event_EventHandle'$1_staking_contract_RequestCommissionEvent'($counter: int, $guid: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_RequestCommissionEvent';
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''_counter(s: $1_event_EventHandle'$1_staking_contract_RequestCommissionEvent', x: int): $1_event_EventHandle'$1_staking_contract_RequestCommissionEvent' {
+    $1_event_EventHandle'$1_staking_contract_RequestCommissionEvent'(x, $guid#$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent'(s))
+}
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''_guid(s: $1_event_EventHandle'$1_staking_contract_RequestCommissionEvent', x: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_RequestCommissionEvent' {
+    $1_event_EventHandle'$1_staking_contract_RequestCommissionEvent'($counter#$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent'(s), x)
+}
+function $IsValid'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''(s: $1_event_EventHandle'$1_staking_contract_RequestCommissionEvent'): bool {
+    $IsValid'u64'($counter#$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent'(s))
+      && $IsValid'$1_guid_GUID'($guid#$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent'(s))
+}
+function {:inline} $IsEqual'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''(s1: $1_event_EventHandle'$1_staking_contract_RequestCommissionEvent', s2: $1_event_EventHandle'$1_staking_contract_RequestCommissionEvent'): bool {
+    s1 == s2
 }
 
-// fun event::new_event_handle<stake::JoinValidatorSetEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+165
-procedure {:inline 1} $1_event_new_event_handle'$1_stake_JoinValidatorSetEvent'(_$t0: $1_guid_GUID) returns ($ret0: $1_event_EventHandle'$1_stake_JoinValidatorSetEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_event_EventHandle'$1_stake_JoinValidatorSetEvent';
-    var $t0: $1_guid_GUID;
-    var $temp_0'$1_event_EventHandle'$1_stake_JoinValidatorSetEvent'': $1_event_EventHandle'$1_stake_JoinValidatorSetEvent';
-    var $temp_0'$1_guid_GUID': $1_guid_GUID;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[guid]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+1
-    assume {:print "$at(110,978,979)"} true;
-    assume {:print "$track_local(15,4,0):", $t0} $t0 == $t0;
-
-    // $t1 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:26:22+1
-    assume {:print "$at(110,1107,1108)"} true;
-    $t1 := 0;
-    assume $IsValid'u64'($t1);
-
-    // $t2 := pack event::EventHandle<#0>($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$at(110,1069,1137)"} true;
-    $t2 := $1_event_EventHandle'$1_stake_JoinValidatorSetEvent'($t1, $t0);
-
-    // trace_return[0]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$track_return(15,4,0):", $t2} $t2 == $t2;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-L1:
-
-    // return $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-    $ret0 := $t2;
-    return;
-
+// struct event::EventHandle<staking_contract::ResetLockupEvent> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:16:5+224
+type {:datatype} $1_event_EventHandle'$1_staking_contract_ResetLockupEvent';
+function {:constructor} $1_event_EventHandle'$1_staking_contract_ResetLockupEvent'($counter: int, $guid: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_ResetLockupEvent';
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''_counter(s: $1_event_EventHandle'$1_staking_contract_ResetLockupEvent', x: int): $1_event_EventHandle'$1_staking_contract_ResetLockupEvent' {
+    $1_event_EventHandle'$1_staking_contract_ResetLockupEvent'(x, $guid#$1_event_EventHandle'$1_staking_contract_ResetLockupEvent'(s))
+}
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''_guid(s: $1_event_EventHandle'$1_staking_contract_ResetLockupEvent', x: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_ResetLockupEvent' {
+    $1_event_EventHandle'$1_staking_contract_ResetLockupEvent'($counter#$1_event_EventHandle'$1_staking_contract_ResetLockupEvent'(s), x)
+}
+function $IsValid'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''(s: $1_event_EventHandle'$1_staking_contract_ResetLockupEvent'): bool {
+    $IsValid'u64'($counter#$1_event_EventHandle'$1_staking_contract_ResetLockupEvent'(s))
+      && $IsValid'$1_guid_GUID'($guid#$1_event_EventHandle'$1_staking_contract_ResetLockupEvent'(s))
+}
+function {:inline} $IsEqual'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''(s1: $1_event_EventHandle'$1_staking_contract_ResetLockupEvent', s2: $1_event_EventHandle'$1_staking_contract_ResetLockupEvent'): bool {
+    s1 == s2
 }
 
-// fun event::new_event_handle<stake::LeaveValidatorSetEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+165
-procedure {:inline 1} $1_event_new_event_handle'$1_stake_LeaveValidatorSetEvent'(_$t0: $1_guid_GUID) returns ($ret0: $1_event_EventHandle'$1_stake_LeaveValidatorSetEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_event_EventHandle'$1_stake_LeaveValidatorSetEvent';
-    var $t0: $1_guid_GUID;
-    var $temp_0'$1_event_EventHandle'$1_stake_LeaveValidatorSetEvent'': $1_event_EventHandle'$1_stake_LeaveValidatorSetEvent';
-    var $temp_0'$1_guid_GUID': $1_guid_GUID;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[guid]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+1
-    assume {:print "$at(110,978,979)"} true;
-    assume {:print "$track_local(15,4,0):", $t0} $t0 == $t0;
-
-    // $t1 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:26:22+1
-    assume {:print "$at(110,1107,1108)"} true;
-    $t1 := 0;
-    assume $IsValid'u64'($t1);
-
-    // $t2 := pack event::EventHandle<#0>($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$at(110,1069,1137)"} true;
-    $t2 := $1_event_EventHandle'$1_stake_LeaveValidatorSetEvent'($t1, $t0);
-
-    // trace_return[0]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$track_return(15,4,0):", $t2} $t2 == $t2;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-L1:
-
-    // return $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-    $ret0 := $t2;
-    return;
-
+// struct event::EventHandle<staking_contract::SwitchOperatorEvent> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:16:5+224
+type {:datatype} $1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent';
+function {:constructor} $1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent'($counter: int, $guid: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent';
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''_counter(s: $1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent', x: int): $1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent' {
+    $1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent'(x, $guid#$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent'(s))
+}
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''_guid(s: $1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent', x: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent' {
+    $1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent'($counter#$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent'(s), x)
+}
+function $IsValid'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''(s: $1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent'): bool {
+    $IsValid'u64'($counter#$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent'(s))
+      && $IsValid'$1_guid_GUID'($guid#$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent'(s))
+}
+function {:inline} $IsEqual'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''(s1: $1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent', s2: $1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent'): bool {
+    s1 == s2
 }
 
-// fun event::new_event_handle<stake::ReactivateStakeEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+165
-procedure {:inline 1} $1_event_new_event_handle'$1_stake_ReactivateStakeEvent'(_$t0: $1_guid_GUID) returns ($ret0: $1_event_EventHandle'$1_stake_ReactivateStakeEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_event_EventHandle'$1_stake_ReactivateStakeEvent';
-    var $t0: $1_guid_GUID;
-    var $temp_0'$1_event_EventHandle'$1_stake_ReactivateStakeEvent'': $1_event_EventHandle'$1_stake_ReactivateStakeEvent';
-    var $temp_0'$1_guid_GUID': $1_guid_GUID;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[guid]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+1
-    assume {:print "$at(110,978,979)"} true;
-    assume {:print "$track_local(15,4,0):", $t0} $t0 == $t0;
-
-    // $t1 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:26:22+1
-    assume {:print "$at(110,1107,1108)"} true;
-    $t1 := 0;
-    assume $IsValid'u64'($t1);
-
-    // $t2 := pack event::EventHandle<#0>($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$at(110,1069,1137)"} true;
-    $t2 := $1_event_EventHandle'$1_stake_ReactivateStakeEvent'($t1, $t0);
-
-    // trace_return[0]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$track_return(15,4,0):", $t2} $t2 == $t2;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-L1:
-
-    // return $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-    $ret0 := $t2;
-    return;
-
+// struct event::EventHandle<staking_contract::UpdateVoterEvent> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:16:5+224
+type {:datatype} $1_event_EventHandle'$1_staking_contract_UpdateVoterEvent';
+function {:constructor} $1_event_EventHandle'$1_staking_contract_UpdateVoterEvent'($counter: int, $guid: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_UpdateVoterEvent';
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''_counter(s: $1_event_EventHandle'$1_staking_contract_UpdateVoterEvent', x: int): $1_event_EventHandle'$1_staking_contract_UpdateVoterEvent' {
+    $1_event_EventHandle'$1_staking_contract_UpdateVoterEvent'(x, $guid#$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent'(s))
 }
-
-// fun event::new_event_handle<stake::RegisterValidatorCandidateEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+165
-procedure {:inline 1} $1_event_new_event_handle'$1_stake_RegisterValidatorCandidateEvent'(_$t0: $1_guid_GUID) returns ($ret0: $1_event_EventHandle'$1_stake_RegisterValidatorCandidateEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_event_EventHandle'$1_stake_RegisterValidatorCandidateEvent';
-    var $t0: $1_guid_GUID;
-    var $temp_0'$1_event_EventHandle'$1_stake_RegisterValidatorCandidateEvent'': $1_event_EventHandle'$1_stake_RegisterValidatorCandidateEvent';
-    var $temp_0'$1_guid_GUID': $1_guid_GUID;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[guid]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+1
-    assume {:print "$at(110,978,979)"} true;
-    assume {:print "$track_local(15,4,0):", $t0} $t0 == $t0;
-
-    // $t1 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:26:22+1
-    assume {:print "$at(110,1107,1108)"} true;
-    $t1 := 0;
-    assume $IsValid'u64'($t1);
-
-    // $t2 := pack event::EventHandle<#0>($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$at(110,1069,1137)"} true;
-    $t2 := $1_event_EventHandle'$1_stake_RegisterValidatorCandidateEvent'($t1, $t0);
-
-    // trace_return[0]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$track_return(15,4,0):", $t2} $t2 == $t2;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-L1:
-
-    // return $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-    $ret0 := $t2;
-    return;
-
+function {:inline} $Update'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''_guid(s: $1_event_EventHandle'$1_staking_contract_UpdateVoterEvent', x: $1_guid_GUID): $1_event_EventHandle'$1_staking_contract_UpdateVoterEvent' {
+    $1_event_EventHandle'$1_staking_contract_UpdateVoterEvent'($counter#$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent'(s), x)
 }
-
-// fun event::new_event_handle<stake::RotateConsensusKeyEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+165
-procedure {:inline 1} $1_event_new_event_handle'$1_stake_RotateConsensusKeyEvent'(_$t0: $1_guid_GUID) returns ($ret0: $1_event_EventHandle'$1_stake_RotateConsensusKeyEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_event_EventHandle'$1_stake_RotateConsensusKeyEvent';
-    var $t0: $1_guid_GUID;
-    var $temp_0'$1_event_EventHandle'$1_stake_RotateConsensusKeyEvent'': $1_event_EventHandle'$1_stake_RotateConsensusKeyEvent';
-    var $temp_0'$1_guid_GUID': $1_guid_GUID;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[guid]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+1
-    assume {:print "$at(110,978,979)"} true;
-    assume {:print "$track_local(15,4,0):", $t0} $t0 == $t0;
-
-    // $t1 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:26:22+1
-    assume {:print "$at(110,1107,1108)"} true;
-    $t1 := 0;
-    assume $IsValid'u64'($t1);
-
-    // $t2 := pack event::EventHandle<#0>($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$at(110,1069,1137)"} true;
-    $t2 := $1_event_EventHandle'$1_stake_RotateConsensusKeyEvent'($t1, $t0);
-
-    // trace_return[0]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$track_return(15,4,0):", $t2} $t2 == $t2;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-L1:
-
-    // return $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-    $ret0 := $t2;
-    return;
-
+function $IsValid'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''(s: $1_event_EventHandle'$1_staking_contract_UpdateVoterEvent'): bool {
+    $IsValid'u64'($counter#$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent'(s))
+      && $IsValid'$1_guid_GUID'($guid#$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent'(s))
 }
-
-// fun event::new_event_handle<stake::SetOperatorEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+165
-procedure {:inline 1} $1_event_new_event_handle'$1_stake_SetOperatorEvent'(_$t0: $1_guid_GUID) returns ($ret0: $1_event_EventHandle'$1_stake_SetOperatorEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_event_EventHandle'$1_stake_SetOperatorEvent';
-    var $t0: $1_guid_GUID;
-    var $temp_0'$1_event_EventHandle'$1_stake_SetOperatorEvent'': $1_event_EventHandle'$1_stake_SetOperatorEvent';
-    var $temp_0'$1_guid_GUID': $1_guid_GUID;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[guid]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+1
-    assume {:print "$at(110,978,979)"} true;
-    assume {:print "$track_local(15,4,0):", $t0} $t0 == $t0;
-
-    // $t1 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:26:22+1
-    assume {:print "$at(110,1107,1108)"} true;
-    $t1 := 0;
-    assume $IsValid'u64'($t1);
-
-    // $t2 := pack event::EventHandle<#0>($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$at(110,1069,1137)"} true;
-    $t2 := $1_event_EventHandle'$1_stake_SetOperatorEvent'($t1, $t0);
-
-    // trace_return[0]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$track_return(15,4,0):", $t2} $t2 == $t2;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-L1:
-
-    // return $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-    $ret0 := $t2;
-    return;
-
-}
-
-// fun event::new_event_handle<stake::UnlockStakeEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+165
-procedure {:inline 1} $1_event_new_event_handle'$1_stake_UnlockStakeEvent'(_$t0: $1_guid_GUID) returns ($ret0: $1_event_EventHandle'$1_stake_UnlockStakeEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_event_EventHandle'$1_stake_UnlockStakeEvent';
-    var $t0: $1_guid_GUID;
-    var $temp_0'$1_event_EventHandle'$1_stake_UnlockStakeEvent'': $1_event_EventHandle'$1_stake_UnlockStakeEvent';
-    var $temp_0'$1_guid_GUID': $1_guid_GUID;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[guid]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+1
-    assume {:print "$at(110,978,979)"} true;
-    assume {:print "$track_local(15,4,0):", $t0} $t0 == $t0;
-
-    // $t1 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:26:22+1
-    assume {:print "$at(110,1107,1108)"} true;
-    $t1 := 0;
-    assume $IsValid'u64'($t1);
-
-    // $t2 := pack event::EventHandle<#0>($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$at(110,1069,1137)"} true;
-    $t2 := $1_event_EventHandle'$1_stake_UnlockStakeEvent'($t1, $t0);
-
-    // trace_return[0]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$track_return(15,4,0):", $t2} $t2 == $t2;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-L1:
-
-    // return $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-    $ret0 := $t2;
-    return;
-
-}
-
-// fun event::new_event_handle<stake::UpdateNetworkAndFullnodeAddressesEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+165
-procedure {:inline 1} $1_event_new_event_handle'$1_stake_UpdateNetworkAndFullnodeAddressesEvent'(_$t0: $1_guid_GUID) returns ($ret0: $1_event_EventHandle'$1_stake_UpdateNetworkAndFullnodeAddressesEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_event_EventHandle'$1_stake_UpdateNetworkAndFullnodeAddressesEvent';
-    var $t0: $1_guid_GUID;
-    var $temp_0'$1_event_EventHandle'$1_stake_UpdateNetworkAndFullnodeAddressesEvent'': $1_event_EventHandle'$1_stake_UpdateNetworkAndFullnodeAddressesEvent';
-    var $temp_0'$1_guid_GUID': $1_guid_GUID;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[guid]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+1
-    assume {:print "$at(110,978,979)"} true;
-    assume {:print "$track_local(15,4,0):", $t0} $t0 == $t0;
-
-    // $t1 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:26:22+1
-    assume {:print "$at(110,1107,1108)"} true;
-    $t1 := 0;
-    assume $IsValid'u64'($t1);
-
-    // $t2 := pack event::EventHandle<#0>($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$at(110,1069,1137)"} true;
-    $t2 := $1_event_EventHandle'$1_stake_UpdateNetworkAndFullnodeAddressesEvent'($t1, $t0);
-
-    // trace_return[0]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$track_return(15,4,0):", $t2} $t2 == $t2;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-L1:
-
-    // return $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-    $ret0 := $t2;
-    return;
-
-}
-
-// fun event::new_event_handle<stake::WithdrawStakeEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+165
-procedure {:inline 1} $1_event_new_event_handle'$1_stake_WithdrawStakeEvent'(_$t0: $1_guid_GUID) returns ($ret0: $1_event_EventHandle'$1_stake_WithdrawStakeEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_event_EventHandle'$1_stake_WithdrawStakeEvent';
-    var $t0: $1_guid_GUID;
-    var $temp_0'$1_event_EventHandle'$1_stake_WithdrawStakeEvent'': $1_event_EventHandle'$1_stake_WithdrawStakeEvent';
-    var $temp_0'$1_guid_GUID': $1_guid_GUID;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[guid]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:24:5+1
-    assume {:print "$at(110,978,979)"} true;
-    assume {:print "$track_local(15,4,0):", $t0} $t0 == $t0;
-
-    // $t1 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:26:22+1
-    assume {:print "$at(110,1107,1108)"} true;
-    $t1 := 0;
-    assume $IsValid'u64'($t1);
-
-    // $t2 := pack event::EventHandle<#0>($t1, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$at(110,1069,1137)"} true;
-    $t2 := $1_event_EventHandle'$1_stake_WithdrawStakeEvent'($t1, $t0);
-
-    // trace_return[0]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:25:9+68
-    assume {:print "$track_return(15,4,0):", $t2} $t2 == $t2;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-L1:
-
-    // return $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/event.move:29:5+1
-    assume {:print "$at(110,1142,1143)"} true;
-    $ret0 := $t2;
-    return;
-
-}
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:393:10+77
-function  $1_account_spec_create_resource_address(source: int, seed: Vec (int)): int;
-axiom (forall source: int, seed: Vec (int) ::
-(var $$res := $1_account_spec_create_resource_address(source, seed);
-$IsValid'address'($$res)));
-
-// struct account::Account at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:26:5+401
-type {:datatype} $1_account_Account;
-function {:constructor} $1_account_Account($authentication_key: Vec (int), $sequence_number: int, $guid_creation_num: int, $coin_register_events: $1_event_EventHandle'$1_account_CoinRegisterEvent', $key_rotation_events: $1_event_EventHandle'$1_account_KeyRotationEvent', $rotation_capability_offer: $1_account_CapabilityOffer'$1_account_RotationCapability', $signer_capability_offer: $1_account_CapabilityOffer'$1_account_SignerCapability'): $1_account_Account;
-function {:inline} $Update'$1_account_Account'_authentication_key(s: $1_account_Account, x: Vec (int)): $1_account_Account {
-    $1_account_Account(x, $sequence_number#$1_account_Account(s), $guid_creation_num#$1_account_Account(s), $coin_register_events#$1_account_Account(s), $key_rotation_events#$1_account_Account(s), $rotation_capability_offer#$1_account_Account(s), $signer_capability_offer#$1_account_Account(s))
-}
-function {:inline} $Update'$1_account_Account'_sequence_number(s: $1_account_Account, x: int): $1_account_Account {
-    $1_account_Account($authentication_key#$1_account_Account(s), x, $guid_creation_num#$1_account_Account(s), $coin_register_events#$1_account_Account(s), $key_rotation_events#$1_account_Account(s), $rotation_capability_offer#$1_account_Account(s), $signer_capability_offer#$1_account_Account(s))
-}
-function {:inline} $Update'$1_account_Account'_guid_creation_num(s: $1_account_Account, x: int): $1_account_Account {
-    $1_account_Account($authentication_key#$1_account_Account(s), $sequence_number#$1_account_Account(s), x, $coin_register_events#$1_account_Account(s), $key_rotation_events#$1_account_Account(s), $rotation_capability_offer#$1_account_Account(s), $signer_capability_offer#$1_account_Account(s))
-}
-function {:inline} $Update'$1_account_Account'_coin_register_events(s: $1_account_Account, x: $1_event_EventHandle'$1_account_CoinRegisterEvent'): $1_account_Account {
-    $1_account_Account($authentication_key#$1_account_Account(s), $sequence_number#$1_account_Account(s), $guid_creation_num#$1_account_Account(s), x, $key_rotation_events#$1_account_Account(s), $rotation_capability_offer#$1_account_Account(s), $signer_capability_offer#$1_account_Account(s))
-}
-function {:inline} $Update'$1_account_Account'_key_rotation_events(s: $1_account_Account, x: $1_event_EventHandle'$1_account_KeyRotationEvent'): $1_account_Account {
-    $1_account_Account($authentication_key#$1_account_Account(s), $sequence_number#$1_account_Account(s), $guid_creation_num#$1_account_Account(s), $coin_register_events#$1_account_Account(s), x, $rotation_capability_offer#$1_account_Account(s), $signer_capability_offer#$1_account_Account(s))
-}
-function {:inline} $Update'$1_account_Account'_rotation_capability_offer(s: $1_account_Account, x: $1_account_CapabilityOffer'$1_account_RotationCapability'): $1_account_Account {
-    $1_account_Account($authentication_key#$1_account_Account(s), $sequence_number#$1_account_Account(s), $guid_creation_num#$1_account_Account(s), $coin_register_events#$1_account_Account(s), $key_rotation_events#$1_account_Account(s), x, $signer_capability_offer#$1_account_Account(s))
-}
-function {:inline} $Update'$1_account_Account'_signer_capability_offer(s: $1_account_Account, x: $1_account_CapabilityOffer'$1_account_SignerCapability'): $1_account_Account {
-    $1_account_Account($authentication_key#$1_account_Account(s), $sequence_number#$1_account_Account(s), $guid_creation_num#$1_account_Account(s), $coin_register_events#$1_account_Account(s), $key_rotation_events#$1_account_Account(s), $rotation_capability_offer#$1_account_Account(s), x)
-}
-function $IsValid'$1_account_Account'(s: $1_account_Account): bool {
-    $IsValid'vec'u8''($authentication_key#$1_account_Account(s))
-      && $IsValid'u64'($sequence_number#$1_account_Account(s))
-      && $IsValid'u64'($guid_creation_num#$1_account_Account(s))
-      && $IsValid'$1_event_EventHandle'$1_account_CoinRegisterEvent''($coin_register_events#$1_account_Account(s))
-      && $IsValid'$1_event_EventHandle'$1_account_KeyRotationEvent''($key_rotation_events#$1_account_Account(s))
-      && $IsValid'$1_account_CapabilityOffer'$1_account_RotationCapability''($rotation_capability_offer#$1_account_Account(s))
-      && $IsValid'$1_account_CapabilityOffer'$1_account_SignerCapability''($signer_capability_offer#$1_account_Account(s))
-}
-function {:inline} $IsEqual'$1_account_Account'(s1: $1_account_Account, s2: $1_account_Account): bool {
-    $IsEqual'vec'u8''($authentication_key#$1_account_Account(s1), $authentication_key#$1_account_Account(s2))
-    && $IsEqual'u64'($sequence_number#$1_account_Account(s1), $sequence_number#$1_account_Account(s2))
-    && $IsEqual'u64'($guid_creation_num#$1_account_Account(s1), $guid_creation_num#$1_account_Account(s2))
-    && $IsEqual'$1_event_EventHandle'$1_account_CoinRegisterEvent''($coin_register_events#$1_account_Account(s1), $coin_register_events#$1_account_Account(s2))
-    && $IsEqual'$1_event_EventHandle'$1_account_KeyRotationEvent''($key_rotation_events#$1_account_Account(s1), $key_rotation_events#$1_account_Account(s2))
-    && $IsEqual'$1_account_CapabilityOffer'$1_account_RotationCapability''($rotation_capability_offer#$1_account_Account(s1), $rotation_capability_offer#$1_account_Account(s2))
-    && $IsEqual'$1_account_CapabilityOffer'$1_account_SignerCapability''($signer_capability_offer#$1_account_Account(s1), $signer_capability_offer#$1_account_Account(s2))}
-var $1_account_Account_$memory: $Memory $1_account_Account;
-
-// struct account::CapabilityOffer<account::RotationCapability> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:45:5+68
-type {:datatype} $1_account_CapabilityOffer'$1_account_RotationCapability';
-function {:constructor} $1_account_CapabilityOffer'$1_account_RotationCapability'($for: $1_option_Option'address'): $1_account_CapabilityOffer'$1_account_RotationCapability';
-function {:inline} $Update'$1_account_CapabilityOffer'$1_account_RotationCapability''_for(s: $1_account_CapabilityOffer'$1_account_RotationCapability', x: $1_option_Option'address'): $1_account_CapabilityOffer'$1_account_RotationCapability' {
-    $1_account_CapabilityOffer'$1_account_RotationCapability'(x)
-}
-function $IsValid'$1_account_CapabilityOffer'$1_account_RotationCapability''(s: $1_account_CapabilityOffer'$1_account_RotationCapability'): bool {
-    $IsValid'$1_option_Option'address''($for#$1_account_CapabilityOffer'$1_account_RotationCapability'(s))
-}
-function {:inline} $IsEqual'$1_account_CapabilityOffer'$1_account_RotationCapability''(s1: $1_account_CapabilityOffer'$1_account_RotationCapability', s2: $1_account_CapabilityOffer'$1_account_RotationCapability'): bool {
-    $IsEqual'$1_option_Option'address''($for#$1_account_CapabilityOffer'$1_account_RotationCapability'(s1), $for#$1_account_CapabilityOffer'$1_account_RotationCapability'(s2))}
-
-// struct account::CapabilityOffer<account::SignerCapability> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:45:5+68
-type {:datatype} $1_account_CapabilityOffer'$1_account_SignerCapability';
-function {:constructor} $1_account_CapabilityOffer'$1_account_SignerCapability'($for: $1_option_Option'address'): $1_account_CapabilityOffer'$1_account_SignerCapability';
-function {:inline} $Update'$1_account_CapabilityOffer'$1_account_SignerCapability''_for(s: $1_account_CapabilityOffer'$1_account_SignerCapability', x: $1_option_Option'address'): $1_account_CapabilityOffer'$1_account_SignerCapability' {
-    $1_account_CapabilityOffer'$1_account_SignerCapability'(x)
-}
-function $IsValid'$1_account_CapabilityOffer'$1_account_SignerCapability''(s: $1_account_CapabilityOffer'$1_account_SignerCapability'): bool {
-    $IsValid'$1_option_Option'address''($for#$1_account_CapabilityOffer'$1_account_SignerCapability'(s))
-}
-function {:inline} $IsEqual'$1_account_CapabilityOffer'$1_account_SignerCapability''(s1: $1_account_CapabilityOffer'$1_account_SignerCapability', s2: $1_account_CapabilityOffer'$1_account_SignerCapability'): bool {
-    $IsEqual'$1_option_Option'address''($for#$1_account_CapabilityOffer'$1_account_SignerCapability'(s1), $for#$1_account_CapabilityOffer'$1_account_SignerCapability'(s2))}
-
-// struct account::CoinRegisterEvent at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:41:5+77
-type {:datatype} $1_account_CoinRegisterEvent;
-function {:constructor} $1_account_CoinRegisterEvent($type_info: $1_type_info_TypeInfo): $1_account_CoinRegisterEvent;
-function {:inline} $Update'$1_account_CoinRegisterEvent'_type_info(s: $1_account_CoinRegisterEvent, x: $1_type_info_TypeInfo): $1_account_CoinRegisterEvent {
-    $1_account_CoinRegisterEvent(x)
-}
-function $IsValid'$1_account_CoinRegisterEvent'(s: $1_account_CoinRegisterEvent): bool {
-    $IsValid'$1_type_info_TypeInfo'($type_info#$1_account_CoinRegisterEvent(s))
-}
-function {:inline} $IsEqual'$1_account_CoinRegisterEvent'(s1: $1_account_CoinRegisterEvent, s2: $1_account_CoinRegisterEvent): bool {
-    $IsEqual'$1_type_info_TypeInfo'($type_info#$1_account_CoinRegisterEvent(s1), $type_info#$1_account_CoinRegisterEvent(s2))}
-
-// struct account::KeyRotationEvent at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:36:5+135
-type {:datatype} $1_account_KeyRotationEvent;
-function {:constructor} $1_account_KeyRotationEvent($old_authentication_key: Vec (int), $new_authentication_key: Vec (int)): $1_account_KeyRotationEvent;
-function {:inline} $Update'$1_account_KeyRotationEvent'_old_authentication_key(s: $1_account_KeyRotationEvent, x: Vec (int)): $1_account_KeyRotationEvent {
-    $1_account_KeyRotationEvent(x, $new_authentication_key#$1_account_KeyRotationEvent(s))
-}
-function {:inline} $Update'$1_account_KeyRotationEvent'_new_authentication_key(s: $1_account_KeyRotationEvent, x: Vec (int)): $1_account_KeyRotationEvent {
-    $1_account_KeyRotationEvent($old_authentication_key#$1_account_KeyRotationEvent(s), x)
-}
-function $IsValid'$1_account_KeyRotationEvent'(s: $1_account_KeyRotationEvent): bool {
-    $IsValid'vec'u8''($old_authentication_key#$1_account_KeyRotationEvent(s))
-      && $IsValid'vec'u8''($new_authentication_key#$1_account_KeyRotationEvent(s))
-}
-function {:inline} $IsEqual'$1_account_KeyRotationEvent'(s1: $1_account_KeyRotationEvent, s2: $1_account_KeyRotationEvent): bool {
-    $IsEqual'vec'u8''($old_authentication_key#$1_account_KeyRotationEvent(s1), $old_authentication_key#$1_account_KeyRotationEvent(s2))
-    && $IsEqual'vec'u8''($new_authentication_key#$1_account_KeyRotationEvent(s1), $new_authentication_key#$1_account_KeyRotationEvent(s2))}
-
-// struct account::RotationCapability at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:47:5+62
-type {:datatype} $1_account_RotationCapability;
-function {:constructor} $1_account_RotationCapability($account: int): $1_account_RotationCapability;
-function {:inline} $Update'$1_account_RotationCapability'_account(s: $1_account_RotationCapability, x: int): $1_account_RotationCapability {
-    $1_account_RotationCapability(x)
-}
-function $IsValid'$1_account_RotationCapability'(s: $1_account_RotationCapability): bool {
-    $IsValid'address'($account#$1_account_RotationCapability(s))
-}
-function {:inline} $IsEqual'$1_account_RotationCapability'(s1: $1_account_RotationCapability, s2: $1_account_RotationCapability): bool {
+function {:inline} $IsEqual'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''(s1: $1_event_EventHandle'$1_staking_contract_UpdateVoterEvent', s2: $1_event_EventHandle'$1_staking_contract_UpdateVoterEvent'): bool {
     s1 == s2
 }
 
@@ -9998,2122 +8141,6 @@ function $IsValid'$1_account_SignerCapability'(s: $1_account_SignerCapability): 
 }
 function {:inline} $IsEqual'$1_account_SignerCapability'(s1: $1_account_SignerCapability, s2: $1_account_SignerCapability): bool {
     s1 == s2
-}
-
-// fun account::new_event_handle<stake::AddStakeEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+157
-procedure {:inline 1} $1_account_new_event_handle'$1_stake_AddStakeEvent'(_$t0: $signer) returns ($ret0: $1_event_EventHandle'$1_stake_AddStakeEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_account_Account;
-    var $t3: int;
-    var $t4: int;
-    var $t5: $1_account_Account;
-    var $t6: $1_guid_GUID;
-    var $t7: int;
-    var $t8: $1_event_EventHandle'$1_stake_AddStakeEvent';
-    var $t0: $signer;
-    var $temp_0'$1_event_EventHandle'$1_stake_AddStakeEvent'': $1_event_EventHandle'$1_stake_AddStakeEvent';
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t1, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t1 == $1_signer_$address_of($t0));
-
-    // assume Identical($t2, global<account::Account>($t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t2 == $ResourceValue($1_account_Account_$memory, $t1));
-
-    // trace_local[account]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+1
-    assume {:print "$at(72,38254,38255)"} true;
-    assume {:print "$track_local(18,18,0):", $t0} $t0 == $t0;
-
-    // assume Identical($t3, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:430:9+46
-    assume {:print "$at(73,21178,21224)"} true;
-    assume ($t3 == $1_signer_$address_of($t0));
-
-    // assume Identical($t4, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t4 == $1_signer_$address_of($t0));
-
-    // assume Identical($t5, global<account::Account>($t4)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t5 == $ResourceValue($1_account_Account_$memory, $t4));
-
-    // $t6 := account::create_guid($t0) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:33+20
-    assume {:print "$at(72,38384,38404)"} true;
-    call $t6 := $1_account_create_guid($t0);
-    if ($abort_flag) {
-        assume {:print "$at(72,38384,38404)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // $t8 := event::new_event_handle<#0>($t6) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    call $t8 := $1_event_new_event_handle'$1_stake_AddStakeEvent'($t6);
-    if ($abort_flag) {
-        assume {:print "$at(72,38360,38405)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // trace_return[0]($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    assume {:print "$track_return(18,18,0):", $t8} $t8 == $t8;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-L1:
-
-    // return $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $ret0 := $t8;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-L2:
-
-    // abort($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $abort_code := $t7;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun account::new_event_handle<stake::DistributeRewardsEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+157
-procedure {:inline 1} $1_account_new_event_handle'$1_stake_DistributeRewardsEvent'(_$t0: $signer) returns ($ret0: $1_event_EventHandle'$1_stake_DistributeRewardsEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_account_Account;
-    var $t3: int;
-    var $t4: int;
-    var $t5: $1_account_Account;
-    var $t6: $1_guid_GUID;
-    var $t7: int;
-    var $t8: $1_event_EventHandle'$1_stake_DistributeRewardsEvent';
-    var $t0: $signer;
-    var $temp_0'$1_event_EventHandle'$1_stake_DistributeRewardsEvent'': $1_event_EventHandle'$1_stake_DistributeRewardsEvent';
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t1, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t1 == $1_signer_$address_of($t0));
-
-    // assume Identical($t2, global<account::Account>($t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t2 == $ResourceValue($1_account_Account_$memory, $t1));
-
-    // trace_local[account]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+1
-    assume {:print "$at(72,38254,38255)"} true;
-    assume {:print "$track_local(18,18,0):", $t0} $t0 == $t0;
-
-    // assume Identical($t3, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:430:9+46
-    assume {:print "$at(73,21178,21224)"} true;
-    assume ($t3 == $1_signer_$address_of($t0));
-
-    // assume Identical($t4, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t4 == $1_signer_$address_of($t0));
-
-    // assume Identical($t5, global<account::Account>($t4)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t5 == $ResourceValue($1_account_Account_$memory, $t4));
-
-    // $t6 := account::create_guid($t0) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:33+20
-    assume {:print "$at(72,38384,38404)"} true;
-    call $t6 := $1_account_create_guid($t0);
-    if ($abort_flag) {
-        assume {:print "$at(72,38384,38404)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // $t8 := event::new_event_handle<#0>($t6) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    call $t8 := $1_event_new_event_handle'$1_stake_DistributeRewardsEvent'($t6);
-    if ($abort_flag) {
-        assume {:print "$at(72,38360,38405)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // trace_return[0]($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    assume {:print "$track_return(18,18,0):", $t8} $t8 == $t8;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-L1:
-
-    // return $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $ret0 := $t8;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-L2:
-
-    // abort($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $abort_code := $t7;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun account::new_event_handle<stake::IncreaseLockupEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+157
-procedure {:inline 1} $1_account_new_event_handle'$1_stake_IncreaseLockupEvent'(_$t0: $signer) returns ($ret0: $1_event_EventHandle'$1_stake_IncreaseLockupEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_account_Account;
-    var $t3: int;
-    var $t4: int;
-    var $t5: $1_account_Account;
-    var $t6: $1_guid_GUID;
-    var $t7: int;
-    var $t8: $1_event_EventHandle'$1_stake_IncreaseLockupEvent';
-    var $t0: $signer;
-    var $temp_0'$1_event_EventHandle'$1_stake_IncreaseLockupEvent'': $1_event_EventHandle'$1_stake_IncreaseLockupEvent';
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t1, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t1 == $1_signer_$address_of($t0));
-
-    // assume Identical($t2, global<account::Account>($t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t2 == $ResourceValue($1_account_Account_$memory, $t1));
-
-    // trace_local[account]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+1
-    assume {:print "$at(72,38254,38255)"} true;
-    assume {:print "$track_local(18,18,0):", $t0} $t0 == $t0;
-
-    // assume Identical($t3, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:430:9+46
-    assume {:print "$at(73,21178,21224)"} true;
-    assume ($t3 == $1_signer_$address_of($t0));
-
-    // assume Identical($t4, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t4 == $1_signer_$address_of($t0));
-
-    // assume Identical($t5, global<account::Account>($t4)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t5 == $ResourceValue($1_account_Account_$memory, $t4));
-
-    // $t6 := account::create_guid($t0) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:33+20
-    assume {:print "$at(72,38384,38404)"} true;
-    call $t6 := $1_account_create_guid($t0);
-    if ($abort_flag) {
-        assume {:print "$at(72,38384,38404)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // $t8 := event::new_event_handle<#0>($t6) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    call $t8 := $1_event_new_event_handle'$1_stake_IncreaseLockupEvent'($t6);
-    if ($abort_flag) {
-        assume {:print "$at(72,38360,38405)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // trace_return[0]($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    assume {:print "$track_return(18,18,0):", $t8} $t8 == $t8;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-L1:
-
-    // return $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $ret0 := $t8;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-L2:
-
-    // abort($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $abort_code := $t7;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun account::new_event_handle<stake::JoinValidatorSetEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+157
-procedure {:inline 1} $1_account_new_event_handle'$1_stake_JoinValidatorSetEvent'(_$t0: $signer) returns ($ret0: $1_event_EventHandle'$1_stake_JoinValidatorSetEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_account_Account;
-    var $t3: int;
-    var $t4: int;
-    var $t5: $1_account_Account;
-    var $t6: $1_guid_GUID;
-    var $t7: int;
-    var $t8: $1_event_EventHandle'$1_stake_JoinValidatorSetEvent';
-    var $t0: $signer;
-    var $temp_0'$1_event_EventHandle'$1_stake_JoinValidatorSetEvent'': $1_event_EventHandle'$1_stake_JoinValidatorSetEvent';
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t1, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t1 == $1_signer_$address_of($t0));
-
-    // assume Identical($t2, global<account::Account>($t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t2 == $ResourceValue($1_account_Account_$memory, $t1));
-
-    // trace_local[account]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+1
-    assume {:print "$at(72,38254,38255)"} true;
-    assume {:print "$track_local(18,18,0):", $t0} $t0 == $t0;
-
-    // assume Identical($t3, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:430:9+46
-    assume {:print "$at(73,21178,21224)"} true;
-    assume ($t3 == $1_signer_$address_of($t0));
-
-    // assume Identical($t4, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t4 == $1_signer_$address_of($t0));
-
-    // assume Identical($t5, global<account::Account>($t4)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t5 == $ResourceValue($1_account_Account_$memory, $t4));
-
-    // $t6 := account::create_guid($t0) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:33+20
-    assume {:print "$at(72,38384,38404)"} true;
-    call $t6 := $1_account_create_guid($t0);
-    if ($abort_flag) {
-        assume {:print "$at(72,38384,38404)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // $t8 := event::new_event_handle<#0>($t6) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    call $t8 := $1_event_new_event_handle'$1_stake_JoinValidatorSetEvent'($t6);
-    if ($abort_flag) {
-        assume {:print "$at(72,38360,38405)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // trace_return[0]($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    assume {:print "$track_return(18,18,0):", $t8} $t8 == $t8;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-L1:
-
-    // return $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $ret0 := $t8;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-L2:
-
-    // abort($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $abort_code := $t7;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun account::new_event_handle<stake::LeaveValidatorSetEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+157
-procedure {:inline 1} $1_account_new_event_handle'$1_stake_LeaveValidatorSetEvent'(_$t0: $signer) returns ($ret0: $1_event_EventHandle'$1_stake_LeaveValidatorSetEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_account_Account;
-    var $t3: int;
-    var $t4: int;
-    var $t5: $1_account_Account;
-    var $t6: $1_guid_GUID;
-    var $t7: int;
-    var $t8: $1_event_EventHandle'$1_stake_LeaveValidatorSetEvent';
-    var $t0: $signer;
-    var $temp_0'$1_event_EventHandle'$1_stake_LeaveValidatorSetEvent'': $1_event_EventHandle'$1_stake_LeaveValidatorSetEvent';
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t1, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t1 == $1_signer_$address_of($t0));
-
-    // assume Identical($t2, global<account::Account>($t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t2 == $ResourceValue($1_account_Account_$memory, $t1));
-
-    // trace_local[account]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+1
-    assume {:print "$at(72,38254,38255)"} true;
-    assume {:print "$track_local(18,18,0):", $t0} $t0 == $t0;
-
-    // assume Identical($t3, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:430:9+46
-    assume {:print "$at(73,21178,21224)"} true;
-    assume ($t3 == $1_signer_$address_of($t0));
-
-    // assume Identical($t4, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t4 == $1_signer_$address_of($t0));
-
-    // assume Identical($t5, global<account::Account>($t4)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t5 == $ResourceValue($1_account_Account_$memory, $t4));
-
-    // $t6 := account::create_guid($t0) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:33+20
-    assume {:print "$at(72,38384,38404)"} true;
-    call $t6 := $1_account_create_guid($t0);
-    if ($abort_flag) {
-        assume {:print "$at(72,38384,38404)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // $t8 := event::new_event_handle<#0>($t6) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    call $t8 := $1_event_new_event_handle'$1_stake_LeaveValidatorSetEvent'($t6);
-    if ($abort_flag) {
-        assume {:print "$at(72,38360,38405)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // trace_return[0]($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    assume {:print "$track_return(18,18,0):", $t8} $t8 == $t8;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-L1:
-
-    // return $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $ret0 := $t8;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-L2:
-
-    // abort($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $abort_code := $t7;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun account::new_event_handle<stake::ReactivateStakeEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+157
-procedure {:inline 1} $1_account_new_event_handle'$1_stake_ReactivateStakeEvent'(_$t0: $signer) returns ($ret0: $1_event_EventHandle'$1_stake_ReactivateStakeEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_account_Account;
-    var $t3: int;
-    var $t4: int;
-    var $t5: $1_account_Account;
-    var $t6: $1_guid_GUID;
-    var $t7: int;
-    var $t8: $1_event_EventHandle'$1_stake_ReactivateStakeEvent';
-    var $t0: $signer;
-    var $temp_0'$1_event_EventHandle'$1_stake_ReactivateStakeEvent'': $1_event_EventHandle'$1_stake_ReactivateStakeEvent';
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t1, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t1 == $1_signer_$address_of($t0));
-
-    // assume Identical($t2, global<account::Account>($t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t2 == $ResourceValue($1_account_Account_$memory, $t1));
-
-    // trace_local[account]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+1
-    assume {:print "$at(72,38254,38255)"} true;
-    assume {:print "$track_local(18,18,0):", $t0} $t0 == $t0;
-
-    // assume Identical($t3, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:430:9+46
-    assume {:print "$at(73,21178,21224)"} true;
-    assume ($t3 == $1_signer_$address_of($t0));
-
-    // assume Identical($t4, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t4 == $1_signer_$address_of($t0));
-
-    // assume Identical($t5, global<account::Account>($t4)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t5 == $ResourceValue($1_account_Account_$memory, $t4));
-
-    // $t6 := account::create_guid($t0) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:33+20
-    assume {:print "$at(72,38384,38404)"} true;
-    call $t6 := $1_account_create_guid($t0);
-    if ($abort_flag) {
-        assume {:print "$at(72,38384,38404)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // $t8 := event::new_event_handle<#0>($t6) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    call $t8 := $1_event_new_event_handle'$1_stake_ReactivateStakeEvent'($t6);
-    if ($abort_flag) {
-        assume {:print "$at(72,38360,38405)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // trace_return[0]($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    assume {:print "$track_return(18,18,0):", $t8} $t8 == $t8;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-L1:
-
-    // return $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $ret0 := $t8;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-L2:
-
-    // abort($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $abort_code := $t7;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun account::new_event_handle<stake::RegisterValidatorCandidateEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+157
-procedure {:inline 1} $1_account_new_event_handle'$1_stake_RegisterValidatorCandidateEvent'(_$t0: $signer) returns ($ret0: $1_event_EventHandle'$1_stake_RegisterValidatorCandidateEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_account_Account;
-    var $t3: int;
-    var $t4: int;
-    var $t5: $1_account_Account;
-    var $t6: $1_guid_GUID;
-    var $t7: int;
-    var $t8: $1_event_EventHandle'$1_stake_RegisterValidatorCandidateEvent';
-    var $t0: $signer;
-    var $temp_0'$1_event_EventHandle'$1_stake_RegisterValidatorCandidateEvent'': $1_event_EventHandle'$1_stake_RegisterValidatorCandidateEvent';
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t1, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t1 == $1_signer_$address_of($t0));
-
-    // assume Identical($t2, global<account::Account>($t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t2 == $ResourceValue($1_account_Account_$memory, $t1));
-
-    // trace_local[account]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+1
-    assume {:print "$at(72,38254,38255)"} true;
-    assume {:print "$track_local(18,18,0):", $t0} $t0 == $t0;
-
-    // assume Identical($t3, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:430:9+46
-    assume {:print "$at(73,21178,21224)"} true;
-    assume ($t3 == $1_signer_$address_of($t0));
-
-    // assume Identical($t4, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t4 == $1_signer_$address_of($t0));
-
-    // assume Identical($t5, global<account::Account>($t4)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t5 == $ResourceValue($1_account_Account_$memory, $t4));
-
-    // $t6 := account::create_guid($t0) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:33+20
-    assume {:print "$at(72,38384,38404)"} true;
-    call $t6 := $1_account_create_guid($t0);
-    if ($abort_flag) {
-        assume {:print "$at(72,38384,38404)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // $t8 := event::new_event_handle<#0>($t6) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    call $t8 := $1_event_new_event_handle'$1_stake_RegisterValidatorCandidateEvent'($t6);
-    if ($abort_flag) {
-        assume {:print "$at(72,38360,38405)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // trace_return[0]($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    assume {:print "$track_return(18,18,0):", $t8} $t8 == $t8;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-L1:
-
-    // return $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $ret0 := $t8;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-L2:
-
-    // abort($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $abort_code := $t7;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun account::new_event_handle<stake::RotateConsensusKeyEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+157
-procedure {:inline 1} $1_account_new_event_handle'$1_stake_RotateConsensusKeyEvent'(_$t0: $signer) returns ($ret0: $1_event_EventHandle'$1_stake_RotateConsensusKeyEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_account_Account;
-    var $t3: int;
-    var $t4: int;
-    var $t5: $1_account_Account;
-    var $t6: $1_guid_GUID;
-    var $t7: int;
-    var $t8: $1_event_EventHandle'$1_stake_RotateConsensusKeyEvent';
-    var $t0: $signer;
-    var $temp_0'$1_event_EventHandle'$1_stake_RotateConsensusKeyEvent'': $1_event_EventHandle'$1_stake_RotateConsensusKeyEvent';
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t1, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t1 == $1_signer_$address_of($t0));
-
-    // assume Identical($t2, global<account::Account>($t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t2 == $ResourceValue($1_account_Account_$memory, $t1));
-
-    // trace_local[account]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+1
-    assume {:print "$at(72,38254,38255)"} true;
-    assume {:print "$track_local(18,18,0):", $t0} $t0 == $t0;
-
-    // assume Identical($t3, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:430:9+46
-    assume {:print "$at(73,21178,21224)"} true;
-    assume ($t3 == $1_signer_$address_of($t0));
-
-    // assume Identical($t4, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t4 == $1_signer_$address_of($t0));
-
-    // assume Identical($t5, global<account::Account>($t4)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t5 == $ResourceValue($1_account_Account_$memory, $t4));
-
-    // $t6 := account::create_guid($t0) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:33+20
-    assume {:print "$at(72,38384,38404)"} true;
-    call $t6 := $1_account_create_guid($t0);
-    if ($abort_flag) {
-        assume {:print "$at(72,38384,38404)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // $t8 := event::new_event_handle<#0>($t6) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    call $t8 := $1_event_new_event_handle'$1_stake_RotateConsensusKeyEvent'($t6);
-    if ($abort_flag) {
-        assume {:print "$at(72,38360,38405)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // trace_return[0]($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    assume {:print "$track_return(18,18,0):", $t8} $t8 == $t8;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-L1:
-
-    // return $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $ret0 := $t8;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-L2:
-
-    // abort($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $abort_code := $t7;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun account::new_event_handle<stake::SetOperatorEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+157
-procedure {:inline 1} $1_account_new_event_handle'$1_stake_SetOperatorEvent'(_$t0: $signer) returns ($ret0: $1_event_EventHandle'$1_stake_SetOperatorEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_account_Account;
-    var $t3: int;
-    var $t4: int;
-    var $t5: $1_account_Account;
-    var $t6: $1_guid_GUID;
-    var $t7: int;
-    var $t8: $1_event_EventHandle'$1_stake_SetOperatorEvent';
-    var $t0: $signer;
-    var $temp_0'$1_event_EventHandle'$1_stake_SetOperatorEvent'': $1_event_EventHandle'$1_stake_SetOperatorEvent';
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t1, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t1 == $1_signer_$address_of($t0));
-
-    // assume Identical($t2, global<account::Account>($t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t2 == $ResourceValue($1_account_Account_$memory, $t1));
-
-    // trace_local[account]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+1
-    assume {:print "$at(72,38254,38255)"} true;
-    assume {:print "$track_local(18,18,0):", $t0} $t0 == $t0;
-
-    // assume Identical($t3, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:430:9+46
-    assume {:print "$at(73,21178,21224)"} true;
-    assume ($t3 == $1_signer_$address_of($t0));
-
-    // assume Identical($t4, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t4 == $1_signer_$address_of($t0));
-
-    // assume Identical($t5, global<account::Account>($t4)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t5 == $ResourceValue($1_account_Account_$memory, $t4));
-
-    // $t6 := account::create_guid($t0) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:33+20
-    assume {:print "$at(72,38384,38404)"} true;
-    call $t6 := $1_account_create_guid($t0);
-    if ($abort_flag) {
-        assume {:print "$at(72,38384,38404)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // $t8 := event::new_event_handle<#0>($t6) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    call $t8 := $1_event_new_event_handle'$1_stake_SetOperatorEvent'($t6);
-    if ($abort_flag) {
-        assume {:print "$at(72,38360,38405)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // trace_return[0]($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    assume {:print "$track_return(18,18,0):", $t8} $t8 == $t8;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-L1:
-
-    // return $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $ret0 := $t8;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-L2:
-
-    // abort($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $abort_code := $t7;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun account::new_event_handle<stake::UnlockStakeEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+157
-procedure {:inline 1} $1_account_new_event_handle'$1_stake_UnlockStakeEvent'(_$t0: $signer) returns ($ret0: $1_event_EventHandle'$1_stake_UnlockStakeEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_account_Account;
-    var $t3: int;
-    var $t4: int;
-    var $t5: $1_account_Account;
-    var $t6: $1_guid_GUID;
-    var $t7: int;
-    var $t8: $1_event_EventHandle'$1_stake_UnlockStakeEvent';
-    var $t0: $signer;
-    var $temp_0'$1_event_EventHandle'$1_stake_UnlockStakeEvent'': $1_event_EventHandle'$1_stake_UnlockStakeEvent';
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t1, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t1 == $1_signer_$address_of($t0));
-
-    // assume Identical($t2, global<account::Account>($t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t2 == $ResourceValue($1_account_Account_$memory, $t1));
-
-    // trace_local[account]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+1
-    assume {:print "$at(72,38254,38255)"} true;
-    assume {:print "$track_local(18,18,0):", $t0} $t0 == $t0;
-
-    // assume Identical($t3, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:430:9+46
-    assume {:print "$at(73,21178,21224)"} true;
-    assume ($t3 == $1_signer_$address_of($t0));
-
-    // assume Identical($t4, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t4 == $1_signer_$address_of($t0));
-
-    // assume Identical($t5, global<account::Account>($t4)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t5 == $ResourceValue($1_account_Account_$memory, $t4));
-
-    // $t6 := account::create_guid($t0) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:33+20
-    assume {:print "$at(72,38384,38404)"} true;
-    call $t6 := $1_account_create_guid($t0);
-    if ($abort_flag) {
-        assume {:print "$at(72,38384,38404)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // $t8 := event::new_event_handle<#0>($t6) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    call $t8 := $1_event_new_event_handle'$1_stake_UnlockStakeEvent'($t6);
-    if ($abort_flag) {
-        assume {:print "$at(72,38360,38405)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // trace_return[0]($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    assume {:print "$track_return(18,18,0):", $t8} $t8 == $t8;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-L1:
-
-    // return $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $ret0 := $t8;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-L2:
-
-    // abort($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $abort_code := $t7;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun account::new_event_handle<stake::UpdateNetworkAndFullnodeAddressesEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+157
-procedure {:inline 1} $1_account_new_event_handle'$1_stake_UpdateNetworkAndFullnodeAddressesEvent'(_$t0: $signer) returns ($ret0: $1_event_EventHandle'$1_stake_UpdateNetworkAndFullnodeAddressesEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_account_Account;
-    var $t3: int;
-    var $t4: int;
-    var $t5: $1_account_Account;
-    var $t6: $1_guid_GUID;
-    var $t7: int;
-    var $t8: $1_event_EventHandle'$1_stake_UpdateNetworkAndFullnodeAddressesEvent';
-    var $t0: $signer;
-    var $temp_0'$1_event_EventHandle'$1_stake_UpdateNetworkAndFullnodeAddressesEvent'': $1_event_EventHandle'$1_stake_UpdateNetworkAndFullnodeAddressesEvent';
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t1, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t1 == $1_signer_$address_of($t0));
-
-    // assume Identical($t2, global<account::Account>($t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t2 == $ResourceValue($1_account_Account_$memory, $t1));
-
-    // trace_local[account]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+1
-    assume {:print "$at(72,38254,38255)"} true;
-    assume {:print "$track_local(18,18,0):", $t0} $t0 == $t0;
-
-    // assume Identical($t3, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:430:9+46
-    assume {:print "$at(73,21178,21224)"} true;
-    assume ($t3 == $1_signer_$address_of($t0));
-
-    // assume Identical($t4, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t4 == $1_signer_$address_of($t0));
-
-    // assume Identical($t5, global<account::Account>($t4)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t5 == $ResourceValue($1_account_Account_$memory, $t4));
-
-    // $t6 := account::create_guid($t0) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:33+20
-    assume {:print "$at(72,38384,38404)"} true;
-    call $t6 := $1_account_create_guid($t0);
-    if ($abort_flag) {
-        assume {:print "$at(72,38384,38404)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // $t8 := event::new_event_handle<#0>($t6) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    call $t8 := $1_event_new_event_handle'$1_stake_UpdateNetworkAndFullnodeAddressesEvent'($t6);
-    if ($abort_flag) {
-        assume {:print "$at(72,38360,38405)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // trace_return[0]($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    assume {:print "$track_return(18,18,0):", $t8} $t8 == $t8;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-L1:
-
-    // return $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $ret0 := $t8;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-L2:
-
-    // abort($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $abort_code := $t7;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun account::new_event_handle<stake::WithdrawStakeEvent> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+157
-procedure {:inline 1} $1_account_new_event_handle'$1_stake_WithdrawStakeEvent'(_$t0: $signer) returns ($ret0: $1_event_EventHandle'$1_stake_WithdrawStakeEvent')
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: $1_account_Account;
-    var $t3: int;
-    var $t4: int;
-    var $t5: $1_account_Account;
-    var $t6: $1_guid_GUID;
-    var $t7: int;
-    var $t8: $1_event_EventHandle'$1_stake_WithdrawStakeEvent';
-    var $t0: $signer;
-    var $temp_0'$1_event_EventHandle'$1_stake_WithdrawStakeEvent'': $1_event_EventHandle'$1_stake_WithdrawStakeEvent';
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t1, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t1 == $1_signer_$address_of($t0));
-
-    // assume Identical($t2, global<account::Account>($t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t2 == $ResourceValue($1_account_Account_$memory, $t1));
-
-    // trace_local[account]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:669:5+1
-    assume {:print "$at(72,38254,38255)"} true;
-    assume {:print "$track_local(18,18,0):", $t0} $t0 == $t0;
-
-    // assume Identical($t3, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:430:9+46
-    assume {:print "$at(73,21178,21224)"} true;
-    assume ($t3 == $1_signer_$address_of($t0));
-
-    // assume Identical($t4, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t4 == $1_signer_$address_of($t0));
-
-    // assume Identical($t5, global<account::Account>($t4)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t5 == $ResourceValue($1_account_Account_$memory, $t4));
-
-    // $t6 := account::create_guid($t0) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:33+20
-    assume {:print "$at(72,38384,38404)"} true;
-    call $t6 := $1_account_create_guid($t0);
-    if ($abort_flag) {
-        assume {:print "$at(72,38384,38404)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // $t8 := event::new_event_handle<#0>($t6) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    call $t8 := $1_event_new_event_handle'$1_stake_WithdrawStakeEvent'($t6);
-    if ($abort_flag) {
-        assume {:print "$at(72,38360,38405)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(18,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // trace_return[0]($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:670:9+45
-    assume {:print "$track_return(18,18,0):", $t8} $t8 == $t8;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-L1:
-
-    // return $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $ret0 := $t8;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-L2:
-
-    // abort($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:671:5+1
-    assume {:print "$at(72,38410,38411)"} true;
-    $abort_code := $t7;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun account::create_account_unchecked [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:191:5+1182
-procedure {:inline 1} $1_account_create_account_unchecked(_$t0: int) returns ($ret0: $signer)
-{
-    // declare local variables
-    var $t1: Vec (int);
-    var $t2: $1_event_EventHandle'$1_account_CoinRegisterEvent';
-    var $t3: int;
-    var $t4: $1_event_EventHandle'$1_account_KeyRotationEvent';
-    var $t5: $signer;
-    var $t6: Vec (int);
-    var $t7: $signer;
-    var $t8: Vec (int);
-    var $t9: int;
-    var $t10: int;
-    var $t11: int;
-    var $t12: bool;
-    var $t13: int;
-    var $t14: int;
-    var $t15: int;
-    var $t16: $Mutation (int);
-    var $t17: $1_guid_GUID;
-    var $t18: $1_event_EventHandle'$1_account_CoinRegisterEvent';
-    var $t19: $Mutation (int);
-    var $t20: $1_guid_GUID;
-    var $t21: $1_event_EventHandle'$1_account_KeyRotationEvent';
-    var $t22: int;
-    var $t23: int;
-    var $t24: $1_option_Option'address';
-    var $t25: $1_account_CapabilityOffer'$1_account_RotationCapability';
-    var $t26: $1_option_Option'address';
-    var $t27: $1_account_CapabilityOffer'$1_account_SignerCapability';
-    var $t28: $1_account_Account;
-    var $t0: int;
-    var $temp_0'$1_event_EventHandle'$1_account_CoinRegisterEvent'': $1_event_EventHandle'$1_account_CoinRegisterEvent';
-    var $temp_0'$1_event_EventHandle'$1_account_KeyRotationEvent'': $1_event_EventHandle'$1_account_KeyRotationEvent';
-    var $temp_0'address': int;
-    var $temp_0'signer': $signer;
-    var $temp_0'u64': int;
-    var $temp_0'vec'u8'': Vec (int);
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t6, bcs::$to_bytes<address>($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:34:9+45
-    assume {:print "$at(73,1495,1540)"} true;
-    assume ($t6 == $1_bcs_$to_bytes'address'($t0));
-
-    // trace_local[new_address]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:191:5+1
-    assume {:print "$at(72,10167,10168)"} true;
-    assume {:print "$track_local(18,2,0):", $t0} $t0 == $t0;
-
-    // $t7 := opaque begin: create_signer::create_signer($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:192:27+26
-    assume {:print "$at(72,10254,10280)"} true;
-
-    // assume WellFormed($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:192:27+26
-    assume $IsValid'signer'($t7) && $1_signer_is_txn_signer($t7) && $1_signer_is_txn_signer_addr($addr#$signer($t7));
-
-    // assume Eq<address>(signer::$address_of($t7), $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:192:27+26
-    assume $IsEqual'address'($1_signer_$address_of($t7), $t0);
-
-    // $t7 := opaque end: create_signer::create_signer($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:192:27+26
-
-    // trace_local[new_account]($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:192:13+11
-    assume {:print "$track_local(18,2,5):", $t7} $t7 == $t7;
-
-    // $t8 := bcs::to_bytes<address>($t0) on_abort goto L4 with $t9 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:193:34+27
-    assume {:print "$at(72,10315,10342)"} true;
-    call $t8 := $1_bcs_to_bytes'address'($t0);
-    if ($abort_flag) {
-        assume {:print "$at(72,10315,10342)"} true;
-        $t9 := $abort_code;
-        assume {:print "$track_abort(18,2):", $t9} $t9 == $t9;
-        goto L4;
-    }
-
-    // trace_local[authentication_key]($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:193:13+18
-    assume {:print "$track_local(18,2,1):", $t8} $t8 == $t8;
-
-    // $t10 := vector::length<u8>($t8) on_abort goto L4 with $t9 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:195:13+35
-    assume {:print "$at(72,10373,10408)"} true;
-    call $t10 := $1_vector_length'u8'($t8);
-    if ($abort_flag) {
-        assume {:print "$at(72,10373,10408)"} true;
-        $t9 := $abort_code;
-        assume {:print "$track_abort(18,2):", $t9} $t9 == $t9;
-        goto L4;
-    }
-
-    // $t11 := 32 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:195:52+2
-    $t11 := 32;
-    assume $IsValid'u64'($t11);
-
-    // $t12 := ==($t10, $t11) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:195:49+2
-    $t12 := $IsEqual'u64'($t10, $t11);
-
-    // if ($t12) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:194:9+140
-    assume {:print "$at(72,10352,10492)"} true;
-    if ($t12) { goto L1; } else { goto L0; }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:194:9+140
-L1:
-
-    // goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:194:9+140
-    assume {:print "$at(72,10352,10492)"} true;
-    goto L2;
-
-    // label L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:196:37+29
-    assume {:print "$at(72,10452,10481)"} true;
-L0:
-
-    // $t13 := 4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:196:37+29
-    assume {:print "$at(72,10452,10481)"} true;
-    $t13 := 4;
-    assume $IsValid'u64'($t13);
-
-    // $t14 := error::invalid_argument($t13) on_abort goto L4 with $t9 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:196:13+54
-    call $t14 := $1_error_invalid_argument($t13);
-    if ($abort_flag) {
-        assume {:print "$at(72,10428,10482)"} true;
-        $t9 := $abort_code;
-        assume {:print "$track_abort(18,2):", $t9} $t9 == $t9;
-        goto L4;
-    }
-
-    // trace_abort($t14) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:194:9+140
-    assume {:print "$at(72,10352,10492)"} true;
-    assume {:print "$track_abort(18,2):", $t14} $t14 == $t14;
-
-    // $t9 := move($t14) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:194:9+140
-    $t9 := $t14;
-
-    // goto L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:194:9+140
-    goto L4;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:199:33+1
-    assume {:print "$at(72,10527,10528)"} true;
-L2:
-
-    // $t15 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:199:33+1
-    assume {:print "$at(72,10527,10528)"} true;
-    $t15 := 0;
-    assume $IsValid'u64'($t15);
-
-    // $t3 := $t15 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:199:13+17
-    $t3 := $t15;
-
-    // trace_local[guid_creation_num]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:199:13+17
-    assume {:print "$track_local(18,2,3):", $t3} $t3 == $t3;
-
-    // $t16 := borrow_local($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:201:55+22
-    assume {:print "$at(72,10585,10607)"} true;
-    $t16 := $Mutation($Local(3), EmptyVec(), $t3);
-
-    // $t17 := guid::create($t0, $t16) on_abort goto L4 with $t9 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:201:29+49
-    call $t17,$t16 := $1_guid_create($t0, $t16);
-    if ($abort_flag) {
-        assume {:print "$at(72,10559,10608)"} true;
-        $t9 := $abort_code;
-        assume {:print "$track_abort(18,2):", $t9} $t9 == $t9;
-        goto L4;
-    }
-
-    // write_back[LocalRoot($t3)@]($t16) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:201:29+49
-    $t3 := $Dereference($t16);
-
-    // trace_local[guid_creation_num]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:201:29+49
-    assume {:print "$track_local(18,2,3):", $t3} $t3 == $t3;
-
-    // $t18 := event::new_event_handle<account::CoinRegisterEvent>($t17) on_abort goto L4 with $t9 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:202:36+57
-    assume {:print "$at(72,10645,10702)"} true;
-    call $t18 := $1_event_new_event_handle'$1_account_CoinRegisterEvent'($t17);
-    if ($abort_flag) {
-        assume {:print "$at(72,10645,10702)"} true;
-        $t9 := $abort_code;
-        assume {:print "$track_abort(18,2):", $t9} $t9 == $t9;
-        goto L4;
-    }
-
-    // trace_local[coin_register_events]($t18) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:202:13+20
-    assume {:print "$track_local(18,2,2):", $t18} $t18 == $t18;
-
-    // $t19 := borrow_local($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:204:59+22
-    assume {:print "$at(72,10763,10785)"} true;
-    $t19 := $Mutation($Local(3), EmptyVec(), $t3);
-
-    // $t20 := guid::create($t0, $t19) on_abort goto L4 with $t9 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:204:33+49
-    call $t20,$t19 := $1_guid_create($t0, $t19);
-    if ($abort_flag) {
-        assume {:print "$at(72,10737,10786)"} true;
-        $t9 := $abort_code;
-        assume {:print "$track_abort(18,2):", $t9} $t9 == $t9;
-        goto L4;
-    }
-
-    // write_back[LocalRoot($t3)@]($t19) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:204:33+49
-    $t3 := $Dereference($t19);
-
-    // trace_local[guid_creation_num]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:204:33+49
-    assume {:print "$track_local(18,2,3):", $t3} $t3 == $t3;
-
-    // $t21 := event::new_event_handle<account::KeyRotationEvent>($t20) on_abort goto L4 with $t9 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:205:35+60
-    assume {:print "$at(72,10822,10882)"} true;
-    call $t21 := $1_event_new_event_handle'$1_account_KeyRotationEvent'($t20);
-    if ($abort_flag) {
-        assume {:print "$at(72,10822,10882)"} true;
-        $t9 := $abort_code;
-        assume {:print "$track_abort(18,2):", $t9} $t9 == $t9;
-        goto L4;
-    }
-
-    // trace_local[key_rotation_events]($t21) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:205:13+19
-    assume {:print "$track_local(18,2,4):", $t21} $t21 == $t21;
-
-    // $t22 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:211:34+1
-    assume {:print "$at(72,11019,11020)"} true;
-    $t22 := 0;
-    assume $IsValid'u64'($t22);
-
-    // $t23 := move($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:212:17+17
-    assume {:print "$at(72,11038,11055)"} true;
-    $t23 := $t3;
-
-    // $t24 := opaque begin: option::none<address>() at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:215:67+14
-    assume {:print "$at(72,11198,11212)"} true;
-
-    // assume And(WellFormed($t24), Le(Len<address>(select option::Option.vec($t24)), 1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:215:67+14
-    assume ($IsValid'$1_option_Option'address''($t24) && (LenVec($vec#$1_option_Option'address'($t24)) <= 1));
-
-    // assume Eq<option::Option<address>>($t24, option::spec_none<address>()) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:215:67+14
-    assume $IsEqual'$1_option_Option'address''($t24, $1_option_spec_none'address'());
-
-    // $t24 := opaque end: option::none<address>() at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:215:67+14
-
-    // $t25 := pack account::CapabilityOffer<account::RotationCapability>($t24) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:215:44+39
-    $t25 := $1_account_CapabilityOffer'$1_account_RotationCapability'($t24);
-
-    // $t26 := opaque begin: option::none<address>() at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:216:65+14
-    assume {:print "$at(72,11280,11294)"} true;
-
-    // assume And(WellFormed($t26), Le(Len<address>(select option::Option.vec($t26)), 1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:216:65+14
-    assume ($IsValid'$1_option_Option'address''($t26) && (LenVec($vec#$1_option_Option'address'($t26)) <= 1));
-
-    // assume Eq<option::Option<address>>($t26, option::spec_none<address>()) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:216:65+14
-    assume $IsEqual'$1_option_Option'address''($t26, $1_option_spec_none'address'());
-
-    // $t26 := opaque end: option::none<address>() at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:216:65+14
-
-    // $t27 := pack account::CapabilityOffer<account::SignerCapability>($t26) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:216:42+39
-    $t27 := $1_account_CapabilityOffer'$1_account_SignerCapability'($t26);
-
-    // $t28 := pack account::Account($t8, $t22, $t23, $t18, $t21, $t25, $t27) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:209:13+371
-    assume {:print "$at(72,10940,11311)"} true;
-    $t28 := $1_account_Account($t8, $t22, $t23, $t18, $t21, $t25, $t27);
-
-    // move_to<account::Account>($t28, $t7) on_abort goto L4 with $t9 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:207:9+7
-    assume {:print "$at(72,10893,10900)"} true;
-    if ($ResourceExists($1_account_Account_$memory, $addr#$signer($t7))) {
-        call $ExecFailureAbort();
-    } else {
-        $1_account_Account_$memory := $ResourceUpdate($1_account_Account_$memory, $addr#$signer($t7), $t28);
-    }
-    if ($abort_flag) {
-        assume {:print "$at(72,10893,10900)"} true;
-        $t9 := $abort_code;
-        assume {:print "$track_abort(18,2):", $t9} $t9 == $t9;
-        goto L4;
-    }
-
-    // trace_return[0]($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:220:9+11
-    assume {:print "$at(72,11332,11343)"} true;
-    assume {:print "$track_return(18,2,0):", $t7} $t7 == $t7;
-
-    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:221:5+1
-    assume {:print "$at(72,11348,11349)"} true;
-L3:
-
-    // return $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:221:5+1
-    assume {:print "$at(72,11348,11349)"} true;
-    $ret0 := $t7;
-    return;
-
-    // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:221:5+1
-L4:
-
-    // abort($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:221:5+1
-    assume {:print "$at(72,11348,11349)"} true;
-    $abort_code := $t9;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun account::create_guid [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:654:5+436
-procedure {:inline 1} $1_account_create_guid(_$t0: $signer) returns ($ret0: $1_guid_GUID)
-{
-    // declare local variables
-    var $t1: $Mutation ($1_account_Account);
-    var $t2: int;
-    var $t3: $1_guid_GUID;
-    var $t4: int;
-    var $t5: int;
-    var $t6: $1_account_Account;
-    var $t7: int;
-    var $t8: int;
-    var $t9: $Mutation ($1_account_Account);
-    var $t10: $Mutation (int);
-    var $t11: $1_guid_GUID;
-    var $t12: int;
-    var $t13: int;
-    var $t14: bool;
-    var $t15: int;
-    var $t16: int;
-    var $t0: $signer;
-    var $1_account_Account_$modifies: [int]bool;
-    var $temp_0'$1_account_Account': $1_account_Account;
-    var $temp_0'$1_guid_GUID': $1_guid_GUID;
-    var $temp_0'address': int;
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t4, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:430:9+46
-    assume {:print "$at(73,21178,21224)"} true;
-    assume ($t4 == $1_signer_$address_of($t0));
-
-    // assume Identical($t5, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t5 == $1_signer_$address_of($t0));
-
-    // assume Identical($t6, global<account::Account>($t5)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t6 == $ResourceValue($1_account_Account_$memory, $t5));
-
-    // trace_local[account_signer]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:654:5+1
-    assume {:print "$at(72,37618,37619)"} true;
-    assume {:print "$track_local(18,5,0):", $t0} $t0 == $t0;
-
-    // $t7 := signer::address_of($t0) on_abort goto L4 with $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:655:20+34
-    assume {:print "$at(72,37716,37750)"} true;
-    call $t7 := $1_signer_address_of($t0);
-    if ($abort_flag) {
-        assume {:print "$at(72,37716,37750)"} true;
-        $t8 := $abort_code;
-        assume {:print "$track_abort(18,5):", $t8} $t8 == $t8;
-        goto L4;
-    }
-
-    // trace_local[addr]($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:655:13+4
-    assume {:print "$track_local(18,5,2):", $t7} $t7 == $t7;
-
-    // $t9 := borrow_global<account::Account>($t7) on_abort goto L4 with $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:656:23+17
-    assume {:print "$at(72,37774,37791)"} true;
-    if (!$ResourceExists($1_account_Account_$memory, $t7)) {
-        call $ExecFailureAbort();
-    } else {
-        $t9 := $Mutation($Global($t7), EmptyVec(), $ResourceValue($1_account_Account_$memory, $t7));
-    }
-    if ($abort_flag) {
-        assume {:print "$at(72,37774,37791)"} true;
-        $t8 := $abort_code;
-        assume {:print "$track_abort(18,5):", $t8} $t8 == $t8;
-        goto L4;
-    }
-
-    // trace_local[account]($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:656:13+7
-    $temp_0'$1_account_Account' := $Dereference($t9);
-    assume {:print "$track_local(18,5,1):", $temp_0'$1_account_Account'} $temp_0'$1_account_Account' == $temp_0'$1_account_Account';
-
-    // $t10 := borrow_field<account::Account>.guid_creation_num($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:657:39+30
-    assume {:print "$at(72,37846,37876)"} true;
-    $t10 := $ChildMutation($t9, 2, $guid_creation_num#$1_account_Account($Dereference($t9)));
-
-    // $t11 := guid::create($t7, $t10) on_abort goto L4 with $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:657:20+50
-    call $t11,$t10 := $1_guid_create($t7, $t10);
-    if ($abort_flag) {
-        assume {:print "$at(72,37827,37877)"} true;
-        $t8 := $abort_code;
-        assume {:print "$track_abort(18,5):", $t8} $t8 == $t8;
-        goto L4;
-    }
-
-    // write_back[Reference($t9).guid_creation_num (u64)]($t10) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:657:20+50
-    $t9 := $UpdateMutation($t9, $Update'$1_account_Account'_guid_creation_num($Dereference($t9), $Dereference($t10)));
-
-    // trace_local[guid]($t11) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:657:13+4
-    assume {:print "$track_local(18,5,3):", $t11} $t11 == $t11;
-
-    // $t12 := get_field<account::Account>.guid_creation_num($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:659:13+25
-    assume {:print "$at(72,37908,37933)"} true;
-    $t12 := $guid_creation_num#$1_account_Account($Dereference($t9));
-
-    // pack_ref_deep($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:659:13+25
-
-    // write_back[account::Account@]($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:659:13+25
-    $1_account_Account_$memory := $ResourceUpdate($1_account_Account_$memory, $GlobalLocationAddress($t9),
-        $Dereference($t9));
-
-    // $t13 := 1125899906842624 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:659:41+21
-    $t13 := 1125899906842624;
-    assume $IsValid'u64'($t13);
-
-    // $t14 := <($t12, $t13) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:659:39+1
-    call $t14 := $Lt($t12, $t13);
-
-    // if ($t14) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:658:9+147
-    assume {:print "$at(72,37887,38034)"} true;
-    if ($t14) { goto L1; } else { goto L0; }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:658:9+147
-L1:
-
-    // goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:658:9+147
-    assume {:print "$at(72,37887,38034)"} true;
-    goto L2;
-
-    // label L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:660:33+31
-    assume {:print "$at(72,37991,38022)"} true;
-L0:
-
-    // $t15 := 20 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:660:33+31
-    assume {:print "$at(72,37991,38022)"} true;
-    $t15 := 20;
-    assume $IsValid'u64'($t15);
-
-    // $t16 := error::out_of_range($t15) on_abort goto L4 with $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:660:13+52
-    call $t16 := $1_error_out_of_range($t15);
-    if ($abort_flag) {
-        assume {:print "$at(72,37971,38023)"} true;
-        $t8 := $abort_code;
-        assume {:print "$track_abort(18,5):", $t8} $t8 == $t8;
-        goto L4;
-    }
-
-    // trace_abort($t16) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:658:9+147
-    assume {:print "$at(72,37887,38034)"} true;
-    assume {:print "$track_abort(18,5):", $t16} $t16 == $t16;
-
-    // $t8 := move($t16) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:658:9+147
-    $t8 := $t16;
-
-    // goto L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:658:9+147
-    goto L4;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:662:9+4
-    assume {:print "$at(72,38044,38048)"} true;
-L2:
-
-    // trace_return[0]($t11) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:662:9+4
-    assume {:print "$at(72,38044,38048)"} true;
-    assume {:print "$track_return(18,5,0):", $t11} $t11 == $t11;
-
-    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:663:5+1
-    assume {:print "$at(72,38053,38054)"} true;
-L3:
-
-    // return $t11 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:663:5+1
-    assume {:print "$at(72,38053,38054)"} true;
-    $ret0 := $t11;
-    return;
-
-    // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:663:5+1
-L4:
-
-    // abort($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:663:5+1
-    assume {:print "$at(72,38053,38054)"} true;
-    $abort_code := $t8;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun account::create_resource_account [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:602:5+1378
-procedure {:inline 1} $1_account_create_resource_account(_$t0: $signer, _$t1: Vec (int)) returns ($ret0: $signer, $ret1: $1_account_SignerCapability)
-{
-    // declare local variables
-    var $t2: int;
-    var $t3: $signer;
-    var $t4: $1_account_Account;
-    var $t5: $Mutation ($1_account_Account);
-    var $t6: $signer;
-    var $t7: int;
-    var $t8: $1_account_SignerCapability;
-    var $t9: int;
-    var $t10: int;
-    var $t11: $1_account_Account;
-    var $t12: Vec (int);
-    var $t13: int;
-    var $t14: int;
-    var $t15: int;
-    var $t16: bool;
-    var $t17: $1_account_Account;
-    var $t18: $1_account_CapabilityOffer'$1_account_SignerCapability';
-    var $t19: $1_option_Option'address';
-    var $t20: bool;
-    var $t21: int;
-    var $t22: int;
-    var $t23: int;
-    var $t24: int;
-    var $t25: bool;
-    var $t26: int;
-    var $t27: int;
-    var $t28: Vec (int);
-    var $t29: Vec (int);
-    var $t30: int;
-    var $t31: $Mutation ($1_account_Account);
-    var $t32: $1_option_Option'address';
-    var $t33: $Mutation ($1_account_CapabilityOffer'$1_account_SignerCapability');
-    var $t34: $Mutation ($1_option_Option'address');
-    var $t35: $1_account_SignerCapability;
-    var $t0: $signer;
-    var $t1: Vec (int);
-    var $temp_0'$1_account_Account': $1_account_Account;
-    var $temp_0'$1_account_SignerCapability': $1_account_SignerCapability;
-    var $temp_0'address': int;
-    var $temp_0'signer': $signer;
-    var $temp_0'vec'u8'': Vec (int);
-    $t0 := _$t0;
-    $t1 := _$t1;
-
-    // bytecode translation starts here
-    // assume Identical($t9, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:396:9+45
-    assume {:print "$at(73,19786,19831)"} true;
-    assume ($t9 == $1_signer_$address_of($t0));
-
-    // assume Identical($t10, account::spec_create_resource_address($t9, $t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:397:9+68
-    assume {:print "$at(73,19840,19908)"} true;
-    assume ($t10 == $1_account_spec_create_resource_address($t9, $t1));
-
-    // assume Identical($t11, global<account::Account>($t10)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:464:9+45
-    assume {:print "$at(73,22424,22469)"} true;
-    assume ($t11 == $ResourceValue($1_account_Account_$memory, $t10));
-
-    // assume Identical($t12, bcs::$to_bytes<address>($t10)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:34:9+45
-    assume {:print "$at(73,1495,1540)"} true;
-    assume ($t12 == $1_bcs_$to_bytes'address'($t10));
-
-    // trace_local[source]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:602:5+1
-    assume {:print "$at(72,35313,35314)"} true;
-    assume {:print "$track_local(18,6,0):", $t0} $t0 == $t0;
-
-    // trace_local[seed]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:602:5+1
-    assume {:print "$track_local(18,6,1):", $t1} $t1 == $t1;
-
-    // $t13 := signer::address_of($t0) on_abort goto L10 with $t14 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:603:54+26
-    assume {:print "$at(72,35483,35509)"} true;
-    call $t13 := $1_signer_address_of($t0);
-    if ($abort_flag) {
-        assume {:print "$at(72,35483,35509)"} true;
-        $t14 := $abort_code;
-        assume {:print "$track_abort(18,6):", $t14} $t14 == $t14;
-        goto L10;
-    }
-
-    // $t15 := opaque begin: account::create_resource_address($t13, $t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:603:29+58
-
-    // assume WellFormed($t15) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:603:29+58
-    assume $IsValid'address'($t15);
-
-    // assume Eq<address>($t15, account::spec_create_resource_address($t13, $t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:603:29+58
-    assume $IsEqual'address'($t15, $1_account_spec_create_resource_address($t13, $t1));
-
-    // $t15 := opaque end: account::create_resource_address($t13, $t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:603:29+58
-
-    // trace_local[resource_addr]($t15) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:603:13+13
-    assume {:print "$track_local(18,6,7):", $t15} $t15 == $t15;
-
-    // $t16 := account::exists_at($t15) on_abort goto L10 with $t14 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:604:28+24
-    assume {:print "$at(72,35545,35569)"} true;
-    call $t16 := $1_account_exists_at($t15);
-    if ($abort_flag) {
-        assume {:print "$at(72,35545,35569)"} true;
-        $t14 := $abort_code;
-        assume {:print "$track_abort(18,6):", $t14} $t14 == $t14;
-        goto L10;
-    }
-
-    // if ($t16) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:604:24+532
-    if ($t16) { goto L1; } else { goto L0; }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:605:50+13
-    assume {:print "$at(72,35622,35635)"} true;
-L1:
-
-    // $t17 := get_global<account::Account>($t15) on_abort goto L10 with $t14 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:605:27+13
-    assume {:print "$at(72,35599,35612)"} true;
-    if (!$ResourceExists($1_account_Account_$memory, $t15)) {
-        call $ExecFailureAbort();
-    } else {
-        $t17 := $ResourceValue($1_account_Account_$memory, $t15);
-    }
-    if ($abort_flag) {
-        assume {:print "$at(72,35599,35612)"} true;
-        $t14 := $abort_code;
-        assume {:print "$track_abort(18,6):", $t14} $t14 == $t14;
-        goto L10;
-    }
-
-    // trace_local[account]($t17) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:605:17+7
-    assume {:print "$track_local(18,6,4):", $t17} $t17 == $t17;
-
-    // $t18 := get_field<account::Account>.signer_capability_offer($t17) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:607:34+31
-    assume {:print "$at(72,35692,35723)"} true;
-    $t18 := $signer_capability_offer#$1_account_Account($t17);
-
-    // $t19 := get_field<account::CapabilityOffer<account::SignerCapability>>.for($t18) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:607:33+36
-    $t19 := $for#$1_account_CapabilityOffer'$1_account_SignerCapability'($t18);
-
-    // $t20 := opaque begin: option::is_none<address>($t19) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:607:17+53
-
-    // assume WellFormed($t20) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:607:17+53
-    assume $IsValid'bool'($t20);
-
-    // assume Eq<bool>($t20, option::spec_is_none<address>($t19)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:607:17+53
-    assume $IsEqual'bool'($t20, $1_option_spec_is_none'address'($t19));
-
-    // $t20 := opaque end: option::is_none<address>($t19) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:607:17+53
-
-    // if ($t20) goto L3 else goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:606:13+159
-    assume {:print "$at(72,35650,35809)"} true;
-    if ($t20) { goto L3; } else { goto L2; }
-
-    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:606:13+159
-L3:
-
-    // goto L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:606:13+159
-    assume {:print "$at(72,35650,35809)"} true;
-    goto L4;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:606:13+159
-L2:
-
-    // $t21 := 15 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:608:39+25
-    assume {:print "$at(72,35768,35793)"} true;
-    $t21 := 15;
-    assume $IsValid'u64'($t21);
-
-    // $t22 := error::already_exists($t21) on_abort goto L10 with $t14 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:608:17+48
-    call $t22 := $1_error_already_exists($t21);
-    if ($abort_flag) {
-        assume {:print "$at(72,35746,35794)"} true;
-        $t14 := $abort_code;
-        assume {:print "$track_abort(18,6):", $t14} $t14 == $t14;
-        goto L10;
-    }
-
-    // trace_abort($t22) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:606:13+159
-    assume {:print "$at(72,35650,35809)"} true;
-    assume {:print "$track_abort(18,6):", $t22} $t22 == $t22;
-
-    // $t14 := move($t22) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:606:13+159
-    $t14 := $t22;
-
-    // goto L10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:606:13+159
-    goto L10;
-
-    // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:611:17+7
-    assume {:print "$at(72,35848,35855)"} true;
-L4:
-
-    // $t23 := get_field<account::Account>.sequence_number($t17) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:611:17+23
-    assume {:print "$at(72,35848,35871)"} true;
-    $t23 := $sequence_number#$1_account_Account($t17);
-
-    // $t24 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:611:44+1
-    $t24 := 0;
-    assume $IsValid'u64'($t24);
-
-    // $t25 := ==($t23, $t24) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:611:41+2
-    $t25 := $IsEqual'u64'($t23, $t24);
-
-    // if ($t25) goto L6 else goto L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:610:13+129
-    assume {:print "$at(72,35823,35952)"} true;
-    if ($t25) { goto L6; } else { goto L5; }
-
-    // label L6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:610:13+129
-L6:
-
-    // goto L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:610:13+129
-    assume {:print "$at(72,35823,35952)"} true;
-    goto L7;
-
-    // label L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:612:38+21
-    assume {:print "$at(72,35915,35936)"} true;
-L5:
-
-    // $t26 := 16 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:612:38+21
-    assume {:print "$at(72,35915,35936)"} true;
-    $t26 := 16;
-    assume $IsValid'u64'($t26);
-
-    // $t27 := error::invalid_state($t26) on_abort goto L10 with $t14 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:612:17+43
-    call $t27 := $1_error_invalid_state($t26);
-    if ($abort_flag) {
-        assume {:print "$at(72,35894,35937)"} true;
-        $t14 := $abort_code;
-        assume {:print "$track_abort(18,6):", $t14} $t14 == $t14;
-        goto L10;
-    }
-
-    // trace_abort($t27) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:610:13+129
-    assume {:print "$at(72,35823,35952)"} true;
-    assume {:print "$track_abort(18,6):", $t27} $t27 == $t27;
-
-    // $t14 := move($t27) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:610:13+129
-    $t14 := $t27;
-
-    // goto L10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:610:13+129
-    goto L10;
-
-    // label L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:614:27+13
-    assume {:print "$at(72,35980,35993)"} true;
-L7:
-
-    // $t3 := opaque begin: create_signer::create_signer($t15) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:614:13+28
-    assume {:print "$at(72,35966,35994)"} true;
-
-    // assume WellFormed($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:614:13+28
-    assume $IsValid'signer'($t3) && $1_signer_is_txn_signer($t3) && $1_signer_is_txn_signer_addr($addr#$signer($t3));
-
-    // assume Eq<address>(signer::$address_of($t3), $t15) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:614:13+28
-    assume $IsEqual'address'($1_signer_$address_of($t3), $t15);
-
-    // $t3 := opaque end: create_signer::create_signer($t15) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:614:13+28
-
-    // goto L8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:604:24+532
-    assume {:print "$at(72,35541,36073)"} true;
-    goto L8;
-
-    // label L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:616:38+13
-    assume {:print "$at(72,36049,36062)"} true;
-L0:
-
-    // assume Identical($t28, bcs::$to_bytes<address>($t15)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:34:9+45
-    assume {:print "$at(73,1495,1540)"} true;
-    assume ($t28 == $1_bcs_$to_bytes'address'($t15));
-
-    // $t3 := account::create_account_unchecked($t15) on_abort goto L10 with $t14 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:616:13+39
-    assume {:print "$at(72,36024,36063)"} true;
-    call $t3 := $1_account_create_account_unchecked($t15);
-    if ($abort_flag) {
-        assume {:print "$at(72,36024,36063)"} true;
-        $t14 := $abort_code;
-        assume {:print "$track_abort(18,6):", $t14} $t14 == $t14;
-        goto L10;
-    }
-
-    // label L8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:604:24+532
-    assume {:print "$at(72,35541,36073)"} true;
-L8:
-
-    // trace_local[resource]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:604:13+8
-    assume {:print "$at(72,35530,35538)"} true;
-    assume {:print "$track_local(18,6,6):", $t3} $t3 == $t3;
-
-    // $t29 := [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:622:55+13
-    assume {:print "$at(72,36428,36441)"} true;
-    $t29 := ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(0, 0, 0, 0), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0));
-    assume $IsValid'vec'u8''($t29);
-
-    // assume Identical($t30, signer::$address_of($t3)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:68:9+39
-    assume {:print "$at(73,2861,2900)"} true;
-    assume ($t30 == $1_signer_$address_of($t3));
-
-    // account::rotate_authentication_key_internal($t3, $t29) on_abort goto L10 with $t14 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:622:9+60
-    assume {:print "$at(72,36382,36442)"} true;
-    call $1_account_rotate_authentication_key_internal($t3, $t29);
-    if ($abort_flag) {
-        assume {:print "$at(72,36382,36442)"} true;
-        $t14 := $abort_code;
-        assume {:print "$track_abort(18,6):", $t14} $t14 == $t14;
-        goto L10;
-    }
-
-    // $t31 := borrow_global<account::Account>($t15) on_abort goto L10 with $t14 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:624:23+17
-    assume {:print "$at(72,36467,36484)"} true;
-    if (!$ResourceExists($1_account_Account_$memory, $t15)) {
-        call $ExecFailureAbort();
-    } else {
-        $t31 := $Mutation($Global($t15), EmptyVec(), $ResourceValue($1_account_Account_$memory, $t15));
-    }
-    if ($abort_flag) {
-        assume {:print "$at(72,36467,36484)"} true;
-        $t14 := $abort_code;
-        assume {:print "$track_abort(18,6):", $t14} $t14 == $t14;
-        goto L10;
-    }
-
-    // trace_local[account#3]($t31) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:624:13+7
-    $temp_0'$1_account_Account' := $Dereference($t31);
-    assume {:print "$track_local(18,6,5):", $temp_0'$1_account_Account'} $temp_0'$1_account_Account' == $temp_0'$1_account_Account';
-
-    // $t32 := opaque begin: option::some<address>($t15) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:625:47+27
-    assume {:print "$at(72,36556,36583)"} true;
-
-    // assume And(WellFormed($t32), Le(Len<address>(select option::Option.vec($t32)), 1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:625:47+27
-    assume ($IsValid'$1_option_Option'address''($t32) && (LenVec($vec#$1_option_Option'address'($t32)) <= 1));
-
-    // assume Eq<option::Option<address>>($t32, option::spec_some<address>($t15)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:625:47+27
-    assume $IsEqual'$1_option_Option'address''($t32, $1_option_spec_some'address'($t15));
-
-    // $t32 := opaque end: option::some<address>($t15) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:625:47+27
-
-    // $t33 := borrow_field<account::Account>.signer_capability_offer($t31) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:625:9+31
-    $t33 := $ChildMutation($t31, 6, $signer_capability_offer#$1_account_Account($Dereference($t31)));
-
-    // $t34 := borrow_field<account::CapabilityOffer<account::SignerCapability>>.for($t33) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:625:9+35
-    $t34 := $ChildMutation($t33, 0, $for#$1_account_CapabilityOffer'$1_account_SignerCapability'($Dereference($t33)));
-
-    // write_ref($t34, $t32) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:625:9+65
-    $t34 := $UpdateMutation($t34, $t32);
-
-    // write_back[Reference($t33).for (option::Option<address>)]($t34) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:625:9+65
-    $t33 := $UpdateMutation($t33, $Update'$1_account_CapabilityOffer'$1_account_SignerCapability''_for($Dereference($t33), $Dereference($t34)));
-
-    // write_back[Reference($t31).signer_capability_offer (account::CapabilityOffer<account::SignerCapability>)]($t33) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:625:9+65
-    $t31 := $UpdateMutation($t31, $Update'$1_account_Account'_signer_capability_offer($Dereference($t31), $Dereference($t33)));
-
-    // pack_ref_deep($t31) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:625:9+65
-
-    // write_back[account::Account@]($t31) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:625:9+65
-    $1_account_Account_$memory := $ResourceUpdate($1_account_Account_$memory, $GlobalLocationAddress($t31),
-        $Dereference($t31));
-
-    // $t35 := pack account::SignerCapability($t15) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:626:26+43
-    assume {:print "$at(72,36610,36653)"} true;
-    $t35 := $1_account_SignerCapability($t15);
-
-    // trace_local[signer_cap]($t35) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:626:13+10
-    assume {:print "$track_local(18,6,8):", $t35} $t35 == $t35;
-
-    // trace_return[0]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:627:9+22
-    assume {:print "$at(72,36663,36685)"} true;
-    assume {:print "$track_return(18,6,0):", $t3} $t3 == $t3;
-
-    // trace_return[1]($t35) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:627:9+22
-    assume {:print "$track_return(18,6,1):", $t35} $t35 == $t35;
-
-    // label L9 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:628:5+1
-    assume {:print "$at(72,36690,36691)"} true;
-L9:
-
-    // return ($t3, $t35) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:628:5+1
-    assume {:print "$at(72,36690,36691)"} true;
-    $ret0 := $t3;
-    $ret1 := $t35;
-    return;
-
-    // label L10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:628:5+1
-L10:
-
-    // abort($t14) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:628:5+1
-    assume {:print "$at(72,36690,36691)"} true;
-    $abort_code := $t14;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun account::exists_at [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:224:5+79
-procedure {:inline 1} $1_account_exists_at(_$t0: int) returns ($ret0: bool)
-{
-    // declare local variables
-    var $t1: bool;
-    var $t0: int;
-    var $temp_0'address': int;
-    var $temp_0'bool': bool;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[addr]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:224:5+1
-    assume {:print "$at(72,11367,11368)"} true;
-    assume {:print "$track_local(18,9,0):", $t0} $t0 == $t0;
-
-    // $t1 := exists<account::Account>($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:225:9+6
-    assume {:print "$at(72,11419,11425)"} true;
-    $t1 := $ResourceExists($1_account_Account_$memory, $t0);
-
-    // trace_return[0]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:225:9+21
-    assume {:print "$track_return(18,9,0):", $t1} $t1 == $t1;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:226:5+1
-    assume {:print "$at(72,11445,11446)"} true;
-L1:
-
-    // return $t1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:226:5+1
-    assume {:print "$at(72,11445,11446)"} true;
-    $ret0 := $t1;
-    return;
-
-}
-
-// fun account::rotate_authentication_key_internal [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:256:5+516
-procedure {:inline 1} $1_account_rotate_authentication_key_internal(_$t0: $signer, _$t1: Vec (int)) returns ()
-{
-    // declare local variables
-    var $t2: $Mutation ($1_account_Account);
-    var $t3: int;
-    var $t4: int;
-    var $t5: int;
-    var $t6: int;
-    var $t7: bool;
-    var $t8: int;
-    var $t9: int;
-    var $t10: int;
-    var $t11: int;
-    var $t12: bool;
-    var $t13: int;
-    var $t14: int;
-    var $t15: $Mutation ($1_account_Account);
-    var $t16: $Mutation (Vec (int));
-    var $t0: $signer;
-    var $t1: Vec (int);
-    var $1_account_Account_$modifies: [int]bool;
-    var $temp_0'$1_account_Account': $1_account_Account;
-    var $temp_0'address': int;
-    var $temp_0'signer': $signer;
-    var $temp_0'vec'u8'': Vec (int);
-    $t0 := _$t0;
-    $t1 := _$t1;
-
-    // bytecode translation starts here
-    // assume Identical($t4, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:68:9+39
-    assume {:print "$at(73,2861,2900)"} true;
-    assume ($t4 == $1_signer_$address_of($t0));
-
-    // trace_local[account]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:256:5+1
-    assume {:print "$at(72,12425,12426)"} true;
-    assume {:print "$track_local(18,27,0):", $t0} $t0 == $t0;
-
-    // trace_local[new_auth_key]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:256:5+1
-    assume {:print "$track_local(18,27,1):", $t1} $t1 == $t1;
-
-    // $t5 := signer::address_of($t0) on_abort goto L7 with $t6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:257:20+27
-    assume {:print "$at(72,12561,12588)"} true;
-    call $t5 := $1_signer_address_of($t0);
-    if ($abort_flag) {
-        assume {:print "$at(72,12561,12588)"} true;
-        $t6 := $abort_code;
-        assume {:print "$track_abort(18,27):", $t6} $t6 == $t6;
-        goto L7;
-    }
-
-    // trace_local[addr]($t5) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:257:13+4
-    assume {:print "$track_local(18,27,3):", $t5} $t5 == $t5;
-
-    // $t7 := account::exists_at($t5) on_abort goto L7 with $t6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:258:17+15
-    assume {:print "$at(72,12606,12621)"} true;
-    call $t7 := $1_account_exists_at($t5);
-    if ($abort_flag) {
-        assume {:print "$at(72,12606,12621)"} true;
-        $t6 := $abort_code;
-        assume {:print "$track_abort(18,27):", $t6} $t6 == $t6;
-        goto L7;
-    }
-
-    // if ($t7) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:258:9+67
-    if ($t7) { goto L1; } else { goto L0; }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:258:9+67
-L1:
-
-    // goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:258:9+67
-    assume {:print "$at(72,12598,12665)"} true;
-    goto L2;
-
-    // label L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:258:51+23
-L0:
-
-    // $t8 := 2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:258:51+23
-    assume {:print "$at(72,12640,12663)"} true;
-    $t8 := 2;
-    assume $IsValid'u64'($t8);
-
-    // $t9 := error::not_found($t8) on_abort goto L7 with $t6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:258:34+41
-    call $t9 := $1_error_not_found($t8);
-    if ($abort_flag) {
-        assume {:print "$at(72,12623,12664)"} true;
-        $t6 := $abort_code;
-        assume {:print "$track_abort(18,27):", $t6} $t6 == $t6;
-        goto L7;
-    }
-
-    // trace_abort($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:258:9+67
-    assume {:print "$at(72,12598,12665)"} true;
-    assume {:print "$track_abort(18,27):", $t9} $t9 == $t9;
-
-    // $t6 := move($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:258:9+67
-    $t6 := $t9;
-
-    // goto L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:258:9+67
-    goto L7;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:260:28+13
-    assume {:print "$at(72,12711,12724)"} true;
-L2:
-
-    // $t10 := vector::length<u8>($t1) on_abort goto L7 with $t6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:260:13+29
-    assume {:print "$at(72,12696,12725)"} true;
-    call $t10 := $1_vector_length'u8'($t1);
-    if ($abort_flag) {
-        assume {:print "$at(72,12696,12725)"} true;
-        $t6 := $abort_code;
-        assume {:print "$track_abort(18,27):", $t6} $t6 == $t6;
-        goto L7;
-    }
-
-    // $t11 := 32 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:260:46+2
-    $t11 := 32;
-    assume $IsValid'u64'($t11);
-
-    // $t12 := ==($t10, $t11) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:260:43+2
-    $t12 := $IsEqual'u64'($t10, $t11);
-
-    // if ($t12) goto L4 else goto L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:259:9+134
-    assume {:print "$at(72,12675,12809)"} true;
-    if ($t12) { goto L4; } else { goto L3; }
-
-    // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:259:9+134
-L4:
-
-    // goto L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:259:9+134
-    assume {:print "$at(72,12675,12809)"} true;
-    goto L5;
-
-    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:261:37+29
-    assume {:print "$at(72,12769,12798)"} true;
-L3:
-
-    // $t13 := 4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:261:37+29
-    assume {:print "$at(72,12769,12798)"} true;
-    $t13 := 4;
-    assume $IsValid'u64'($t13);
-
-    // $t14 := error::invalid_argument($t13) on_abort goto L7 with $t6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:261:13+54
-    call $t14 := $1_error_invalid_argument($t13);
-    if ($abort_flag) {
-        assume {:print "$at(72,12745,12799)"} true;
-        $t6 := $abort_code;
-        assume {:print "$track_abort(18,27):", $t6} $t6 == $t6;
-        goto L7;
-    }
-
-    // trace_abort($t14) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:259:9+134
-    assume {:print "$at(72,12675,12809)"} true;
-    assume {:print "$track_abort(18,27):", $t14} $t14 == $t14;
-
-    // $t6 := move($t14) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:259:9+134
-    $t6 := $t14;
-
-    // goto L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:259:9+134
-    goto L7;
-
-    // label L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:263:59+4
-    assume {:print "$at(72,12869,12873)"} true;
-L5:
-
-    // $t15 := borrow_global<account::Account>($t5) on_abort goto L7 with $t6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:263:32+17
-    assume {:print "$at(72,12842,12859)"} true;
-    if (!$ResourceExists($1_account_Account_$memory, $t5)) {
-        call $ExecFailureAbort();
-    } else {
-        $t15 := $Mutation($Global($t5), EmptyVec(), $ResourceValue($1_account_Account_$memory, $t5));
-    }
-    if ($abort_flag) {
-        assume {:print "$at(72,12842,12859)"} true;
-        $t6 := $abort_code;
-        assume {:print "$track_abort(18,27):", $t6} $t6 == $t6;
-        goto L7;
-    }
-
-    // trace_local[account_resource]($t15) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:263:13+16
-    $temp_0'$1_account_Account' := $Dereference($t15);
-    assume {:print "$track_local(18,27,2):", $temp_0'$1_account_Account'} $temp_0'$1_account_Account' == $temp_0'$1_account_Account';
-
-    // $t16 := borrow_field<account::Account>.authentication_key($t15) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:264:9+35
-    assume {:print "$at(72,12884,12919)"} true;
-    $t16 := $ChildMutation($t15, 0, $authentication_key#$1_account_Account($Dereference($t15)));
-
-    // write_ref($t16, $t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:264:9+50
-    $t16 := $UpdateMutation($t16, $t1);
-
-    // write_back[Reference($t15).authentication_key (vector<u8>)]($t16) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:264:9+50
-    $t15 := $UpdateMutation($t15, $Update'$1_account_Account'_authentication_key($Dereference($t15), $Dereference($t16)));
-
-    // pack_ref_deep($t15) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:264:9+50
-
-    // write_back[account::Account@]($t15) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:264:9+50
-    $1_account_Account_$memory := $ResourceUpdate($1_account_Account_$memory, $GlobalLocationAddress($t15),
-        $Dereference($t15));
-
-    // label L6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:265:5+1
-    assume {:print "$at(72,12940,12941)"} true;
-L6:
-
-    // return () at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:265:5+1
-    assume {:print "$at(72,12940,12941)"} true;
-    return;
-
-    // label L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:265:5+1
-L7:
-
-    // abort($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.move:265:5+1
-    assume {:print "$at(72,12940,12941)"} true;
-    $abort_code := $t6;
-    $abort_flag := true;
-    return;
-
 }
 
 // struct optional_aggregator::Integer at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aggregator/optional_aggregator.move:20:5+74
@@ -12149,6 +8176,11 @@ function $IsValid'$1_optional_aggregator_OptionalAggregator'(s: $1_optional_aggr
 function {:inline} $IsEqual'$1_optional_aggregator_OptionalAggregator'(s1: $1_optional_aggregator_OptionalAggregator, s2: $1_optional_aggregator_OptionalAggregator): bool {
     $IsEqual'$1_option_Option'$1_aggregator_Aggregator''($aggregator#$1_optional_aggregator_OptionalAggregator(s1), $aggregator#$1_optional_aggregator_OptionalAggregator(s2))
     && $IsEqual'$1_option_Option'$1_optional_aggregator_Integer''($integer#$1_optional_aggregator_OptionalAggregator(s1), $integer#$1_optional_aggregator_OptionalAggregator(s2))}
+
+// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:566:5+81
+function {:inline} $1_coin_$value'$1_aptos_coin_AptosCoin'(coin: $1_coin_Coin'$1_aptos_coin_AptosCoin'): int {
+    $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'(coin)
+}
 
 // struct coin::Coin<aptos_coin::AptosCoin> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:74:5+112
 type {:datatype} $1_coin_Coin'$1_aptos_coin_AptosCoin';
@@ -12191,71 +8223,6 @@ function {:inline} $IsEqual'$1_coin_CoinInfo'$1_aptos_coin_AptosCoin''(s1: $1_co
     && $IsEqual'$1_option_Option'$1_optional_aggregator_OptionalAggregator''($supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'(s1), $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'(s2))}
 var $1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory: $Memory $1_coin_CoinInfo'$1_aptos_coin_AptosCoin';
 
-// struct coin::CoinStore<aptos_coin::AptosCoin> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:92:5+206
-type {:datatype} $1_coin_CoinStore'$1_aptos_coin_AptosCoin';
-function {:constructor} $1_coin_CoinStore'$1_aptos_coin_AptosCoin'($coin: $1_coin_Coin'$1_aptos_coin_AptosCoin', $frozen: bool, $deposit_events: $1_event_EventHandle'$1_coin_DepositEvent', $withdraw_events: $1_event_EventHandle'$1_coin_WithdrawEvent'): $1_coin_CoinStore'$1_aptos_coin_AptosCoin';
-function {:inline} $Update'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''_coin(s: $1_coin_CoinStore'$1_aptos_coin_AptosCoin', x: $1_coin_Coin'$1_aptos_coin_AptosCoin'): $1_coin_CoinStore'$1_aptos_coin_AptosCoin' {
-    $1_coin_CoinStore'$1_aptos_coin_AptosCoin'(x, $frozen#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'(s), $deposit_events#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'(s), $withdraw_events#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'(s))
-}
-function {:inline} $Update'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''_frozen(s: $1_coin_CoinStore'$1_aptos_coin_AptosCoin', x: bool): $1_coin_CoinStore'$1_aptos_coin_AptosCoin' {
-    $1_coin_CoinStore'$1_aptos_coin_AptosCoin'($coin#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'(s), x, $deposit_events#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'(s), $withdraw_events#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'(s))
-}
-function {:inline} $Update'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''_deposit_events(s: $1_coin_CoinStore'$1_aptos_coin_AptosCoin', x: $1_event_EventHandle'$1_coin_DepositEvent'): $1_coin_CoinStore'$1_aptos_coin_AptosCoin' {
-    $1_coin_CoinStore'$1_aptos_coin_AptosCoin'($coin#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'(s), $frozen#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'(s), x, $withdraw_events#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'(s))
-}
-function {:inline} $Update'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''_withdraw_events(s: $1_coin_CoinStore'$1_aptos_coin_AptosCoin', x: $1_event_EventHandle'$1_coin_WithdrawEvent'): $1_coin_CoinStore'$1_aptos_coin_AptosCoin' {
-    $1_coin_CoinStore'$1_aptos_coin_AptosCoin'($coin#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'(s), $frozen#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'(s), $deposit_events#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'(s), x)
-}
-function $IsValid'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''(s: $1_coin_CoinStore'$1_aptos_coin_AptosCoin'): bool {
-    $IsValid'$1_coin_Coin'$1_aptos_coin_AptosCoin''($coin#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'(s))
-      && $IsValid'bool'($frozen#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'(s))
-      && $IsValid'$1_event_EventHandle'$1_coin_DepositEvent''($deposit_events#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'(s))
-      && $IsValid'$1_event_EventHandle'$1_coin_WithdrawEvent''($withdraw_events#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'(s))
-}
-function {:inline} $IsEqual'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''(s1: $1_coin_CoinStore'$1_aptos_coin_AptosCoin', s2: $1_coin_CoinStore'$1_aptos_coin_AptosCoin'): bool {
-    s1 == s2
-}
-var $1_coin_CoinStore'$1_aptos_coin_AptosCoin'_$memory: $Memory $1_coin_CoinStore'$1_aptos_coin_AptosCoin';
-
-// struct coin::DepositEvent at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:123:5+64
-type {:datatype} $1_coin_DepositEvent;
-function {:constructor} $1_coin_DepositEvent($amount: int): $1_coin_DepositEvent;
-function {:inline} $Update'$1_coin_DepositEvent'_amount(s: $1_coin_DepositEvent, x: int): $1_coin_DepositEvent {
-    $1_coin_DepositEvent(x)
-}
-function $IsValid'$1_coin_DepositEvent'(s: $1_coin_DepositEvent): bool {
-    $IsValid'u64'($amount#$1_coin_DepositEvent(s))
-}
-function {:inline} $IsEqual'$1_coin_DepositEvent'(s1: $1_coin_DepositEvent, s2: $1_coin_DepositEvent): bool {
-    s1 == s2
-}
-
-// struct coin::MintCapability<aptos_coin::AptosCoin> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:133:5+58
-type {:datatype} $1_coin_MintCapability'$1_aptos_coin_AptosCoin';
-function {:constructor} $1_coin_MintCapability'$1_aptos_coin_AptosCoin'($dummy_field: bool): $1_coin_MintCapability'$1_aptos_coin_AptosCoin';
-function {:inline} $Update'$1_coin_MintCapability'$1_aptos_coin_AptosCoin''_dummy_field(s: $1_coin_MintCapability'$1_aptos_coin_AptosCoin', x: bool): $1_coin_MintCapability'$1_aptos_coin_AptosCoin' {
-    $1_coin_MintCapability'$1_aptos_coin_AptosCoin'(x)
-}
-function $IsValid'$1_coin_MintCapability'$1_aptos_coin_AptosCoin''(s: $1_coin_MintCapability'$1_aptos_coin_AptosCoin'): bool {
-    $IsValid'bool'($dummy_field#$1_coin_MintCapability'$1_aptos_coin_AptosCoin'(s))
-}
-function {:inline} $IsEqual'$1_coin_MintCapability'$1_aptos_coin_AptosCoin''(s1: $1_coin_MintCapability'$1_aptos_coin_AptosCoin', s2: $1_coin_MintCapability'$1_aptos_coin_AptosCoin'): bool {
-    s1 == s2
-}
-
-// struct coin::WithdrawEvent at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:128:5+65
-type {:datatype} $1_coin_WithdrawEvent;
-function {:constructor} $1_coin_WithdrawEvent($amount: int): $1_coin_WithdrawEvent;
-function {:inline} $Update'$1_coin_WithdrawEvent'_amount(s: $1_coin_WithdrawEvent, x: int): $1_coin_WithdrawEvent {
-    $1_coin_WithdrawEvent(x)
-}
-function $IsValid'$1_coin_WithdrawEvent'(s: $1_coin_WithdrawEvent): bool {
-    $IsValid'u64'($amount#$1_coin_WithdrawEvent(s))
-}
-function {:inline} $IsEqual'$1_coin_WithdrawEvent'(s1: $1_coin_WithdrawEvent, s2: $1_coin_WithdrawEvent): bool {
-    s1 == s2
-}
-
 // struct coin::Ghost$supply<aptos_coin::AptosCoin> at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:4:9+29
 type {:datatype} $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin';
 function {:constructor} $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'($v: int): $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin';
@@ -12283,196 +8250,6 @@ function {:inline} $IsEqual'$1_coin_Ghost$aggregate_supply'$1_aptos_coin_AptosCo
     s1 == s2
 }
 var $1_coin_Ghost$aggregate_supply'$1_aptos_coin_AptosCoin'_$memory: $Memory $1_coin_Ghost$aggregate_supply'$1_aptos_coin_AptosCoin';
-
-// fun coin::extract<aptos_coin::AptosCoin> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:366:5+434
-procedure {:inline 1} $1_coin_extract'$1_aptos_coin_AptosCoin'(_$t0: $Mutation ($1_coin_Coin'$1_aptos_coin_AptosCoin'), _$t1: int) returns ($ret0: $1_coin_Coin'$1_aptos_coin_AptosCoin', $ret1: $Mutation ($1_coin_Coin'$1_aptos_coin_AptosCoin'))
-{
-    // declare local variables
-    var $t2: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t3: int;
-    var $t4: bool;
-    var $t5: int;
-    var $t6: int;
-    var $t7: int;
-    var $t8: $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin';
-    var $t9: int;
-    var $t10: $Mutation ($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin');
-    var $t11: int;
-    var $t12: int;
-    var $t13: $Mutation (int);
-    var $t14: $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin';
-    var $t15: int;
-    var $t16: $Mutation ($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin');
-    var $t17: $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $t0: $Mutation ($1_coin_Coin'$1_aptos_coin_AptosCoin');
-    var $t1: int;
-    var $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'': $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $temp_0'u64': int;
-    $t0 := _$t0;
-    $t1 := _$t1;
-
-    // bytecode translation starts here
-    // assume Identical($t2, select coin::CoinInfo.supply(global<coin::CoinInfo<#0>>(select type_info::TypeInfo.account_address(type_info::$type_of<#0>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
-    assume {:print "$at(95,1664,1763)"} true;
-    assume ($t2 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
-
-    // trace_local[coin]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:366:5+1
-    assume {:print "$at(94,13880,13881)"} true;
-    $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'' := $Dereference($t0);
-    assume {:print "$track_local(23,13,0):", $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin''} $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'' == $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'';
-
-    // trace_local[amount]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:366:5+1
-    assume {:print "$track_local(23,13,1):", $t1} $t1 == $t1;
-
-    // $t3 := get_field<coin::Coin<#0>>.value($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:367:17+10
-    assume {:print "$at(94,13983,13993)"} true;
-    $t3 := $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($Dereference($t0));
-
-    // $t4 := >=($t3, $t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:367:28+2
-    call $t4 := $Ge($t3, $t1);
-
-    // if ($t4) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:367:9+77
-    if ($t4) { goto L1; } else { goto L0; }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:367:9+77
-L1:
-
-    // goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:367:9+77
-    assume {:print "$at(94,13975,14052)"} true;
-    goto L2;
-
-    // label L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:367:9+77
-L0:
-
-    // destroy($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:367:9+77
-    assume {:print "$at(94,13975,14052)"} true;
-
-    // $t5 := 6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:367:63+21
-    $t5 := 6;
-    assume $IsValid'u64'($t5);
-
-    // $t6 := error::invalid_argument($t5) on_abort goto L4 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:367:39+46
-    call $t6 := $1_error_invalid_argument($t5);
-    if ($abort_flag) {
-        assume {:print "$at(94,14005,14051)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(23,13):", $t7} $t7 == $t7;
-        goto L4;
-    }
-
-    // trace_abort($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:367:9+77
-    assume {:print "$at(94,13975,14052)"} true;
-    assume {:print "$track_abort(23,13):", $t6} $t6 == $t6;
-
-    // $t7 := move($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:367:9+77
-    $t7 := $t6;
-
-    // goto L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:367:9+77
-    goto L4;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:368:9+81
-    assume {:print "$at(94,14062,14143)"} true;
-L2:
-
-    // assume Identical($t8, pack coin::Ghost$supply<#0>(Sub(select coin::Ghost$supply.v<#0>(global<coin::Ghost$supply<#0>>(0)), $t1))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:369:13+52
-    assume {:print "$at(94,14081,14133)"} true;
-    assume ($t8 == $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'(($v#$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, 0)) - $t1)));
-
-    // assume Identical($t9, 0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:369:13+52
-    assume ($t9 == 0);
-
-    // $t10 := borrow_global<coin::Ghost$supply<#0>>($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:369:13+52
-    if (!$ResourceExists($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $t9)) {
-        call $ExecFailureAbort();
-    } else {
-        $t10 := $Mutation($Global($t9), EmptyVec(), $ResourceValue($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $t9));
-    }
-
-    // write_ref($t10, $t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:369:13+52
-    $t10 := $UpdateMutation($t10, $t8);
-
-    // write_back[coin::Ghost$supply<#0>@]($t10) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:369:13+52
-    $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory := $ResourceUpdate($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $GlobalLocationAddress($t10),
-        $Dereference($t10));
-
-    // $t11 := get_field<coin::Coin<#0>>.value($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:371:22+10
-    assume {:print "$at(94,14166,14176)"} true;
-    $t11 := $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($Dereference($t0));
-
-    // $t12 := -($t11, $t1) on_abort goto L4 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:371:33+1
-    call $t12 := $Sub($t11, $t1);
-    if ($abort_flag) {
-        assume {:print "$at(94,14177,14178)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(23,13):", $t7} $t7 == $t7;
-        goto L4;
-    }
-
-    // $t13 := borrow_field<coin::Coin<#0>>.value($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:371:9+10
-    $t13 := $ChildMutation($t0, 0, $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($Dereference($t0)));
-
-    // write_ref($t13, $t12) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:371:9+32
-    $t13 := $UpdateMutation($t13, $t12);
-
-    // write_back[Reference($t0).value (u64)]($t13) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:371:9+32
-    $t0 := $UpdateMutation($t0, $Update'$1_coin_Coin'$1_aptos_coin_AptosCoin''_value($Dereference($t0), $Dereference($t13)));
-
-    // trace_local[coin]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:371:9+32
-    $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'' := $Dereference($t0);
-    assume {:print "$track_local(23,13,0):", $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin''} $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'' == $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'';
-
-    // assume Identical($t14, pack coin::Ghost$supply<#0>(Add(select coin::Ghost$supply.v<#0>(global<coin::Ghost$supply<#0>>(0)), $t1))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:373:13+52
-    assume {:print "$at(94,14214,14266)"} true;
-    assume ($t14 == $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'(($v#$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, 0)) + $t1)));
-
-    // assume Identical($t15, 0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:373:13+52
-    assume ($t15 == 0);
-
-    // $t16 := borrow_global<coin::Ghost$supply<#0>>($t15) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:373:13+52
-    if (!$ResourceExists($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $t15)) {
-        call $ExecFailureAbort();
-    } else {
-        $t16 := $Mutation($Global($t15), EmptyVec(), $ResourceValue($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $t15));
-    }
-
-    // write_ref($t16, $t14) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:373:13+52
-    $t16 := $UpdateMutation($t16, $t14);
-
-    // write_back[coin::Ghost$supply<#0>@]($t16) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:373:13+52
-    $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory := $ResourceUpdate($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $GlobalLocationAddress($t16),
-        $Dereference($t16));
-
-    // $t17 := pack coin::Coin<#0>($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:375:9+22
-    assume {:print "$at(94,14286,14308)"} true;
-    $t17 := $1_coin_Coin'$1_aptos_coin_AptosCoin'($t1);
-
-    // trace_return[0]($t17) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:375:9+22
-    assume {:print "$track_return(23,13,0):", $t17} $t17 == $t17;
-
-    // trace_local[coin]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:375:9+22
-    $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'' := $Dereference($t0);
-    assume {:print "$track_local(23,13,0):", $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin''} $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'' == $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'';
-
-    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:376:5+1
-    assume {:print "$at(94,14313,14314)"} true;
-L3:
-
-    // return $t17 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:376:5+1
-    assume {:print "$at(94,14313,14314)"} true;
-    $ret0 := $t17;
-    $ret1 := $t0;
-    return;
-
-    // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:376:5+1
-L4:
-
-    // abort($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:376:5+1
-    assume {:print "$at(94,14313,14314)"} true;
-    $abort_code := $t7;
-    $abort_flag := true;
-    return;
-
-}
 
 // fun coin::value<aptos_coin::AptosCoin> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:566:5+81
 procedure {:inline 1} $1_coin_value'$1_aptos_coin_AptosCoin'(_$t0: $1_coin_Coin'$1_aptos_coin_AptosCoin') returns ($ret0: int)
@@ -12512,644 +8289,6 @@ L1:
 
 }
 
-// fun coin::destroy_zero<aptos_coin::AptosCoin> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:357:5+292
-procedure {:inline 1} $1_coin_destroy_zero'$1_aptos_coin_AptosCoin'(_$t0: $1_coin_Coin'$1_aptos_coin_AptosCoin') returns ()
-{
-    // declare local variables
-    var $t1: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t2: $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin';
-    var $t3: int;
-    var $t4: $Mutation ($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin');
-    var $t5: int;
-    var $t6: int;
-    var $t7: bool;
-    var $t8: int;
-    var $t9: int;
-    var $t10: int;
-    var $t0: $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'': $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t1, select coin::CoinInfo.supply(global<coin::CoinInfo<#0>>(select type_info::TypeInfo.account_address(type_info::$type_of<#0>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
-    assume {:print "$at(95,1664,1763)"} true;
-    assume ($t1 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
-
-    // trace_local[zero_coin]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:357:5+1
-    assume {:print "$at(94,13482,13483)"} true;
-    assume {:print "$track_local(23,11,0):", $t0} $t0 == $t0;
-
-    // assume Identical($t2, pack coin::Ghost$supply<#0>(Sub(select coin::Ghost$supply.v<#0>(global<coin::Ghost$supply<#0>>(0)), select coin::Coin.value($t0)))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:359:13+61
-    assume {:print "$at(94,13572,13633)"} true;
-    assume ($t2 == $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'(($v#$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, 0)) - $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($t0))));
-
-    // assume Identical($t3, 0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:359:13+61
-    assume ($t3 == 0);
-
-    // $t4 := borrow_global<coin::Ghost$supply<#0>>($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:359:13+61
-    if (!$ResourceExists($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $t3)) {
-        call $ExecFailureAbort();
-    } else {
-        $t4 := $Mutation($Global($t3), EmptyVec(), $ResourceValue($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $t3));
-    }
-
-    // write_ref($t4, $t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:359:13+61
-    $t4 := $UpdateMutation($t4, $t2);
-
-    // write_back[coin::Ghost$supply<#0>@]($t4) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:359:13+61
-    $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory := $ResourceUpdate($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $GlobalLocationAddress($t4),
-        $Dereference($t4));
-
-    // $t5 := unpack coin::Coin<#0>($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:361:13+14
-    assume {:print "$at(94,13657,13671)"} true;
-    $t5 := $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($t0);
-
-    // $t6 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:362:26+1
-    assume {:print "$at(94,13710,13711)"} true;
-    $t6 := 0;
-    assume $IsValid'u64'($t6);
-
-    // $t7 := ==($t5, $t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:362:23+2
-    $t7 := $IsEqual'u64'($t5, $t6);
-
-    // if ($t7) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:362:9+75
-    if ($t7) { goto L1; } else { goto L0; }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:362:9+75
-L1:
-
-    // goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:362:9+75
-    assume {:print "$at(94,13693,13768)"} true;
-    goto L2;
-
-    // label L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:362:53+29
-L0:
-
-    // $t8 := 7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:362:53+29
-    assume {:print "$at(94,13737,13766)"} true;
-    $t8 := 7;
-    assume $IsValid'u64'($t8);
-
-    // $t9 := error::invalid_argument($t8) on_abort goto L4 with $t10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:362:29+54
-    call $t9 := $1_error_invalid_argument($t8);
-    if ($abort_flag) {
-        assume {:print "$at(94,13713,13767)"} true;
-        $t10 := $abort_code;
-        assume {:print "$track_abort(23,11):", $t10} $t10 == $t10;
-        goto L4;
-    }
-
-    // trace_abort($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:362:9+75
-    assume {:print "$at(94,13693,13768)"} true;
-    assume {:print "$track_abort(23,11):", $t9} $t9 == $t9;
-
-    // $t10 := move($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:362:9+75
-    $t10 := $t9;
-
-    // goto L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:362:9+75
-    goto L4;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:362:9+75
-L2:
-
-    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:363:5+1
-    assume {:print "$at(94,13773,13774)"} true;
-L3:
-
-    // return () at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:363:5+1
-    assume {:print "$at(94,13773,13774)"} true;
-    return;
-
-    // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:363:5+1
-L4:
-
-    // abort($t10) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:363:5+1
-    assume {:print "$at(94,13773,13774)"} true;
-    $abort_code := $t10;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun coin::is_account_registered<aptos_coin::AptosCoin> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:255:5+129
-procedure {:inline 1} $1_coin_is_account_registered'$1_aptos_coin_AptosCoin'(_$t0: int) returns ($ret0: bool)
-{
-    // declare local variables
-    var $t1: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t2: bool;
-    var $t0: int;
-    var $temp_0'address': int;
-    var $temp_0'bool': bool;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t1, select coin::CoinInfo.supply(global<coin::CoinInfo<#0>>(select type_info::TypeInfo.account_address(type_info::$type_of<#0>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
-    assume {:print "$at(95,1664,1763)"} true;
-    assume ($t1 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
-
-    // trace_local[account_addr]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:255:5+1
-    assume {:print "$at(94,9353,9354)"} true;
-    assume {:print "$track_local(23,21,0):", $t0} $t0 == $t0;
-
-    // $t2 := exists<coin::CoinStore<#0>>($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:256:9+6
-    assume {:print "$at(94,9435,9441)"} true;
-    $t2 := $ResourceExists($1_coin_CoinStore'$1_aptos_coin_AptosCoin'_$memory, $t0);
-
-    // trace_return[0]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:256:9+41
-    assume {:print "$track_return(23,21,0):", $t2} $t2 == $t2;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:257:5+1
-    assume {:print "$at(94,9481,9482)"} true;
-L1:
-
-    // return $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:257:5+1
-    assume {:print "$at(94,9481,9482)"} true;
-    $ret0 := $t2;
-    return;
-
-}
-
-// fun coin::merge<aptos_coin::AptosCoin> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:500:5+469
-procedure {:inline 1} $1_coin_merge'$1_aptos_coin_AptosCoin'(_$t0: $Mutation ($1_coin_Coin'$1_aptos_coin_AptosCoin'), _$t1: $1_coin_Coin'$1_aptos_coin_AptosCoin') returns ($ret0: $Mutation ($1_coin_Coin'$1_aptos_coin_AptosCoin'))
-{
-    // declare local variables
-    var $t2: int;
-    var $t3: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t4: $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin';
-    var $t5: int;
-    var $t6: $Mutation ($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin');
-    var $t7: int;
-    var $t8: $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin';
-    var $t9: int;
-    var $t10: $Mutation ($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin');
-    var $t11: int;
-    var $t12: int;
-    var $t13: int;
-    var $t14: $Mutation (int);
-    var $t0: $Mutation ($1_coin_Coin'$1_aptos_coin_AptosCoin');
-    var $t1: $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'': $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $temp_0'u64': int;
-    $t0 := _$t0;
-    $t1 := _$t1;
-
-    // bytecode translation starts here
-    // assume Identical($t3, select coin::CoinInfo.supply(global<coin::CoinInfo<#0>>(select type_info::TypeInfo.account_address(type_info::$type_of<#0>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
-    assume {:print "$at(95,1664,1763)"} true;
-    assume ($t3 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
-
-    // trace_local[dst_coin]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:500:5+1
-    assume {:print "$at(94,19274,19275)"} true;
-    $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'' := $Dereference($t0);
-    assume {:print "$track_local(23,24,0):", $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin''} $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'' == $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'';
-
-    // trace_local[source_coin]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:500:5+1
-    assume {:print "$track_local(23,24,1):", $t1} $t1 == $t1;
-
-    // assume Le(Add(select coin::Coin.value($t0), select coin::Coin.value($t1)), 18446744073709551615) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:502:13+53
-    assume {:print "$at(94,19390,19443)"} true;
-    assume (($value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($Dereference($t0)) + $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($t1)) <= 18446744073709551615);
-
-    // assume Identical($t4, pack coin::Ghost$supply<#0>(Sub(select coin::Ghost$supply.v<#0>(global<coin::Ghost$supply<#0>>(0)), select coin::Coin.value($t1)))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:505:13+63
-    assume {:print "$at(94,19482,19545)"} true;
-    assume ($t4 == $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'(($v#$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, 0)) - $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($t1))));
-
-    // assume Identical($t5, 0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:505:13+63
-    assume ($t5 == 0);
-
-    // $t6 := borrow_global<coin::Ghost$supply<#0>>($t5) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:505:13+63
-    if (!$ResourceExists($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $t5)) {
-        call $ExecFailureAbort();
-    } else {
-        $t6 := $Mutation($Global($t5), EmptyVec(), $ResourceValue($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $t5));
-    }
-
-    // write_ref($t6, $t4) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:505:13+63
-    $t6 := $UpdateMutation($t6, $t4);
-
-    // write_back[coin::Ghost$supply<#0>@]($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:505:13+63
-    $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory := $ResourceUpdate($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $GlobalLocationAddress($t6),
-        $Dereference($t6));
-
-    // $t7 := unpack coin::Coin<#0>($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:507:13+14
-    assume {:print "$at(94,19569,19583)"} true;
-    $t7 := $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($t1);
-
-    // trace_local[value]($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:507:20+5
-    assume {:print "$track_local(23,24,2):", $t7} $t7 == $t7;
-
-    // assume Identical($t8, pack coin::Ghost$supply<#0>(Add(select coin::Ghost$supply.v<#0>(global<coin::Ghost$supply<#0>>(0)), $t7))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:509:13+51
-    assume {:print "$at(94,19626,19677)"} true;
-    assume ($t8 == $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'(($v#$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, 0)) + $t7)));
-
-    // assume Identical($t9, 0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:509:13+51
-    assume ($t9 == 0);
-
-    // $t10 := borrow_global<coin::Ghost$supply<#0>>($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:509:13+51
-    if (!$ResourceExists($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $t9)) {
-        call $ExecFailureAbort();
-    } else {
-        $t10 := $Mutation($Global($t9), EmptyVec(), $ResourceValue($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $t9));
-    }
-
-    // write_ref($t10, $t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:509:13+51
-    $t10 := $UpdateMutation($t10, $t8);
-
-    // write_back[coin::Ghost$supply<#0>@]($t10) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:509:13+51
-    $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory := $ResourceUpdate($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $GlobalLocationAddress($t10),
-        $Dereference($t10));
-
-    // $t11 := get_field<coin::Coin<#0>>.value($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:511:26+14
-    assume {:print "$at(94,19714,19728)"} true;
-    $t11 := $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($Dereference($t0));
-
-    // $t12 := +($t11, $t7) on_abort goto L2 with $t13 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:511:41+1
-    call $t12 := $AddU64($t11, $t7);
-    if ($abort_flag) {
-        assume {:print "$at(94,19729,19730)"} true;
-        $t13 := $abort_code;
-        assume {:print "$track_abort(23,24):", $t13} $t13 == $t13;
-        goto L2;
-    }
-
-    // $t14 := borrow_field<coin::Coin<#0>>.value($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:511:9+14
-    $t14 := $ChildMutation($t0, 0, $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($Dereference($t0)));
-
-    // write_ref($t14, $t12) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:511:9+39
-    $t14 := $UpdateMutation($t14, $t12);
-
-    // write_back[Reference($t0).value (u64)]($t14) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:511:9+39
-    $t0 := $UpdateMutation($t0, $Update'$1_coin_Coin'$1_aptos_coin_AptosCoin''_value($Dereference($t0), $Dereference($t14)));
-
-    // trace_local[dst_coin]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:511:9+39
-    $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'' := $Dereference($t0);
-    assume {:print "$track_local(23,24,0):", $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin''} $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'' == $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'';
-
-    // trace_local[dst_coin]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:511:48+1
-    $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'' := $Dereference($t0);
-    assume {:print "$track_local(23,24,0):", $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin''} $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'' == $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'';
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:512:5+1
-    assume {:print "$at(94,19742,19743)"} true;
-L1:
-
-    // return () at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:512:5+1
-    assume {:print "$at(94,19742,19743)"} true;
-    $ret0 := $t0;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:512:5+1
-L2:
-
-    // abort($t13) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:512:5+1
-    assume {:print "$at(94,19742,19743)"} true;
-    $abort_code := $t13;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun coin::withdraw<aptos_coin::AptosCoin> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:571:5+697
-procedure {:inline 1} $1_coin_withdraw'$1_aptos_coin_AptosCoin'(_$t0: $signer, _$t1: int) returns ($ret0: $1_coin_Coin'$1_aptos_coin_AptosCoin')
-{
-    // declare local variables
-    var $t2: int;
-    var $t3: $Mutation ($1_coin_CoinStore'$1_aptos_coin_AptosCoin');
-    var $t4: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t5: int;
-    var $t6: $1_coin_CoinStore'$1_aptos_coin_AptosCoin';
-    var $t7: int;
-    var $t8: int;
-    var $t9: $1_coin_CoinStore'$1_aptos_coin_AptosCoin';
-    var $t10: int;
-    var $t11: int;
-    var $t12: int;
-    var $t13: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t14: bool;
-    var $t15: int;
-    var $t16: int;
-    var $t17: $Mutation ($1_coin_CoinStore'$1_aptos_coin_AptosCoin');
-    var $t18: bool;
-    var $t19: bool;
-    var $t20: int;
-    var $t21: int;
-    var $t22: $Mutation ($1_event_EventHandle'$1_coin_WithdrawEvent');
-    var $t23: $1_coin_WithdrawEvent;
-    var $t24: $Mutation ($1_coin_Coin'$1_aptos_coin_AptosCoin');
-    var $t25: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t26: $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $t0: $signer;
-    var $t1: int;
-    var $1_coin_CoinStore'$1_aptos_coin_AptosCoin'_$modifies: [int]bool;
-    var $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'': $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $temp_0'$1_coin_CoinStore'$1_aptos_coin_AptosCoin'': $1_coin_CoinStore'$1_aptos_coin_AptosCoin';
-    var $temp_0'address': int;
-    var $temp_0'signer': $signer;
-    var $temp_0'u64': int;
-    $t0 := _$t0;
-    $t1 := _$t1;
-
-    // bytecode translation starts here
-    // assume Identical($t4, select coin::CoinInfo.supply(global<coin::CoinInfo<#0>>(select type_info::TypeInfo.account_address(type_info::$type_of<#0>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
-    assume {:print "$at(95,1664,1763)"} true;
-    assume ($t4 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
-
-    // assume Identical($t5, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:384:9+47
-    assume {:print "$at(95,16622,16669)"} true;
-    assume ($t5 == $1_signer_$address_of($t0));
-
-    // assume Identical($t6, global<coin::CoinStore<#0>>($t5)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:385:9+59
-    assume {:print "$at(95,16678,16737)"} true;
-    assume ($t6 == $ResourceValue($1_coin_CoinStore'$1_aptos_coin_AptosCoin'_$memory, $t5));
-
-    // assume Identical($t7, select coin::Coin.value(select coin::CoinStore.coin($t6))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:386:9+36
-    assume {:print "$at(95,16746,16782)"} true;
-    assume ($t7 == $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($coin#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'($t6)));
-
-    // assume Identical($t8, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:394:9+47
-    assume {:print "$at(95,17076,17123)"} true;
-    assume ($t8 == $1_signer_$address_of($t0));
-
-    // assume Identical($t9, global<coin::CoinStore<#0>>($t8)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:395:9+59
-    assume {:print "$at(95,17132,17191)"} true;
-    assume ($t9 == $ResourceValue($1_coin_CoinStore'$1_aptos_coin_AptosCoin'_$memory, $t8));
-
-    // assume Identical($t10, select coin::Coin.value(select coin::CoinStore.coin($t9))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:396:9+36
-    assume {:print "$at(95,17200,17236)"} true;
-    assume ($t10 == $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($coin#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'($t9)));
-
-    // trace_local[account]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:571:5+1
-    assume {:print "$at(94,21754,21755)"} true;
-    assume {:print "$track_local(23,35,0):", $t0} $t0 == $t0;
-
-    // trace_local[amount]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:571:5+1
-    assume {:print "$track_local(23,35,1):", $t1} $t1 == $t1;
-
-    // $t11 := signer::address_of($t0) on_abort goto L7 with $t12 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:575:28+27
-    assume {:print "$at(94,21902,21929)"} true;
-    call $t11 := $1_signer_address_of($t0);
-    if ($abort_flag) {
-        assume {:print "$at(94,21902,21929)"} true;
-        $t12 := $abort_code;
-        assume {:print "$track_abort(23,35):", $t12} $t12 == $t12;
-        goto L7;
-    }
-
-    // trace_local[account_addr]($t11) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:575:13+12
-    assume {:print "$track_local(23,35,2):", $t11} $t11 == $t11;
-
-    // assume Identical($t13, select coin::CoinInfo.supply(global<coin::CoinInfo<#0>>(select type_info::TypeInfo.account_address(type_info::$type_of<#0>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
-    assume {:print "$at(95,1664,1763)"} true;
-    assume ($t13 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
-
-    // $t14 := coin::is_account_registered<#0>($t11) on_abort goto L7 with $t12 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:577:13+45
-    assume {:print "$at(94,21960,22005)"} true;
-    call $t14 := $1_coin_is_account_registered'$1_aptos_coin_AptosCoin'($t11);
-    if ($abort_flag) {
-        assume {:print "$at(94,21960,22005)"} true;
-        $t12 := $abort_code;
-        assume {:print "$track_abort(23,35):", $t12} $t12 == $t12;
-        goto L7;
-    }
-
-    // if ($t14) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:576:9+134
-    assume {:print "$at(94,21939,22073)"} true;
-    if ($t14) { goto L1; } else { goto L0; }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:576:9+134
-L1:
-
-    // goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:576:9+134
-    assume {:print "$at(94,21939,22073)"} true;
-    goto L2;
-
-    // label L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:578:30+25
-    assume {:print "$at(94,22036,22061)"} true;
-L0:
-
-    // $t15 := 5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:578:30+25
-    assume {:print "$at(94,22036,22061)"} true;
-    $t15 := 5;
-    assume $IsValid'u64'($t15);
-
-    // $t16 := error::not_found($t15) on_abort goto L7 with $t12 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:578:13+43
-    call $t16 := $1_error_not_found($t15);
-    if ($abort_flag) {
-        assume {:print "$at(94,22019,22062)"} true;
-        $t12 := $abort_code;
-        assume {:print "$track_abort(23,35):", $t12} $t12 == $t12;
-        goto L7;
-    }
-
-    // trace_abort($t16) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:576:9+134
-    assume {:print "$at(94,21939,22073)"} true;
-    assume {:print "$track_abort(23,35):", $t16} $t16 == $t16;
-
-    // $t12 := move($t16) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:576:9+134
-    $t12 := $t16;
-
-    // goto L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:576:9+134
-    goto L7;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:581:65+12
-    assume {:print "$at(94,22140,22152)"} true;
-L2:
-
-    // $t17 := borrow_global<coin::CoinStore<#0>>($t11) on_abort goto L7 with $t12 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:581:26+17
-    assume {:print "$at(94,22101,22118)"} true;
-    if (!$ResourceExists($1_coin_CoinStore'$1_aptos_coin_AptosCoin'_$memory, $t11)) {
-        call $ExecFailureAbort();
-    } else {
-        $t17 := $Mutation($Global($t11), EmptyVec(), $ResourceValue($1_coin_CoinStore'$1_aptos_coin_AptosCoin'_$memory, $t11));
-    }
-    if ($abort_flag) {
-        assume {:print "$at(94,22101,22118)"} true;
-        $t12 := $abort_code;
-        assume {:print "$track_abort(23,35):", $t12} $t12 == $t12;
-        goto L7;
-    }
-
-    // trace_local[coin_store]($t17) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:581:13+10
-    $temp_0'$1_coin_CoinStore'$1_aptos_coin_AptosCoin'' := $Dereference($t17);
-    assume {:print "$track_local(23,35,3):", $temp_0'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''} $temp_0'$1_coin_CoinStore'$1_aptos_coin_AptosCoin'' == $temp_0'$1_coin_CoinStore'$1_aptos_coin_AptosCoin'';
-
-    // $t18 := get_field<coin::CoinStore<#0>>.frozen($t17) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:583:14+17
-    assume {:print "$at(94,22185,22202)"} true;
-    $t18 := $frozen#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'($Dereference($t17));
-
-    // $t19 := !($t18) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:583:13+1
-    call $t19 := $Not($t18);
-
-    // if ($t19) goto L4 else goto L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:582:9+97
-    assume {:print "$at(94,22163,22260)"} true;
-    if ($t19) { goto L4; } else { goto L3; }
-
-    // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:582:9+97
-L4:
-
-    // goto L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:582:9+97
-    assume {:print "$at(94,22163,22260)"} true;
-    goto L5;
-
-    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:582:9+97
-L3:
-
-    // destroy($t17) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:582:9+97
-    assume {:print "$at(94,22163,22260)"} true;
-
-    // $t20 := 10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:584:38+7
-    assume {:print "$at(94,22241,22248)"} true;
-    $t20 := 10;
-    assume $IsValid'u64'($t20);
-
-    // $t21 := error::permission_denied($t20) on_abort goto L7 with $t12 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:584:13+33
-    call $t21 := $1_error_permission_denied($t20);
-    if ($abort_flag) {
-        assume {:print "$at(94,22216,22249)"} true;
-        $t12 := $abort_code;
-        assume {:print "$track_abort(23,35):", $t12} $t12 == $t12;
-        goto L7;
-    }
-
-    // trace_abort($t21) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:582:9+97
-    assume {:print "$at(94,22163,22260)"} true;
-    assume {:print "$track_abort(23,35):", $t21} $t21 == $t21;
-
-    // $t12 := move($t21) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:582:9+97
-    $t12 := $t21;
-
-    // goto L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:582:9+97
-    goto L7;
-
-    // label L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:588:18+10
-    assume {:print "$at(94,22322,22332)"} true;
-L5:
-
-    // $t22 := borrow_field<coin::CoinStore<#0>>.withdraw_events($t17) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:588:13+31
-    assume {:print "$at(94,22317,22348)"} true;
-    $t22 := $ChildMutation($t17, 3, $withdraw_events#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'($Dereference($t17)));
-
-    // $t23 := pack coin::WithdrawEvent($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:589:13+24
-    assume {:print "$at(94,22362,22386)"} true;
-    $t23 := $1_coin_WithdrawEvent($t1);
-
-    // opaque begin: event::emit_event<coin::WithdrawEvent>($t22, $t23) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:587:9+126
-    assume {:print "$at(94,22271,22397)"} true;
-
-    // opaque end: event::emit_event<coin::WithdrawEvent>($t22, $t23) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:587:9+126
-
-    // write_back[Reference($t17).withdraw_events (event::EventHandle<coin::WithdrawEvent>)]($t22) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:587:9+126
-    $t17 := $UpdateMutation($t17, $Update'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''_withdraw_events($Dereference($t17), $Dereference($t22)));
-
-    // $t24 := borrow_field<coin::CoinStore<#0>>.coin($t17) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:592:17+20
-    assume {:print "$at(94,22416,22436)"} true;
-    $t24 := $ChildMutation($t17, 0, $coin#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'($Dereference($t17)));
-
-    // assume Identical($t25, select coin::CoinInfo.supply(global<coin::CoinInfo<#0>>(select type_info::TypeInfo.account_address(type_info::$type_of<#0>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
-    assume {:print "$at(95,1664,1763)"} true;
-    assume ($t25 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
-
-    // $t26 := coin::extract<#0>($t24, $t1) on_abort goto L7 with $t12 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:592:9+37
-    assume {:print "$at(94,22408,22445)"} true;
-    call $t26,$t24 := $1_coin_extract'$1_aptos_coin_AptosCoin'($t24, $t1);
-    if ($abort_flag) {
-        assume {:print "$at(94,22408,22445)"} true;
-        $t12 := $abort_code;
-        assume {:print "$track_abort(23,35):", $t12} $t12 == $t12;
-        goto L7;
-    }
-
-    // write_back[Reference($t17).coin (coin::Coin<#0>)]($t24) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:592:9+37
-    $t17 := $UpdateMutation($t17, $Update'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''_coin($Dereference($t17), $Dereference($t24)));
-
-    // write_back[coin::CoinStore<#0>@]($t17) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:592:9+37
-    $1_coin_CoinStore'$1_aptos_coin_AptosCoin'_$memory := $ResourceUpdate($1_coin_CoinStore'$1_aptos_coin_AptosCoin'_$memory, $GlobalLocationAddress($t17),
-        $Dereference($t17));
-
-    // trace_return[0]($t26) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:592:9+37
-    assume {:print "$track_return(23,35,0):", $t26} $t26 == $t26;
-
-    // label L6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:593:5+1
-    assume {:print "$at(94,22450,22451)"} true;
-L6:
-
-    // return $t26 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:593:5+1
-    assume {:print "$at(94,22450,22451)"} true;
-    $ret0 := $t26;
-    return;
-
-    // label L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:593:5+1
-L7:
-
-    // abort($t12) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:593:5+1
-    assume {:print "$at(94,22450,22451)"} true;
-    $abort_code := $t12;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun coin::zero<aptos_coin::AptosCoin> [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:596:5+193
-procedure {:inline 1} $1_coin_zero'$1_aptos_coin_AptosCoin'() returns ($ret0: $1_coin_Coin'$1_aptos_coin_AptosCoin')
-{
-    // declare local variables
-    var $t0: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t1: $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin';
-    var $t2: int;
-    var $t3: $Mutation ($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin');
-    var $t4: int;
-    var $t5: $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'': $1_coin_Coin'$1_aptos_coin_AptosCoin';
-
-    // bytecode translation starts here
-    // assume Identical($t0, select coin::CoinInfo.supply(global<coin::CoinInfo<#0>>(select type_info::TypeInfo.account_address(type_info::$type_of<#0>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
-    assume {:print "$at(95,1664,1763)"} true;
-    assume ($t0 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
-
-    // assume Identical($t1, pack coin::Ghost$supply<#0>(Add(select coin::Ghost$supply.v<#0>(global<coin::Ghost$supply<#0>>(0)), 0))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:598:13+47
-    assume {:print "$at(94,22589,22636)"} true;
-    assume ($t1 == $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'(($v#$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, 0)) + 0)));
-
-    // assume Identical($t2, 0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:598:13+47
-    assume ($t2 == 0);
-
-    // $t3 := borrow_global<coin::Ghost$supply<#0>>($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:598:13+47
-    if (!$ResourceExists($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $t2)) {
-        call $ExecFailureAbort();
-    } else {
-        $t3 := $Mutation($Global($t2), EmptyVec(), $ResourceValue($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $t2));
-    }
-
-    // write_ref($t3, $t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:598:13+47
-    $t3 := $UpdateMutation($t3, $t1);
-
-    // write_back[coin::Ghost$supply<#0>@]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:598:13+47
-    $1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory := $ResourceUpdate($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $GlobalLocationAddress($t3),
-        $Dereference($t3));
-
-    // $t4 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:601:20+1
-    assume {:print "$at(94,22692,22693)"} true;
-    $t4 := 0;
-    assume $IsValid'u64'($t4);
-
-    // $t5 := pack coin::Coin<#0>($t4) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:600:9+47
-    assume {:print "$at(94,22656,22703)"} true;
-    $t5 := $1_coin_Coin'$1_aptos_coin_AptosCoin'($t4);
-
-    // trace_return[0]($t5) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:600:9+47
-    assume {:print "$track_return(23,36,0):", $t5} $t5 == $t5;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:603:5+1
-    assume {:print "$at(94,22708,22709)"} true;
-L1:
-
-    // return $t5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.move:603:5+1
-    assume {:print "$at(94,22708,22709)"} true;
-    $ret0 := $t5;
-    return;
-
-}
-
 // struct aptos_coin::AptosCoin at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/aptos_coin.move:22:5+27
 type {:datatype} $1_aptos_coin_AptosCoin;
 function {:constructor} $1_aptos_coin_AptosCoin($dummy_field: bool): $1_aptos_coin_AptosCoin;
@@ -13163,265 +8302,6 @@ function {:inline} $IsEqual'$1_aptos_coin_AptosCoin'(s1: $1_aptos_coin_AptosCoin
     s1 == s2
 }
 var $1_aptos_coin_AptosCoin_$memory: $Memory $1_aptos_coin_AptosCoin;
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/chain_status.move:35:5+90
-function {:inline} $1_chain_status_$is_operating($1_chain_status_GenesisEndMarker_$memory: $Memory $1_chain_status_GenesisEndMarker): bool {
-    $ResourceExists($1_chain_status_GenesisEndMarker_$memory, 1)
-}
-
-// struct chain_status::GenesisEndMarker at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/chain_status.move:12:5+34
-type {:datatype} $1_chain_status_GenesisEndMarker;
-function {:constructor} $1_chain_status_GenesisEndMarker($dummy_field: bool): $1_chain_status_GenesisEndMarker;
-function {:inline} $Update'$1_chain_status_GenesisEndMarker'_dummy_field(s: $1_chain_status_GenesisEndMarker, x: bool): $1_chain_status_GenesisEndMarker {
-    $1_chain_status_GenesisEndMarker(x)
-}
-function $IsValid'$1_chain_status_GenesisEndMarker'(s: $1_chain_status_GenesisEndMarker): bool {
-    $IsValid'bool'($dummy_field#$1_chain_status_GenesisEndMarker(s))
-}
-function {:inline} $IsEqual'$1_chain_status_GenesisEndMarker'(s1: $1_chain_status_GenesisEndMarker, s2: $1_chain_status_GenesisEndMarker): bool {
-    s1 == s2
-}
-var $1_chain_status_GenesisEndMarker_$memory: $Memory $1_chain_status_GenesisEndMarker;
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/timestamp.spec.move:22:10+111
-function {:inline} $1_timestamp_spec_now_microseconds($1_timestamp_CurrentTimeMicroseconds_$memory: $Memory $1_timestamp_CurrentTimeMicroseconds): int {
-    $microseconds#$1_timestamp_CurrentTimeMicroseconds($ResourceValue($1_timestamp_CurrentTimeMicroseconds_$memory, 1))
-}
-
-// struct timestamp::CurrentTimeMicroseconds at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/timestamp.move:12:5+73
-type {:datatype} $1_timestamp_CurrentTimeMicroseconds;
-function {:constructor} $1_timestamp_CurrentTimeMicroseconds($microseconds: int): $1_timestamp_CurrentTimeMicroseconds;
-function {:inline} $Update'$1_timestamp_CurrentTimeMicroseconds'_microseconds(s: $1_timestamp_CurrentTimeMicroseconds, x: int): $1_timestamp_CurrentTimeMicroseconds {
-    $1_timestamp_CurrentTimeMicroseconds(x)
-}
-function $IsValid'$1_timestamp_CurrentTimeMicroseconds'(s: $1_timestamp_CurrentTimeMicroseconds): bool {
-    $IsValid'u64'($microseconds#$1_timestamp_CurrentTimeMicroseconds(s))
-}
-function {:inline} $IsEqual'$1_timestamp_CurrentTimeMicroseconds'(s1: $1_timestamp_CurrentTimeMicroseconds, s2: $1_timestamp_CurrentTimeMicroseconds): bool {
-    s1 == s2
-}
-var $1_timestamp_CurrentTimeMicroseconds_$memory: $Memory $1_timestamp_CurrentTimeMicroseconds;
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/fixed_point64.move:235:10+109
-function {:inline} $1_fixed_point64_spec_less_or_equal(num1: $1_fixed_point64_FixedPoint64, num2: $1_fixed_point64_FixedPoint64): bool {
-    ($value#$1_fixed_point64_FixedPoint64(num1) <= $value#$1_fixed_point64_FixedPoint64(num2))
-}
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/fixed_point64.move:327:10+97
-function {:inline} $1_fixed_point64_spec_create_from_u128(val: int): $1_fixed_point64_FixedPoint64 {
-    $1_fixed_point64_FixedPoint64($shl(val, 64))
-}
-
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/fixed_point64.move:365:10+256
-function {:inline} $1_fixed_point64_spec_ceil(val: $1_fixed_point64_FixedPoint64): int {
-    (var fractional := ($value#$1_fixed_point64_FixedPoint64(val) mod $shlU256(1, 64)); (var one := $shlU256(1, 64); (if ($IsEqual'num'(fractional, 0)) then ($shr($value#$1_fixed_point64_FixedPoint64(val), 64)) else ($shr((($value#$1_fixed_point64_FixedPoint64(val) - fractional) + one), 64)))))
-}
-
-// struct fixed_point64::FixedPoint64 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/fixed_point64.move:15:5+57
-type {:datatype} $1_fixed_point64_FixedPoint64;
-function {:constructor} $1_fixed_point64_FixedPoint64($value: int): $1_fixed_point64_FixedPoint64;
-function {:inline} $Update'$1_fixed_point64_FixedPoint64'_value(s: $1_fixed_point64_FixedPoint64, x: int): $1_fixed_point64_FixedPoint64 {
-    $1_fixed_point64_FixedPoint64(x)
-}
-function $IsValid'$1_fixed_point64_FixedPoint64'(s: $1_fixed_point64_FixedPoint64): bool {
-    $IsValid'u128'($value#$1_fixed_point64_FixedPoint64(s))
-}
-function {:inline} $IsEqual'$1_fixed_point64_FixedPoint64'(s1: $1_fixed_point64_FixedPoint64, s2: $1_fixed_point64_FixedPoint64): bool {
-    s1 == s2
-}
-
-// struct staking_config::StakingConfig at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:49:5+1753
-type {:datatype} $1_staking_config_StakingConfig;
-function {:constructor} $1_staking_config_StakingConfig($minimum_stake: int, $maximum_stake: int, $recurring_lockup_duration_secs: int, $allow_validator_set_change: bool, $rewards_rate: int, $rewards_rate_denominator: int, $voting_power_increase_limit: int): $1_staking_config_StakingConfig;
-function {:inline} $Update'$1_staking_config_StakingConfig'_minimum_stake(s: $1_staking_config_StakingConfig, x: int): $1_staking_config_StakingConfig {
-    $1_staking_config_StakingConfig(x, $maximum_stake#$1_staking_config_StakingConfig(s), $recurring_lockup_duration_secs#$1_staking_config_StakingConfig(s), $allow_validator_set_change#$1_staking_config_StakingConfig(s), $rewards_rate#$1_staking_config_StakingConfig(s), $rewards_rate_denominator#$1_staking_config_StakingConfig(s), $voting_power_increase_limit#$1_staking_config_StakingConfig(s))
-}
-function {:inline} $Update'$1_staking_config_StakingConfig'_maximum_stake(s: $1_staking_config_StakingConfig, x: int): $1_staking_config_StakingConfig {
-    $1_staking_config_StakingConfig($minimum_stake#$1_staking_config_StakingConfig(s), x, $recurring_lockup_duration_secs#$1_staking_config_StakingConfig(s), $allow_validator_set_change#$1_staking_config_StakingConfig(s), $rewards_rate#$1_staking_config_StakingConfig(s), $rewards_rate_denominator#$1_staking_config_StakingConfig(s), $voting_power_increase_limit#$1_staking_config_StakingConfig(s))
-}
-function {:inline} $Update'$1_staking_config_StakingConfig'_recurring_lockup_duration_secs(s: $1_staking_config_StakingConfig, x: int): $1_staking_config_StakingConfig {
-    $1_staking_config_StakingConfig($minimum_stake#$1_staking_config_StakingConfig(s), $maximum_stake#$1_staking_config_StakingConfig(s), x, $allow_validator_set_change#$1_staking_config_StakingConfig(s), $rewards_rate#$1_staking_config_StakingConfig(s), $rewards_rate_denominator#$1_staking_config_StakingConfig(s), $voting_power_increase_limit#$1_staking_config_StakingConfig(s))
-}
-function {:inline} $Update'$1_staking_config_StakingConfig'_allow_validator_set_change(s: $1_staking_config_StakingConfig, x: bool): $1_staking_config_StakingConfig {
-    $1_staking_config_StakingConfig($minimum_stake#$1_staking_config_StakingConfig(s), $maximum_stake#$1_staking_config_StakingConfig(s), $recurring_lockup_duration_secs#$1_staking_config_StakingConfig(s), x, $rewards_rate#$1_staking_config_StakingConfig(s), $rewards_rate_denominator#$1_staking_config_StakingConfig(s), $voting_power_increase_limit#$1_staking_config_StakingConfig(s))
-}
-function {:inline} $Update'$1_staking_config_StakingConfig'_rewards_rate(s: $1_staking_config_StakingConfig, x: int): $1_staking_config_StakingConfig {
-    $1_staking_config_StakingConfig($minimum_stake#$1_staking_config_StakingConfig(s), $maximum_stake#$1_staking_config_StakingConfig(s), $recurring_lockup_duration_secs#$1_staking_config_StakingConfig(s), $allow_validator_set_change#$1_staking_config_StakingConfig(s), x, $rewards_rate_denominator#$1_staking_config_StakingConfig(s), $voting_power_increase_limit#$1_staking_config_StakingConfig(s))
-}
-function {:inline} $Update'$1_staking_config_StakingConfig'_rewards_rate_denominator(s: $1_staking_config_StakingConfig, x: int): $1_staking_config_StakingConfig {
-    $1_staking_config_StakingConfig($minimum_stake#$1_staking_config_StakingConfig(s), $maximum_stake#$1_staking_config_StakingConfig(s), $recurring_lockup_duration_secs#$1_staking_config_StakingConfig(s), $allow_validator_set_change#$1_staking_config_StakingConfig(s), $rewards_rate#$1_staking_config_StakingConfig(s), x, $voting_power_increase_limit#$1_staking_config_StakingConfig(s))
-}
-function {:inline} $Update'$1_staking_config_StakingConfig'_voting_power_increase_limit(s: $1_staking_config_StakingConfig, x: int): $1_staking_config_StakingConfig {
-    $1_staking_config_StakingConfig($minimum_stake#$1_staking_config_StakingConfig(s), $maximum_stake#$1_staking_config_StakingConfig(s), $recurring_lockup_duration_secs#$1_staking_config_StakingConfig(s), $allow_validator_set_change#$1_staking_config_StakingConfig(s), $rewards_rate#$1_staking_config_StakingConfig(s), $rewards_rate_denominator#$1_staking_config_StakingConfig(s), x)
-}
-function $IsValid'$1_staking_config_StakingConfig'(s: $1_staking_config_StakingConfig): bool {
-    $IsValid'u64'($minimum_stake#$1_staking_config_StakingConfig(s))
-      && $IsValid'u64'($maximum_stake#$1_staking_config_StakingConfig(s))
-      && $IsValid'u64'($recurring_lockup_duration_secs#$1_staking_config_StakingConfig(s))
-      && $IsValid'bool'($allow_validator_set_change#$1_staking_config_StakingConfig(s))
-      && $IsValid'u64'($rewards_rate#$1_staking_config_StakingConfig(s))
-      && $IsValid'u64'($rewards_rate_denominator#$1_staking_config_StakingConfig(s))
-      && $IsValid'u64'($voting_power_increase_limit#$1_staking_config_StakingConfig(s))
-}
-function {:inline} $IsEqual'$1_staking_config_StakingConfig'(s1: $1_staking_config_StakingConfig, s2: $1_staking_config_StakingConfig): bool {
-    s1 == s2
-}
-var $1_staking_config_StakingConfig_$memory: $Memory $1_staking_config_StakingConfig;
-
-// struct staking_config::StakingRewardsConfig at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:75:5+982
-type {:datatype} $1_staking_config_StakingRewardsConfig;
-function {:constructor} $1_staking_config_StakingRewardsConfig($rewards_rate: $1_fixed_point64_FixedPoint64, $min_rewards_rate: $1_fixed_point64_FixedPoint64, $rewards_rate_period_in_secs: int, $last_rewards_rate_period_start_in_secs: int, $rewards_rate_decrease_rate: $1_fixed_point64_FixedPoint64): $1_staking_config_StakingRewardsConfig;
-function {:inline} $Update'$1_staking_config_StakingRewardsConfig'_rewards_rate(s: $1_staking_config_StakingRewardsConfig, x: $1_fixed_point64_FixedPoint64): $1_staking_config_StakingRewardsConfig {
-    $1_staking_config_StakingRewardsConfig(x, $min_rewards_rate#$1_staking_config_StakingRewardsConfig(s), $rewards_rate_period_in_secs#$1_staking_config_StakingRewardsConfig(s), $last_rewards_rate_period_start_in_secs#$1_staking_config_StakingRewardsConfig(s), $rewards_rate_decrease_rate#$1_staking_config_StakingRewardsConfig(s))
-}
-function {:inline} $Update'$1_staking_config_StakingRewardsConfig'_min_rewards_rate(s: $1_staking_config_StakingRewardsConfig, x: $1_fixed_point64_FixedPoint64): $1_staking_config_StakingRewardsConfig {
-    $1_staking_config_StakingRewardsConfig($rewards_rate#$1_staking_config_StakingRewardsConfig(s), x, $rewards_rate_period_in_secs#$1_staking_config_StakingRewardsConfig(s), $last_rewards_rate_period_start_in_secs#$1_staking_config_StakingRewardsConfig(s), $rewards_rate_decrease_rate#$1_staking_config_StakingRewardsConfig(s))
-}
-function {:inline} $Update'$1_staking_config_StakingRewardsConfig'_rewards_rate_period_in_secs(s: $1_staking_config_StakingRewardsConfig, x: int): $1_staking_config_StakingRewardsConfig {
-    $1_staking_config_StakingRewardsConfig($rewards_rate#$1_staking_config_StakingRewardsConfig(s), $min_rewards_rate#$1_staking_config_StakingRewardsConfig(s), x, $last_rewards_rate_period_start_in_secs#$1_staking_config_StakingRewardsConfig(s), $rewards_rate_decrease_rate#$1_staking_config_StakingRewardsConfig(s))
-}
-function {:inline} $Update'$1_staking_config_StakingRewardsConfig'_last_rewards_rate_period_start_in_secs(s: $1_staking_config_StakingRewardsConfig, x: int): $1_staking_config_StakingRewardsConfig {
-    $1_staking_config_StakingRewardsConfig($rewards_rate#$1_staking_config_StakingRewardsConfig(s), $min_rewards_rate#$1_staking_config_StakingRewardsConfig(s), $rewards_rate_period_in_secs#$1_staking_config_StakingRewardsConfig(s), x, $rewards_rate_decrease_rate#$1_staking_config_StakingRewardsConfig(s))
-}
-function {:inline} $Update'$1_staking_config_StakingRewardsConfig'_rewards_rate_decrease_rate(s: $1_staking_config_StakingRewardsConfig, x: $1_fixed_point64_FixedPoint64): $1_staking_config_StakingRewardsConfig {
-    $1_staking_config_StakingRewardsConfig($rewards_rate#$1_staking_config_StakingRewardsConfig(s), $min_rewards_rate#$1_staking_config_StakingRewardsConfig(s), $rewards_rate_period_in_secs#$1_staking_config_StakingRewardsConfig(s), $last_rewards_rate_period_start_in_secs#$1_staking_config_StakingRewardsConfig(s), x)
-}
-function $IsValid'$1_staking_config_StakingRewardsConfig'(s: $1_staking_config_StakingRewardsConfig): bool {
-    $IsValid'$1_fixed_point64_FixedPoint64'($rewards_rate#$1_staking_config_StakingRewardsConfig(s))
-      && $IsValid'$1_fixed_point64_FixedPoint64'($min_rewards_rate#$1_staking_config_StakingRewardsConfig(s))
-      && $IsValid'u64'($rewards_rate_period_in_secs#$1_staking_config_StakingRewardsConfig(s))
-      && $IsValid'u64'($last_rewards_rate_period_start_in_secs#$1_staking_config_StakingRewardsConfig(s))
-      && $IsValid'$1_fixed_point64_FixedPoint64'($rewards_rate_decrease_rate#$1_staking_config_StakingRewardsConfig(s))
-}
-function {:inline} $IsEqual'$1_staking_config_StakingRewardsConfig'(s1: $1_staking_config_StakingRewardsConfig, s2: $1_staking_config_StakingRewardsConfig): bool {
-    s1 == s2
-}
-var $1_staking_config_StakingRewardsConfig_$memory: $Memory $1_staking_config_StakingRewardsConfig;
-
-// fun staking_config::get [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:169:5+118
-procedure {:inline 1} $1_staking_config_get() returns ($ret0: $1_staking_config_StakingConfig)
-{
-    // declare local variables
-    var $t0: int;
-    var $t1: $1_staking_config_StakingConfig;
-    var $t2: int;
-    var $temp_0'$1_staking_config_StakingConfig': $1_staking_config_StakingConfig;
-
-    // bytecode translation starts here
-    // $t0 := 0x1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:170:39+16
-    assume {:print "$at(102,8264,8280)"} true;
-    $t0 := 1;
-    assume $IsValid'address'($t0);
-
-    // $t1 := get_global<staking_config::StakingConfig>($t0) on_abort goto L2 with $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:170:10+13
-    if (!$ResourceExists($1_staking_config_StakingConfig_$memory, $t0)) {
-        call $ExecFailureAbort();
-    } else {
-        $t1 := $ResourceValue($1_staking_config_StakingConfig_$memory, $t0);
-    }
-    if ($abort_flag) {
-        assume {:print "$at(102,8235,8248)"} true;
-        $t2 := $abort_code;
-        assume {:print "$track_abort(35,2):", $t2} $t2 == $t2;
-        goto L2;
-    }
-
-    // trace_return[0]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:170:9+47
-    assume {:print "$track_return(35,2,0):", $t1} $t1 == $t1;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:171:5+1
-    assume {:print "$at(102,8286,8287)"} true;
-L1:
-
-    // return $t1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:171:5+1
-    assume {:print "$at(102,8286,8287)"} true;
-    $ret0 := $t1;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:171:5+1
-L2:
-
-    // abort($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:171:5+1
-    assume {:print "$at(102,8286,8287)"} true;
-    $abort_code := $t2;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun staking_config::get_required_stake [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:179:5+126
-procedure {:inline 1} $1_staking_config_get_required_stake(_$t0: $1_staking_config_StakingConfig) returns ($ret0: int, $ret1: int)
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: int;
-    var $t0: $1_staking_config_StakingConfig;
-    var $temp_0'$1_staking_config_StakingConfig': $1_staking_config_StakingConfig;
-    var $temp_0'u64': int;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[config]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:179:5+1
-    assume {:print "$at(102,8520,8521)"} true;
-    assume {:print "$track_local(35,5,0):", $t0} $t0 == $t0;
-
-    // $t1 := get_field<staking_config::StakingConfig>.minimum_stake($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:180:10+20
-    assume {:print "$at(102,8597,8617)"} true;
-    $t1 := $minimum_stake#$1_staking_config_StakingConfig($t0);
-
-    // $t2 := get_field<staking_config::StakingConfig>.maximum_stake($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:180:32+20
-    $t2 := $maximum_stake#$1_staking_config_StakingConfig($t0);
-
-    // trace_return[0]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:180:9+44
-    assume {:print "$track_return(35,5,0):", $t1} $t1 == $t1;
-
-    // trace_return[1]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:180:9+44
-    assume {:print "$track_return(35,5,1):", $t2} $t2 == $t2;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:181:5+1
-    assume {:print "$at(102,8645,8646)"} true;
-L1:
-
-    // return ($t1, $t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:181:5+1
-    assume {:print "$at(102,8645,8646)"} true;
-    $ret0 := $t1;
-    $ret1 := $t2;
-    return;
-
-}
-
-// fun staking_config::get_voting_power_increase_limit [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:212:5+122
-procedure {:inline 1} $1_staking_config_get_voting_power_increase_limit(_$t0: $1_staking_config_StakingConfig) returns ($ret0: int)
-{
-    // declare local variables
-    var $t1: int;
-    var $t0: $1_staking_config_StakingConfig;
-    var $temp_0'$1_staking_config_StakingConfig': $1_staking_config_StakingConfig;
-    var $temp_0'u64': int;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[config]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:212:5+1
-    assume {:print "$at(102,10126,10127)"} true;
-    assume {:print "$track_local(35,7,0):", $t0} $t0 == $t0;
-
-    // $t1 := get_field<staking_config::StakingConfig>.voting_power_increase_limit($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:213:9+34
-    assume {:print "$at(102,10208,10242)"} true;
-    $t1 := $voting_power_increase_limit#$1_staking_config_StakingConfig($t0);
-
-    // trace_return[0]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:213:9+34
-    assume {:print "$track_return(35,7,0):", $t1} $t1 == $t1;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:214:5+1
-    assume {:print "$at(102,10247,10248)"} true;
-L1:
-
-    // return $t1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.move:214:5+1
-    assume {:print "$at(102,10247,10248)"} true;
-    $ret0 := $t1;
-    return;
-
-}
 
 // spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:17:10+500
 function {:inline} $1_stake_validator_set_is_valid($1_stake_StakePool_$memory: $Memory $1_stake_StakePool, $1_stake_ValidatorConfig_$memory: $Memory $1_stake_ValidatorConfig, $1_stake_ValidatorPerformance_$memory: $Memory $1_stake_ValidatorPerformance, $1_stake_ValidatorSet_$memory: $Memory $1_stake_ValidatorSet): bool {
@@ -13455,12 +8335,6 @@ function {:inline} $1_stake_spec_has_validator_config($1_stake_ValidatorConfig_$
     $ResourceExists($1_stake_ValidatorConfig_$memory, a)
 }
 
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:368:10+148
-function {:inline} $1_stake_spec_contains(validators: Vec ($1_stake_ValidatorInfo), addr: int): bool {
-    (var $range_4 := $Range(0, LenVec(validators)); (exists $i_5: int :: $InRange($range_4, $i_5) && (var i := $i_5;
-    ($IsEqual'address'($addr#$1_stake_ValidatorInfo(ReadVec(validators, i)), addr)))))
-}
-
 // struct stake::AddStakeEvent at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:210:5+102
 type {:datatype} $1_stake_AddStakeEvent;
 function {:constructor} $1_stake_AddStakeEvent($pool_address: int, $amount_added: int): $1_stake_AddStakeEvent;
@@ -13477,33 +8351,6 @@ function $IsValid'$1_stake_AddStakeEvent'(s: $1_stake_AddStakeEvent): bool {
 function {:inline} $IsEqual'$1_stake_AddStakeEvent'(s1: $1_stake_AddStakeEvent, s2: $1_stake_AddStakeEvent): bool {
     s1 == s2
 }
-
-// struct stake::AllowedValidators at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1326:5+75
-type {:datatype} $1_stake_AllowedValidators;
-function {:constructor} $1_stake_AllowedValidators($accounts: Vec (int)): $1_stake_AllowedValidators;
-function {:inline} $Update'$1_stake_AllowedValidators'_accounts(s: $1_stake_AllowedValidators, x: Vec (int)): $1_stake_AllowedValidators {
-    $1_stake_AllowedValidators(x)
-}
-function $IsValid'$1_stake_AllowedValidators'(s: $1_stake_AllowedValidators): bool {
-    $IsValid'vec'address''($accounts#$1_stake_AllowedValidators(s))
-}
-function {:inline} $IsEqual'$1_stake_AllowedValidators'(s1: $1_stake_AllowedValidators, s2: $1_stake_AllowedValidators): bool {
-    $IsEqual'vec'address''($accounts#$1_stake_AllowedValidators(s1), $accounts#$1_stake_AllowedValidators(s2))}
-var $1_stake_AllowedValidators_$memory: $Memory $1_stake_AllowedValidators;
-
-// struct stake::AptosCoinCapabilities at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:187:5+89
-type {:datatype} $1_stake_AptosCoinCapabilities;
-function {:constructor} $1_stake_AptosCoinCapabilities($mint_cap: $1_coin_MintCapability'$1_aptos_coin_AptosCoin'): $1_stake_AptosCoinCapabilities;
-function {:inline} $Update'$1_stake_AptosCoinCapabilities'_mint_cap(s: $1_stake_AptosCoinCapabilities, x: $1_coin_MintCapability'$1_aptos_coin_AptosCoin'): $1_stake_AptosCoinCapabilities {
-    $1_stake_AptosCoinCapabilities(x)
-}
-function $IsValid'$1_stake_AptosCoinCapabilities'(s: $1_stake_AptosCoinCapabilities): bool {
-    $IsValid'$1_coin_MintCapability'$1_aptos_coin_AptosCoin''($mint_cap#$1_stake_AptosCoinCapabilities(s))
-}
-function {:inline} $IsEqual'$1_stake_AptosCoinCapabilities'(s1: $1_stake_AptosCoinCapabilities, s2: $1_stake_AptosCoinCapabilities): bool {
-    s1 == s2
-}
-var $1_stake_AptosCoinCapabilities_$memory: $Memory $1_stake_AptosCoinCapabilities;
 
 // struct stake::DistributeRewardsEvent at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:244:5+113
 type {:datatype} $1_stake_DistributeRewardsEvent;
@@ -13836,20 +8683,6 @@ function {:inline} $IsEqual'$1_stake_ValidatorConfig'(s1: $1_stake_ValidatorConf
     && $IsEqual'u64'($validator_index#$1_stake_ValidatorConfig(s1), $validator_index#$1_stake_ValidatorConfig(s2))}
 var $1_stake_ValidatorConfig_$memory: $Memory $1_stake_ValidatorConfig;
 
-// struct stake::ValidatorFees at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:265:5+89
-type {:datatype} $1_stake_ValidatorFees;
-function {:constructor} $1_stake_ValidatorFees($fees_table: Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin')): $1_stake_ValidatorFees;
-function {:inline} $Update'$1_stake_ValidatorFees'_fees_table(s: $1_stake_ValidatorFees, x: Table int ($1_coin_Coin'$1_aptos_coin_AptosCoin')): $1_stake_ValidatorFees {
-    $1_stake_ValidatorFees(x)
-}
-function $IsValid'$1_stake_ValidatorFees'(s: $1_stake_ValidatorFees): bool {
-    $IsValid'$1_table_Table'address_$1_coin_Coin'$1_aptos_coin_AptosCoin'''($fees_table#$1_stake_ValidatorFees(s))
-}
-function {:inline} $IsEqual'$1_stake_ValidatorFees'(s1: $1_stake_ValidatorFees, s2: $1_stake_ValidatorFees): bool {
-    s1 == s2
-}
-var $1_stake_ValidatorFees_$memory: $Memory $1_stake_ValidatorFees;
-
 // struct stake::ValidatorInfo at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:161:5+133
 type {:datatype} $1_stake_ValidatorInfo;
 function {:constructor} $1_stake_ValidatorInfo($addr: int, $voting_power: int, $config: $1_stake_ValidatorConfig): $1_stake_ValidatorInfo;
@@ -13940,910 +8773,6 @@ function {:inline} $IsEqual'$1_stake_WithdrawStakeEvent'(s1: $1_stake_WithdrawSt
     s1 == s2
 }
 
-// fun stake::add_stake [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:609:5+376
-procedure {:inline 1} $1_stake_add_stake(_$t0: $signer, _$t1: int) returns ()
-{
-    // declare local variables
-    var $t2: int;
-    var $t3: int;
-    var $t4: int;
-    var $t5: $1_stake_OwnerCapability;
-    var $t6: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t7: int;
-    var $t8: $1_coin_CoinStore'$1_aptos_coin_AptosCoin';
-    var $t9: int;
-    var $t10: int;
-    var $t11: $1_coin_CoinStore'$1_aptos_coin_AptosCoin';
-    var $t12: int;
-    var $t13: $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $t14: int;
-    var $t15: int;
-    var $t16: $1_stake_ValidatorSet;
-    var $t17: $1_staking_config_StakingConfig;
-    var $t18: int;
-    var $t19: bool;
-    var $t20: $1_stake_StakePool;
-    var $t21: int;
-    var $t22: int;
-    var $t23: int;
-    var $t24: int;
-    var $t25: int;
-    var $t26: int;
-    var $t0: $signer;
-    var $t1: int;
-    var $temp_0'address': int;
-    var $temp_0'signer': $signer;
-    var $temp_0'u64': int;
-    $t0 := _$t0;
-    $t1 := _$t1;
-
-    // bytecode translation starts here
-    // assume exists<stake::AptosCoinCapabilities>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:382:9+57
-    assume {:print "$at(132,17398,17455)"} true;
-    assume $ResourceExists($1_stake_AptosCoinCapabilities_$memory, 1);
-
-    // assume exists<stake::ValidatorPerformance>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:383:9+56
-    assume {:print "$at(132,17464,17520)"} true;
-    assume $ResourceExists($1_stake_ValidatorPerformance_$memory, 1);
-
-    // assume exists<stake::ValidatorSet>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:384:9+48
-    assume {:print "$at(132,17529,17577)"} true;
-    assume $ResourceExists($1_stake_ValidatorSet_$memory, 1);
-
-    // assume exists<staking_config::StakingConfig>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:385:9+49
-    assume {:print "$at(132,17586,17635)"} true;
-    assume $ResourceExists($1_staking_config_StakingConfig_$memory, 1);
-
-    // assume Or(exists<staking_config::StakingRewardsConfig>(1), Not(features::spec_periodical_reward_rate_decrease_enabled())) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:386:9+117
-    assume {:print "$at(132,17644,17761)"} true;
-    assume ($ResourceExists($1_staking_config_StakingRewardsConfig_$memory, 1) || !$1_features_spec_periodical_reward_rate_decrease_enabled());
-
-    // assume exists<timestamp::CurrentTimeMicroseconds>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:387:9+70
-    assume {:print "$at(132,17770,17840)"} true;
-    assume $ResourceExists($1_timestamp_CurrentTimeMicroseconds_$memory, 1);
-
-    // assume exists<stake::ValidatorFees>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:388:9+49
-    assume {:print "$at(132,17849,17898)"} true;
-    assume $ResourceExists($1_stake_ValidatorFees_$memory, 1);
-
-    // trace_local[owner]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:609:5+1
-    assume {:print "$at(131,27709,27710)"} true;
-    assume {:print "$track_local(38,0,0):", $t0} $t0 == $t0;
-
-    // trace_local[amount]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:609:5+1
-    assume {:print "$track_local(38,0,1):", $t1} $t1 == $t1;
-
-    // $t3 := signer::address_of($t0) on_abort goto L2 with $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:610:29+25
-    assume {:print "$at(131,27845,27870)"} true;
-    call $t3 := $1_signer_address_of($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,27845,27870)"} true;
-        $t4 := $abort_code;
-        assume {:print "$track_abort(38,0):", $t4} $t4 == $t4;
-        goto L2;
-    }
-
-    // trace_local[owner_address]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:610:13+13
-    assume {:print "$track_local(38,0,2):", $t3} $t3 == $t3;
-
-    // stake::assert_owner_cap_exists($t3) on_abort goto L2 with $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:611:9+38
-    assume {:print "$at(131,27880,27918)"} true;
-    call $1_stake_assert_owner_cap_exists($t3);
-    if ($abort_flag) {
-        assume {:print "$at(131,27880,27918)"} true;
-        $t4 := $abort_code;
-        assume {:print "$track_abort(38,0):", $t4} $t4 == $t4;
-        goto L2;
-    }
-
-    // $t5 := get_global<stake::OwnerCapability>($t3) on_abort goto L2 with $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:612:29+13
-    assume {:print "$at(131,27948,27961)"} true;
-    if (!$ResourceExists($1_stake_OwnerCapability_$memory, $t3)) {
-        call $ExecFailureAbort();
-    } else {
-        $t5 := $ResourceValue($1_stake_OwnerCapability_$memory, $t3);
-    }
-    if ($abort_flag) {
-        assume {:print "$at(131,27948,27961)"} true;
-        $t4 := $abort_code;
-        assume {:print "$track_abort(38,0):", $t4} $t4 == $t4;
-        goto L2;
-    }
-
-    // assume Identical($t6, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>(select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
-    assume {:print "$at(95,1664,1763)"} true;
-    assume ($t6 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
-
-    // assume Identical($t7, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:384:9+47
-    assume {:print "$at(95,16622,16669)"} true;
-    assume ($t7 == $1_signer_$address_of($t0));
-
-    // assume Identical($t8, global<coin::CoinStore<aptos_coin::AptosCoin>>($t7)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:385:9+59
-    assume {:print "$at(95,16678,16737)"} true;
-    assume ($t8 == $ResourceValue($1_coin_CoinStore'$1_aptos_coin_AptosCoin'_$memory, $t7));
-
-    // assume Identical($t9, select coin::Coin.value(select coin::CoinStore.coin($t8))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:386:9+36
-    assume {:print "$at(95,16746,16782)"} true;
-    assume ($t9 == $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($coin#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'($t8)));
-
-    // assume Identical($t10, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:394:9+47
-    assume {:print "$at(95,17076,17123)"} true;
-    assume ($t10 == $1_signer_$address_of($t0));
-
-    // assume Identical($t11, global<coin::CoinStore<aptos_coin::AptosCoin>>($t10)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:395:9+59
-    assume {:print "$at(95,17132,17191)"} true;
-    assume ($t11 == $ResourceValue($1_coin_CoinStore'$1_aptos_coin_AptosCoin'_$memory, $t10));
-
-    // assume Identical($t12, select coin::Coin.value(select coin::CoinStore.coin($t11))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:396:9+36
-    assume {:print "$at(95,17200,17236)"} true;
-    assume ($t12 == $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($coin#$1_coin_CoinStore'$1_aptos_coin_AptosCoin'($t11)));
-
-    // $t13 := coin::withdraw<aptos_coin::AptosCoin>($t0, $t1) on_abort goto L2 with $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:613:43+40
-    assume {:print "$at(131,28037,28077)"} true;
-    call $t13 := $1_coin_withdraw'$1_aptos_coin_AptosCoin'($t0, $t1);
-    if ($abort_flag) {
-        assume {:print "$at(131,28037,28077)"} true;
-        $t4 := $abort_code;
-        assume {:print "$track_abort(38,0):", $t4} $t4 == $t4;
-        goto L2;
-    }
-
-    // assume Identical($t14, select stake::OwnerCapability.pool_address($t5)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:257:9+42
-    assume {:print "$at(132,11192,11234)"} true;
-    assume ($t14 == $pool_address#$1_stake_OwnerCapability($t5));
-
-    // assume Identical($t15, select coin::Coin.value($t13)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:260:9+25
-    assume {:print "$at(132,11296,11321)"} true;
-    assume ($t15 == $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($t13));
-
-    // assume Identical($t16, global<stake::ValidatorSet>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:261:9+59
-    assume {:print "$at(132,11330,11389)"} true;
-    assume ($t16 == $ResourceValue($1_stake_ValidatorSet_$memory, 1));
-
-    // assume Identical($t17, global<staking_config::StakingConfig>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:262:9+69
-    assume {:print "$at(132,11398,11467)"} true;
-    assume ($t17 == $ResourceValue($1_staking_config_StakingConfig_$memory, 1));
-
-    // assume Identical($t18, select staking_config::StakingConfig.voting_power_increase_limit($t17)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:263:9+69
-    assume {:print "$at(132,11476,11545)"} true;
-    assume ($t18 == $voting_power_increase_limit#$1_staking_config_StakingConfig($t17));
-
-    // assume Identical($t19, And(Neq<u64>($t15, 0), Or(stake::spec_contains(select stake::ValidatorSet.active_validators($t16), $t14), stake::spec_contains(select stake::ValidatorSet.pending_active($t16), $t14)))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:265:9+232
-    assume {:print "$at(132,11632,11864)"} true;
-    assume ($t19 == (!$IsEqual'u64'($t15, 0) && ($1_stake_spec_contains($active_validators#$1_stake_ValidatorSet($t16), $t14) || $1_stake_spec_contains($pending_active#$1_stake_ValidatorSet($t16), $t14))));
-
-    // assume Identical($t20, global<stake::StakePool>($t14)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:274:9+49
-    assume {:print "$at(132,12516,12565)"} true;
-    assume ($t20 == $ResourceValue($1_stake_StakePool_$memory, $t14));
-
-    // assume Identical($t21, select coin::Coin.value(select stake::StakePool.pending_active($t20))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:276:9+59
-    assume {:print "$at(132,12642,12701)"} true;
-    assume ($t21 == $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($pending_active#$1_stake_StakePool($t20)));
-
-    // assume Identical($t22, select coin::Coin.value(select stake::StakePool.active($t20))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:277:9+43
-    assume {:print "$at(132,12710,12753)"} true;
-    assume ($t22 == $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($active#$1_stake_StakePool($t20)));
-
-    // assume Identical($t23, select staking_config::StakingConfig.maximum_stake($t17)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:281:9+41
-    assume {:print "$at(132,13052,13093)"} true;
-    assume ($t23 == $maximum_stake#$1_staking_config_StakingConfig($t17));
-
-    // assume Identical($t24, select coin::Coin.value(select stake::StakePool.pending_inactive($t20))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:282:9+63
-    assume {:print "$at(132,13102,13165)"} true;
-    assume ($t24 == $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($pending_inactive#$1_stake_StakePool($t20)));
-
-    // assume Identical($t25, Add(Add($t21, $t22), $t24)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:283:9+91
-    assume {:print "$at(132,13174,13265)"} true;
-    assume ($t25 == (($t21 + $t22) + $t24));
-
-    // assume Identical($t26, Add($t25, $t15)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:284:9+52
-    assume {:print "$at(132,13274,13326)"} true;
-    assume ($t26 == ($t25 + $t15));
-
-    // stake::add_stake_with_cap($t5, $t13) on_abort goto L2 with $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:613:9+75
-    assume {:print "$at(131,28003,28078)"} true;
-    call $1_stake_add_stake_with_cap($t5, $t13);
-    if ($abort_flag) {
-        assume {:print "$at(131,28003,28078)"} true;
-        $t4 := $abort_code;
-        assume {:print "$track_abort(38,0):", $t4} $t4 == $t4;
-        goto L2;
-    }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:614:5+1
-    assume {:print "$at(131,28084,28085)"} true;
-L1:
-
-    // return () at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:614:5+1
-    assume {:print "$at(131,28084,28085)"} true;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:614:5+1
-L2:
-
-    // abort($t4) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:614:5+1
-    assume {:print "$at(131,28084,28085)"} true;
-    $abort_code := $t4;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun stake::add_stake_with_cap [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:617:5+2050
-procedure {:inline 1} $1_stake_add_stake_with_cap(_$t0: $1_stake_OwnerCapability, _$t1: $1_coin_Coin'$1_aptos_coin_AptosCoin') returns ()
-{
-    // declare local variables
-    var $t2: $1_option_Option'u64';
-    var $t3: $1_option_Option'u64';
-    var $t4: bool;
-    var $t5: $1_staking_config_StakingConfig;
-    var $t6: int;
-    var $t7: int;
-    var $t8: int;
-    var $t9: $Mutation ($1_stake_StakePool);
-    var $t10: $Mutation ($1_stake_ValidatorSet);
-    var $t11: int;
-    var $t12: int;
-    var $t13: $1_stake_ValidatorSet;
-    var $t14: $1_staking_config_StakingConfig;
-    var $t15: int;
-    var $t16: bool;
-    var $t17: $1_stake_StakePool;
-    var $t18: int;
-    var $t19: int;
-    var $t20: int;
-    var $t21: int;
-    var $t22: int;
-    var $t23: int;
-    var $t24: int;
-    var $t25: int;
-    var $t26: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t27: int;
-    var $t28: int;
-    var $t29: bool;
-    var $t30: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t31: int;
-    var $t32: $Mutation ($1_stake_ValidatorSet);
-    var $t33: Vec ($1_stake_ValidatorInfo);
-    var $t34: $1_option_Option'u64';
-    var $t35: bool;
-    var $t36: bool;
-    var $t37: Vec ($1_stake_ValidatorInfo);
-    var $t38: $1_option_Option'u64';
-    var $t39: int;
-    var $t40: $1_stake_ValidatorSet;
-    var $t41: $1_staking_config_StakingConfig;
-    var $t42: int;
-    var $t43: $Mutation ($1_stake_StakePool);
-    var $t44: bool;
-    var $t45: $Mutation ($1_coin_Coin'$1_aptos_coin_AptosCoin');
-    var $t46: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t47: $Mutation ($1_coin_Coin'$1_aptos_coin_AptosCoin');
-    var $t48: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t49: $1_staking_config_StakingConfig;
-    var $t50: int;
-    var $t51: int;
-    var $t52: $1_stake_StakePool;
-    var $t53: int;
-    var $t54: bool;
-    var $t55: int;
-    var $t56: int;
-    var $t57: $Mutation ($1_event_EventHandle'$1_stake_AddStakeEvent');
-    var $t58: $1_stake_AddStakeEvent;
-    var $t0: $1_stake_OwnerCapability;
-    var $t1: $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $temp_0'$1_coin_Coin'$1_aptos_coin_AptosCoin'': $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $temp_0'$1_stake_OwnerCapability': $1_stake_OwnerCapability;
-    var $temp_0'$1_stake_StakePool': $1_stake_StakePool;
-    var $temp_0'$1_stake_ValidatorSet': $1_stake_ValidatorSet;
-    var $temp_0'address': int;
-    var $temp_0'u64': int;
-    $t0 := _$t0;
-    $t1 := _$t1;
-
-    // bytecode translation starts here
-    // assume Identical($t11, select stake::OwnerCapability.pool_address($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:257:9+42
-    assume {:print "$at(132,11192,11234)"} true;
-    assume ($t11 == $pool_address#$1_stake_OwnerCapability($t0));
-
-    // assume Identical($t12, select coin::Coin.value($t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:260:9+25
-    assume {:print "$at(132,11296,11321)"} true;
-    assume ($t12 == $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($t1));
-
-    // assume Identical($t13, global<stake::ValidatorSet>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:261:9+59
-    assume {:print "$at(132,11330,11389)"} true;
-    assume ($t13 == $ResourceValue($1_stake_ValidatorSet_$memory, 1));
-
-    // assume Identical($t14, global<staking_config::StakingConfig>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:262:9+69
-    assume {:print "$at(132,11398,11467)"} true;
-    assume ($t14 == $ResourceValue($1_staking_config_StakingConfig_$memory, 1));
-
-    // assume Identical($t15, select staking_config::StakingConfig.voting_power_increase_limit($t14)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:263:9+69
-    assume {:print "$at(132,11476,11545)"} true;
-    assume ($t15 == $voting_power_increase_limit#$1_staking_config_StakingConfig($t14));
-
-    // assume Identical($t16, And(Neq<u64>($t12, 0), Or(stake::spec_contains(select stake::ValidatorSet.active_validators($t13), $t11), stake::spec_contains(select stake::ValidatorSet.pending_active($t13), $t11)))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:265:9+232
-    assume {:print "$at(132,11632,11864)"} true;
-    assume ($t16 == (!$IsEqual'u64'($t12, 0) && ($1_stake_spec_contains($active_validators#$1_stake_ValidatorSet($t13), $t11) || $1_stake_spec_contains($pending_active#$1_stake_ValidatorSet($t13), $t11))));
-
-    // assume Identical($t17, global<stake::StakePool>($t11)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:274:9+49
-    assume {:print "$at(132,12516,12565)"} true;
-    assume ($t17 == $ResourceValue($1_stake_StakePool_$memory, $t11));
-
-    // assume Identical($t18, select coin::Coin.value(select stake::StakePool.pending_active($t17))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:276:9+59
-    assume {:print "$at(132,12642,12701)"} true;
-    assume ($t18 == $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($pending_active#$1_stake_StakePool($t17)));
-
-    // assume Identical($t19, select coin::Coin.value(select stake::StakePool.active($t17))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:277:9+43
-    assume {:print "$at(132,12710,12753)"} true;
-    assume ($t19 == $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($active#$1_stake_StakePool($t17)));
-
-    // assume Identical($t20, select staking_config::StakingConfig.maximum_stake($t14)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:281:9+41
-    assume {:print "$at(132,13052,13093)"} true;
-    assume ($t20 == $maximum_stake#$1_staking_config_StakingConfig($t14));
-
-    // assume Identical($t21, select coin::Coin.value(select stake::StakePool.pending_inactive($t17))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:282:9+63
-    assume {:print "$at(132,13102,13165)"} true;
-    assume ($t21 == $value#$1_coin_Coin'$1_aptos_coin_AptosCoin'($pending_inactive#$1_stake_StakePool($t17)));
-
-    // assume Identical($t22, Add(Add($t18, $t19), $t21)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:283:9+91
-    assume {:print "$at(132,13174,13265)"} true;
-    assume ($t22 == (($t18 + $t19) + $t21));
-
-    // assume Identical($t23, Add($t22, $t12)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:284:9+52
-    assume {:print "$at(132,13274,13326)"} true;
-    assume ($t23 == ($t22 + $t12));
-
-    // assume exists<stake::AptosCoinCapabilities>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:382:9+57
-    assume {:print "$at(132,17398,17455)"} true;
-    assume $ResourceExists($1_stake_AptosCoinCapabilities_$memory, 1);
-
-    // assume exists<stake::ValidatorPerformance>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:383:9+56
-    assume {:print "$at(132,17464,17520)"} true;
-    assume $ResourceExists($1_stake_ValidatorPerformance_$memory, 1);
-
-    // assume exists<stake::ValidatorSet>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:384:9+48
-    assume {:print "$at(132,17529,17577)"} true;
-    assume $ResourceExists($1_stake_ValidatorSet_$memory, 1);
-
-    // assume exists<staking_config::StakingConfig>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:385:9+49
-    assume {:print "$at(132,17586,17635)"} true;
-    assume $ResourceExists($1_staking_config_StakingConfig_$memory, 1);
-
-    // assume Or(exists<staking_config::StakingRewardsConfig>(1), Not(features::spec_periodical_reward_rate_decrease_enabled())) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:386:9+117
-    assume {:print "$at(132,17644,17761)"} true;
-    assume ($ResourceExists($1_staking_config_StakingRewardsConfig_$memory, 1) || !$1_features_spec_periodical_reward_rate_decrease_enabled());
-
-    // assume exists<timestamp::CurrentTimeMicroseconds>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:387:9+70
-    assume {:print "$at(132,17770,17840)"} true;
-    assume $ResourceExists($1_timestamp_CurrentTimeMicroseconds_$memory, 1);
-
-    // assume exists<stake::ValidatorFees>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:388:9+49
-    assume {:print "$at(132,17849,17898)"} true;
-    assume $ResourceExists($1_stake_ValidatorFees_$memory, 1);
-
-    // trace_local[owner_cap]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:617:5+1
-    assume {:print "$at(131,28193,28194)"} true;
-    assume {:print "$track_local(38,1,0):", $t0} $t0 == $t0;
-
-    // trace_local[coins]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:617:5+1
-    assume {:print "$track_local(38,1,1):", $t1} $t1 == $t1;
-
-    // $t24 := get_field<stake::OwnerCapability>.pool_address($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:618:28+22
-    assume {:print "$at(131,28338,28360)"} true;
-    $t24 := $pool_address#$1_stake_OwnerCapability($t0);
-
-    // trace_local[pool_address]($t24) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:618:13+12
-    assume {:print "$track_local(38,1,8):", $t24} $t24 == $t24;
-
-    // stake::assert_stake_pool_exists($t24) on_abort goto L14 with $t25 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:619:9+38
-    assume {:print "$at(131,28370,28408)"} true;
-    call $1_stake_assert_stake_pool_exists($t24);
-    if ($abort_flag) {
-        assume {:print "$at(131,28370,28408)"} true;
-        $t25 := $abort_code;
-        assume {:print "$track_abort(38,1):", $t25} $t25 == $t25;
-        goto L14;
-    }
-
-    // assume Identical($t26, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>(select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
-    assume {:print "$at(95,1664,1763)"} true;
-    assume ($t26 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
-
-    // $t27 := coin::value<aptos_coin::AptosCoin>($t1) on_abort goto L14 with $t25 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:621:22+19
-    assume {:print "$at(131,28432,28451)"} true;
-    call $t27 := $1_coin_value'$1_aptos_coin_AptosCoin'($t1);
-    if ($abort_flag) {
-        assume {:print "$at(131,28432,28451)"} true;
-        $t25 := $abort_code;
-        assume {:print "$track_abort(38,1):", $t25} $t25 == $t25;
-        goto L14;
-    }
-
-    // trace_local[amount]($t27) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:621:13+6
-    assume {:print "$track_local(38,1,6):", $t27} $t27 == $t27;
-
-    // $t28 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:622:23+1
-    assume {:print "$at(131,28475,28476)"} true;
-    $t28 := 0;
-    assume $IsValid'u64'($t28);
-
-    // $t29 := ==($t27, $t28) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:622:20+2
-    $t29 := $IsEqual'u64'($t27, $t28);
-
-    // if ($t29) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:622:9+86
-    if ($t29) { goto L1; } else { goto L0; }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:623:32+5
-    assume {:print "$at(131,28511,28516)"} true;
-L1:
-
-    // assume Identical($t30, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>(select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
-    assume {:print "$at(95,1664,1763)"} true;
-    assume ($t30 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
-
-    // coin::destroy_zero<aptos_coin::AptosCoin>($t1) on_abort goto L14 with $t25 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:623:13+25
-    assume {:print "$at(131,28492,28517)"} true;
-    call $1_coin_destroy_zero'$1_aptos_coin_AptosCoin'($t1);
-    if ($abort_flag) {
-        assume {:print "$at(131,28492,28517)"} true;
-        $t25 := $abort_code;
-        assume {:print "$track_abort(38,1):", $t25} $t25 == $t25;
-        goto L14;
-    }
-
-    // goto L13 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:624:13+6
-    assume {:print "$at(131,28531,28537)"} true;
-    goto L13;
-
-    // label L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:630:61+16
-    assume {:print "$at(131,28898,28914)"} true;
-L0:
-
-    // $t31 := 0x1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:630:61+16
-    assume {:print "$at(131,28898,28914)"} true;
-    $t31 := 1;
-    assume $IsValid'address'($t31);
-
-    // $t32 := borrow_global<stake::ValidatorSet>($t31) on_abort goto L14 with $t25 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:630:29+17
-    if (!$ResourceExists($1_stake_ValidatorSet_$memory, $t31)) {
-        call $ExecFailureAbort();
-    } else {
-        $t32 := $Mutation($Global($t31), EmptyVec(), $ResourceValue($1_stake_ValidatorSet_$memory, $t31));
-    }
-    if ($abort_flag) {
-        assume {:print "$at(131,28866,28883)"} true;
-        $t25 := $abort_code;
-        assume {:print "$track_abort(38,1):", $t25} $t25 == $t25;
-        goto L14;
-    }
-
-    // trace_local[validator_set]($t32) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:630:13+13
-    $temp_0'$1_stake_ValidatorSet' := $Dereference($t32);
-    assume {:print "$track_local(38,1,10):", $temp_0'$1_stake_ValidatorSet'} $temp_0'$1_stake_ValidatorSet' == $temp_0'$1_stake_ValidatorSet';
-
-    // $t33 := get_field<stake::ValidatorSet>.active_validators($t32) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:45+32
-    assume {:print "$at(131,29051,29083)"} true;
-    $t33 := $active_validators#$1_stake_ValidatorSet($Dereference($t32));
-
-    // $t34 := opaque begin: stake::find_validator($t33, $t24) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:30+62
-
-    // assume And(WellFormed($t34), Le(Len<u64>(select option::Option.vec($t34)), 1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:30+62
-    assume ($IsValid'$1_option_Option'u64''($t34) && (LenVec($vec#$1_option_Option'u64'($t34)) <= 1));
-
-    // assume Implies(option::$is_none<u64>($t34), forall i: Range(0, Len<stake::ValidatorInfo>($t33)): Neq<address>(select stake::ValidatorInfo.addr(Index($t33, i)), $t24)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:30+62
-    assume ($1_option_$is_none'u64'($t34) ==> (var $range_0 := $Range(0, LenVec($t33)); (forall $i_1: int :: $InRange($range_0, $i_1) ==> (var i := $i_1;
-    (!$IsEqual'address'($addr#$1_stake_ValidatorInfo(ReadVec($t33, i)), $t24))))));
-
-    // assume Implies(option::$is_some<u64>($t34), Eq<address>(select stake::ValidatorInfo.addr(Index($t33, option::$borrow<u64>($t34))), $t24)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:30+62
-    assume ($1_option_$is_some'u64'($t34) ==> $IsEqual'address'($addr#$1_stake_ValidatorInfo(ReadVec($t33, $1_option_$borrow'u64'($t34))), $t24));
-
-    // assume Implies(option::$is_some<u64>($t34), stake::spec_contains($t33, $t24)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:30+62
-    assume ($1_option_$is_some'u64'($t34) ==> $1_stake_spec_contains($t33, $t24));
-
-    // $t34 := opaque end: stake::find_validator($t33, $t24) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:30+62
-
-    // $t35 := opaque begin: option::is_some<u64>($t34) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:13+80
-
-    // assume WellFormed($t35) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:13+80
-    assume $IsValid'bool'($t35);
-
-    // assume Eq<bool>($t35, option::spec_is_some<u64>($t34)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:13+80
-    assume $IsEqual'bool'($t35, $1_option_spec_is_some'u64'($t34));
-
-    // $t35 := opaque end: option::is_some<u64>($t34) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:13+80
-
-    // if ($t35) goto L3 else goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:13+173
-    if ($t35) { goto L3; } else { goto L2; }
-
-    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:13+173
-L3:
-
-    // destroy($t32) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:13+173
-    assume {:print "$at(131,29019,29192)"} true;
-
-    // $t36 := true at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:13+173
-    $t36 := true;
-    assume $IsValid'bool'($t36);
-
-    // $t4 := $t36 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:13+173
-    $t4 := $t36;
-
-    // goto L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:13+173
-    goto L4;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:633:46+13
-    assume {:print "$at(131,29148,29161)"} true;
-L2:
-
-    // $t37 := get_field<stake::ValidatorSet>.pending_active($t32) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:633:45+29
-    assume {:print "$at(131,29147,29176)"} true;
-    $t37 := $pending_active#$1_stake_ValidatorSet($Dereference($t32));
-
-    // $t38 := opaque begin: stake::find_validator($t37, $t24) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:633:30+59
-
-    // assume And(WellFormed($t38), Le(Len<u64>(select option::Option.vec($t38)), 1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:633:30+59
-    assume ($IsValid'$1_option_Option'u64''($t38) && (LenVec($vec#$1_option_Option'u64'($t38)) <= 1));
-
-    // assume Implies(option::$is_none<u64>($t38), forall i: Range(0, Len<stake::ValidatorInfo>($t37)): Neq<address>(select stake::ValidatorInfo.addr(Index($t37, i)), $t24)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:633:30+59
-    assume ($1_option_$is_none'u64'($t38) ==> (var $range_0 := $Range(0, LenVec($t37)); (forall $i_1: int :: $InRange($range_0, $i_1) ==> (var i := $i_1;
-    (!$IsEqual'address'($addr#$1_stake_ValidatorInfo(ReadVec($t37, i)), $t24))))));
-
-    // assume Implies(option::$is_some<u64>($t38), Eq<address>(select stake::ValidatorInfo.addr(Index($t37, option::$borrow<u64>($t38))), $t24)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:633:30+59
-    assume ($1_option_$is_some'u64'($t38) ==> $IsEqual'address'($addr#$1_stake_ValidatorInfo(ReadVec($t37, $1_option_$borrow'u64'($t38))), $t24));
-
-    // assume Implies(option::$is_some<u64>($t38), stake::spec_contains($t37, $t24)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:633:30+59
-    assume ($1_option_$is_some'u64'($t38) ==> $1_stake_spec_contains($t37, $t24));
-
-    // $t38 := opaque end: stake::find_validator($t37, $t24) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:633:30+59
-
-    // $t4 := opaque begin: option::is_some<u64>($t38) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:633:13+77
-
-    // assume WellFormed($t4) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:633:13+77
-    assume $IsValid'bool'($t4);
-
-    // assume Eq<bool>($t4, option::spec_is_some<u64>($t38)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:633:13+77
-    assume $IsEqual'bool'($t4, $1_option_spec_is_some'u64'($t38));
-
-    // $t4 := opaque end: option::is_some<u64>($t38) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:633:13+77
-
-    // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:13+173
-    assume {:print "$at(131,29019,29192)"} true;
-L4:
-
-    // if ($t4) goto L6 else goto L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:632:9+240
-    assume {:print "$at(131,29015,29255)"} true;
-    if ($t4) { goto L6; } else { goto L5; }
-
-    // label L6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:634:42+6
-    assume {:print "$at(131,29237,29243)"} true;
-L6:
-
-    // assume Identical($t39, 1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:302:9+29
-    assume {:print "$at(132,13815,13844)"} true;
-    assume ($t39 == 1);
-
-    // assume Identical($t40, global<stake::ValidatorSet>($t39)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:303:9+52
-    assume {:print "$at(132,13853,13905)"} true;
-    assume ($t40 == $ResourceValue($1_stake_ValidatorSet_$memory, $t39));
-
-    // assume Identical($t41, global<staking_config::StakingConfig>($t39)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:305:9+66
-    assume {:print "$at(132,13976,14042)"} true;
-    assume ($t41 == $ResourceValue($1_staking_config_StakingConfig_$memory, $t39));
-
-    // assume Identical($t42, select staking_config::StakingConfig.voting_power_increase_limit($t41)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:306:9+77
-    assume {:print "$at(132,14051,14128)"} true;
-    assume ($t42 == $voting_power_increase_limit#$1_staking_config_StakingConfig($t41));
-
-    // stake::update_voting_power_increase($t27) on_abort goto L14 with $t25 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:634:13+36
-    assume {:print "$at(131,29208,29244)"} true;
-    call $1_stake_update_voting_power_increase($t27);
-    if ($abort_flag) {
-        assume {:print "$at(131,29208,29244)"} true;
-        $t25 := $abort_code;
-        assume {:print "$track_abort(38,1):", $t25} $t25 == $t25;
-        goto L14;
-    }
-
-    // label L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:639:55+12
-    assume {:print "$at(131,29546,29558)"} true;
-L5:
-
-    // $t43 := borrow_global<stake::StakePool>($t24) on_abort goto L14 with $t25 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:639:26+17
-    assume {:print "$at(131,29517,29534)"} true;
-    if (!$ResourceExists($1_stake_StakePool_$memory, $t24)) {
-        call $ExecFailureAbort();
-    } else {
-        $t43 := $Mutation($Global($t24), EmptyVec(), $ResourceValue($1_stake_StakePool_$memory, $t24));
-    }
-    if ($abort_flag) {
-        assume {:print "$at(131,29517,29534)"} true;
-        $t25 := $abort_code;
-        assume {:print "$track_abort(38,1):", $t25} $t25 == $t25;
-        goto L14;
-    }
-
-    // trace_local[stake_pool]($t43) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:639:13+10
-    $temp_0'$1_stake_StakePool' := $Dereference($t43);
-    assume {:print "$track_local(38,1,9):", $temp_0'$1_stake_StakePool'} $temp_0'$1_stake_StakePool' == $temp_0'$1_stake_StakePool';
-
-    // $t44 := stake::is_current_epoch_validator($t24) on_abort goto L14 with $t25 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:640:13+40
-    assume {:print "$at(131,29573,29613)"} true;
-    call $t44 := $1_stake_is_current_epoch_validator($t24);
-    if ($abort_flag) {
-        assume {:print "$at(131,29573,29613)"} true;
-        $t25 := $abort_code;
-        assume {:print "$track_abort(38,1):", $t25} $t25 == $t25;
-        goto L14;
-    }
-
-    // if ($t44) goto L8 else goto L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:640:9+216
-    if ($t44) { goto L8; } else { goto L7; }
-
-    // label L8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:641:41+10
-    assume {:print "$at(131,29657,29667)"} true;
-L8:
-
-    // $t45 := borrow_field<stake::StakePool>.pending_active($t43) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:641:36+30
-    assume {:print "$at(131,29652,29682)"} true;
-    $t45 := $ChildMutation($t43, 2, $pending_active#$1_stake_StakePool($Dereference($t43)));
-
-    // assume Identical($t46, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>(select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
-    assume {:print "$at(95,1664,1763)"} true;
-    assume ($t46 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
-
-    // coin::merge<aptos_coin::AptosCoin>($t45, $t1) on_abort goto L14 with $t25 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:641:13+61
-    assume {:print "$at(131,29629,29690)"} true;
-    call $t45 := $1_coin_merge'$1_aptos_coin_AptosCoin'($t45, $t1);
-    if ($abort_flag) {
-        assume {:print "$at(131,29629,29690)"} true;
-        $t25 := $abort_code;
-        assume {:print "$track_abort(38,1):", $t25} $t25 == $t25;
-        goto L14;
-    }
-
-    // write_back[Reference($t43).pending_active (coin::Coin<aptos_coin::AptosCoin>)]($t45) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:641:13+61
-    $t43 := $UpdateMutation($t43, $Update'$1_stake_StakePool'_pending_active($Dereference($t43), $Dereference($t45)));
-
-    // goto L9 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:641:74+1
-    goto L9;
-
-    // label L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:643:41+10
-    assume {:print "$at(131,29749,29759)"} true;
-L7:
-
-    // $t47 := borrow_field<stake::StakePool>.active($t43) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:643:36+22
-    assume {:print "$at(131,29744,29766)"} true;
-    $t47 := $ChildMutation($t43, 0, $active#$1_stake_StakePool($Dereference($t43)));
-
-    // assume Identical($t48, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>(select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
-    assume {:print "$at(95,1664,1763)"} true;
-    assume ($t48 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
-
-    // coin::merge<aptos_coin::AptosCoin>($t47, $t1) on_abort goto L14 with $t25 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:643:13+53
-    assume {:print "$at(131,29721,29774)"} true;
-    call $t47 := $1_coin_merge'$1_aptos_coin_AptosCoin'($t47, $t1);
-    if ($abort_flag) {
-        assume {:print "$at(131,29721,29774)"} true;
-        $t25 := $abort_code;
-        assume {:print "$track_abort(38,1):", $t25} $t25 == $t25;
-        goto L14;
-    }
-
-    // write_back[Reference($t43).active (coin::Coin<aptos_coin::AptosCoin>)]($t47) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:643:13+53
-    $t43 := $UpdateMutation($t43, $Update'$1_stake_StakePool'_active($Dereference($t43), $Dereference($t47)));
-
-    // label L9 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:646:70+21
-    assume {:print "$at(131,29857,29878)"} true;
-L9:
-
-    // $t49 := staking_config::get() on_abort goto L14 with $t25 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:646:70+21
-    assume {:print "$at(131,29857,29878)"} true;
-    call $t49 := $1_staking_config_get();
-    if ($abort_flag) {
-        assume {:print "$at(131,29857,29878)"} true;
-        $t25 := $abort_code;
-        assume {:print "$track_abort(38,1):", $t25} $t25 == $t25;
-        goto L14;
-    }
-
-    // ($t50, $t51) := staking_config::get_required_stake($t49) on_abort goto L14 with $t25 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:646:34+58
-    call $t50,$t51 := $1_staking_config_get_required_stake($t49);
-    if ($abort_flag) {
-        assume {:print "$at(131,29821,29879)"} true;
-        $t25 := $abort_code;
-        assume {:print "$track_abort(38,1):", $t25} $t25 == $t25;
-        goto L14;
-    }
-
-    // trace_local[maximum_stake]($t51) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:646:17+13
-    assume {:print "$track_local(38,1,7):", $t51} $t51 == $t51;
-
-    // destroy($t50) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:646:14+1
-
-    // $t52 := read_ref($t43) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:647:56+10
-    assume {:print "$at(131,29936,29946)"} true;
-    $t52 := $Dereference($t43);
-
-    // $t53 := stake::get_next_epoch_voting_power($t52) on_abort goto L14 with $t25 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:647:28+39
-    call $t53 := $1_stake_get_next_epoch_voting_power($t52);
-    if ($abort_flag) {
-        assume {:print "$at(131,29908,29947)"} true;
-        $t25 := $abort_code;
-        assume {:print "$track_abort(38,1):", $t25} $t25 == $t25;
-        goto L14;
-    }
-
-    // $t54 := <=($t53, $t51) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:648:30+2
-    assume {:print "$at(131,29978,29980)"} true;
-    call $t54 := $Le($t53, $t51);
-
-    // if ($t54) goto L11 else goto L10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:648:9+83
-    if ($t54) { goto L11; } else { goto L10; }
-
-    // label L11 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:648:9+83
-L11:
-
-    // goto L12 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:648:9+83
-    assume {:print "$at(131,29957,30040)"} true;
-    goto L12;
-
-    // label L10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:648:9+83
-L10:
-
-    // write_back[stake::StakePool@]($t43) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:648:9+83
-    assume {:print "$at(131,29957,30040)"} true;
-    $1_stake_StakePool_$memory := $ResourceUpdate($1_stake_StakePool_$memory, $GlobalLocationAddress($t43),
-        $Dereference($t43));
-
-    // destroy($t43) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:648:9+83
-
-    // $t55 := 7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:648:72+18
-    $t55 := 7;
-    assume $IsValid'u64'($t55);
-
-    // $t56 := error::invalid_argument($t55) on_abort goto L14 with $t25 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:648:48+43
-    call $t56 := $1_error_invalid_argument($t55);
-    if ($abort_flag) {
-        assume {:print "$at(131,29996,30039)"} true;
-        $t25 := $abort_code;
-        assume {:print "$track_abort(38,1):", $t25} $t25 == $t25;
-        goto L14;
-    }
-
-    // trace_abort($t56) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:648:9+83
-    assume {:print "$at(131,29957,30040)"} true;
-    assume {:print "$track_abort(38,1):", $t56} $t56 == $t56;
-
-    // $t25 := move($t56) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:648:9+83
-    $t25 := $t56;
-
-    // goto L14 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:648:9+83
-    goto L14;
-
-    // label L12 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:651:18+10
-    assume {:print "$at(131,30087,30097)"} true;
-L12:
-
-    // $t57 := borrow_field<stake::StakePool>.add_stake_events($t43) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:651:13+32
-    assume {:print "$at(131,30082,30114)"} true;
-    $t57 := $ChildMutation($t43, 9, $add_stake_events#$1_stake_StakePool($Dereference($t43)));
-
-    // $t58 := pack stake::AddStakeEvent($t24, $t27) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:652:13+97
-    assume {:print "$at(131,30128,30225)"} true;
-    $t58 := $1_stake_AddStakeEvent($t24, $t27);
-
-    // opaque begin: event::emit_event<stake::AddStakeEvent>($t57, $t58) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:650:9+185
-    assume {:print "$at(131,30051,30236)"} true;
-
-    // opaque end: event::emit_event<stake::AddStakeEvent>($t57, $t58) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:650:9+185
-
-    // write_back[Reference($t43).add_stake_events (event::EventHandle<stake::AddStakeEvent>)]($t57) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:650:9+185
-    $t43 := $UpdateMutation($t43, $Update'$1_stake_StakePool'_add_stake_events($Dereference($t43), $Dereference($t57)));
-
-    // write_back[stake::StakePool@]($t43) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:650:9+185
-    $1_stake_StakePool_$memory := $ResourceUpdate($1_stake_StakePool_$memory, $GlobalLocationAddress($t43),
-        $Dereference($t43));
-
-    // label L13 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:657:5+1
-    assume {:print "$at(131,30242,30243)"} true;
-L13:
-
-    // return () at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:657:5+1
-    assume {:print "$at(131,30242,30243)"} true;
-    return;
-
-    // label L14 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:657:5+1
-L14:
-
-    // abort($t25) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:657:5+1
-    assume {:print "$at(131,30242,30243)"} true;
-    $abort_code := $t25;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun stake::assert_owner_cap_exists [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1350:5+140
-procedure {:inline 1} $1_stake_assert_owner_cap_exists(_$t0: int) returns ()
-{
-    // declare local variables
-    var $t1: bool;
-    var $t2: int;
-    var $t3: int;
-    var $t4: int;
-    var $t0: int;
-    var $temp_0'address': int;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[owner]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1350:5+1
-    assume {:print "$at(131,64386,64387)"} true;
-    assume {:print "$track_local(38,4,0):", $t0} $t0 == $t0;
-
-    // $t1 := exists<stake::OwnerCapability>($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1351:17+6
-    assume {:print "$at(131,64448,64454)"} true;
-    $t1 := $ResourceExists($1_stake_OwnerCapability_$memory, $t0);
-
-    // if ($t1) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1351:9+79
-    if ($t1) { goto L1; } else { goto L0; }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1351:9+79
-L1:
-
-    // goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1351:9+79
-    assume {:print "$at(131,64440,64519)"} true;
-    goto L2;
-
-    // label L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1351:66+20
-L0:
-
-    // $t2 := 15 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1351:66+20
-    assume {:print "$at(131,64497,64517)"} true;
-    $t2 := 15;
-    assume $IsValid'u64'($t2);
-
-    // $t3 := error::not_found($t2) on_abort goto L4 with $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1351:49+38
-    call $t3 := $1_error_not_found($t2);
-    if ($abort_flag) {
-        assume {:print "$at(131,64480,64518)"} true;
-        $t4 := $abort_code;
-        assume {:print "$track_abort(38,4):", $t4} $t4 == $t4;
-        goto L4;
-    }
-
-    // trace_abort($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1351:9+79
-    assume {:print "$at(131,64440,64519)"} true;
-    assume {:print "$track_abort(38,4):", $t3} $t3 == $t3;
-
-    // $t4 := move($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1351:9+79
-    $t4 := $t3;
-
-    // goto L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1351:9+79
-    goto L4;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1351:88+1
-L2:
-
-    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1352:5+1
-    assume {:print "$at(131,64525,64526)"} true;
-L3:
-
-    // return () at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1352:5+1
-    assume {:print "$at(131,64525,64526)"} true;
-    return;
-
-    // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1352:5+1
-L4:
-
-    // abort($t4) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1352:5+1
-    assume {:print "$at(131,64525,64526)"} true;
-    $abort_code := $t4;
-    $abort_flag := true;
-    return;
-
-}
-
 // fun stake::assert_stake_pool_exists [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1319:5+162
 procedure {:inline 1} $1_stake_assert_stake_pool_exists(_$t0: int) returns ()
 {
@@ -14930,1959 +8859,166 @@ L4:
 
 }
 
-// fun stake::extract_owner_cap [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:548:5+247
-procedure {:inline 1} $1_stake_extract_owner_cap(_$t0: $signer) returns ($ret0: $1_stake_OwnerCapability)
+// fun stake::get_stake [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:315:5+425
+procedure {:inline 1} $1_stake_get_stake(_$t0: int) returns ($ret0: int, $ret1: int, $ret2: int, $ret3: int)
 {
     // declare local variables
-    var $t1: int;
+    var $t1: $1_stake_StakePool;
     var $t2: int;
-    var $t3: int;
-    var $t4: int;
-    var $t5: $1_stake_OwnerCapability;
-    var $t0: $signer;
-    var $temp_0'$1_stake_OwnerCapability': $1_stake_OwnerCapability;
-    var $temp_0'address': int;
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t2, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:40:9+46
-    assume {:print "$at(132,1834,1880)"} true;
-    assume ($t2 == $1_signer_$address_of($t0));
-
-    // trace_local[owner]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:548:5+1
-    assume {:print "$at(131,24878,24879)"} true;
-    assume {:print "$track_local(38,11,0):", $t0} $t0 == $t0;
-
-    // $t3 := signer::address_of($t0) on_abort goto L2 with $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:549:29+25
-    assume {:print "$at(131,24995,25020)"} true;
-    call $t3 := $1_signer_address_of($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,24995,25020)"} true;
-        $t4 := $abort_code;
-        assume {:print "$track_abort(38,11):", $t4} $t4 == $t4;
-        goto L2;
-    }
-
-    // trace_local[owner_address]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:549:13+13
-    assume {:print "$track_local(38,11,1):", $t3} $t3 == $t3;
-
-    // stake::assert_owner_cap_exists($t3) on_abort goto L2 with $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:550:9+38
-    assume {:print "$at(131,25030,25068)"} true;
-    call $1_stake_assert_owner_cap_exists($t3);
-    if ($abort_flag) {
-        assume {:print "$at(131,25030,25068)"} true;
-        $t4 := $abort_code;
-        assume {:print "$track_abort(38,11):", $t4} $t4 == $t4;
-        goto L2;
-    }
-
-    // $t5 := move_from<stake::OwnerCapability>($t3) on_abort goto L2 with $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:551:9+9
-    assume {:print "$at(131,25078,25087)"} true;
-    if (!$ResourceExists($1_stake_OwnerCapability_$memory, $t3)) {
-        call $ExecFailureAbort();
-    } else {
-        $t5 := $ResourceValue($1_stake_OwnerCapability_$memory, $t3);
-        $1_stake_OwnerCapability_$memory := $ResourceRemove($1_stake_OwnerCapability_$memory, $t3);
-    }
-    if ($abort_flag) {
-        assume {:print "$at(131,25078,25087)"} true;
-        $t4 := $abort_code;
-        assume {:print "$track_abort(38,11):", $t4} $t4 == $t4;
-        goto L2;
-    }
-
-    // trace_return[0]($t5) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:551:9+41
-    assume {:print "$track_return(38,11,0):", $t5} $t5 == $t5;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:552:5+1
-    assume {:print "$at(131,25124,25125)"} true;
-L1:
-
-    // return $t5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:552:5+1
-    assume {:print "$at(131,25124,25125)"} true;
-    $ret0 := $t5;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:552:5+1
-L2:
-
-    // abort($t4) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:552:5+1
-    assume {:print "$at(131,25124,25125)"} true;
-    $abort_code := $t4;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun stake::get_next_epoch_voting_power [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1294:5+471
-procedure {:inline 1} $1_stake_get_next_epoch_voting_power(_$t0: $1_stake_StakePool) returns ($ret0: int)
-{
-    // declare local variables
-    var $t1: int;
-    var $t2: int;
-    var $t3: int;
+    var $t3: $1_stake_StakePool;
     var $t4: $1_coin_Coin'$1_aptos_coin_AptosCoin';
     var $t5: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
     var $t6: int;
-    var $t7: int;
-    var $t8: $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $t9: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t10: int;
-    var $t11: $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $t12: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t13: int;
-    var $t14: int;
+    var $t7: $1_coin_Coin'$1_aptos_coin_AptosCoin';
+    var $t8: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
+    var $t9: int;
+    var $t10: $1_coin_Coin'$1_aptos_coin_AptosCoin';
+    var $t11: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
+    var $t12: int;
+    var $t13: $1_coin_Coin'$1_aptos_coin_AptosCoin';
+    var $t14: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
     var $t15: int;
-    var $t0: $1_stake_StakePool;
+    var $t0: int;
     var $temp_0'$1_stake_StakePool': $1_stake_StakePool;
+    var $temp_0'address': int;
     var $temp_0'u64': int;
     $t0 := _$t0;
 
     // bytecode translation starts here
-    // trace_local[stake_pool]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1294:5+1
-    assume {:print "$at(131,61672,61673)"} true;
-    assume {:print "$track_local(38,18,0):", $t0} $t0 == $t0;
+    // trace_local[pool_address]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:315:5+1
+    assume {:print "$at(131,14196,14197)"} true;
+    assume {:print "$track_local(38,22,0):", $t0} $t0 == $t0;
 
-    // $t4 := get_field<stake::StakePool>.pending_active($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1295:48+26
-    assume {:print "$at(131,61782,61808)"} true;
-    $t4 := $pending_active#$1_stake_StakePool($t0);
+    // stake::assert_stake_pool_exists($t0) on_abort goto L2 with $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:316:9+38
+    assume {:print "$at(131,14291,14329)"} true;
+    call $1_stake_assert_stake_pool_exists($t0);
+    if ($abort_flag) {
+        assume {:print "$at(131,14291,14329)"} true;
+        $t2 := $abort_code;
+        assume {:print "$track_abort(38,22):", $t2} $t2 == $t2;
+        goto L2;
+    }
+
+    // $t3 := get_global<stake::StakePool>($t0) on_abort goto L2 with $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:317:26+13
+    assume {:print "$at(131,14356,14369)"} true;
+    if (!$ResourceExists($1_stake_StakePool_$memory, $t0)) {
+        call $ExecFailureAbort();
+    } else {
+        $t3 := $ResourceValue($1_stake_StakePool_$memory, $t0);
+    }
+    if ($abort_flag) {
+        assume {:print "$at(131,14356,14369)"} true;
+        $t2 := $abort_code;
+        assume {:print "$track_abort(38,22):", $t2} $t2 == $t2;
+        goto L2;
+    }
+
+    // trace_local[stake_pool]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:317:13+10
+    assume {:print "$track_local(38,22,1):", $t3} $t3 == $t3;
+
+    // $t4 := get_field<stake::StakePool>.active($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:319:25+18
+    assume {:print "$at(131,14430,14448)"} true;
+    $t4 := $active#$1_stake_StakePool($t3);
 
     // assume Identical($t5, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>(select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
     assume {:print "$at(95,1664,1763)"} true;
     assume ($t5 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
 
-    // $t6 := coin::value<aptos_coin::AptosCoin>($t4) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1295:36+39
-    assume {:print "$at(131,61770,61809)"} true;
+    // $t6 := coin::value<aptos_coin::AptosCoin>($t4) on_abort goto L2 with $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:319:13+31
+    assume {:print "$at(131,14418,14449)"} true;
     call $t6 := $1_coin_value'$1_aptos_coin_AptosCoin'($t4);
     if ($abort_flag) {
-        assume {:print "$at(131,61770,61809)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(38,18):", $t7} $t7 == $t7;
+        assume {:print "$at(131,14418,14449)"} true;
+        $t2 := $abort_code;
+        assume {:print "$track_abort(38,22):", $t2} $t2 == $t2;
         goto L2;
     }
 
-    // trace_local[value_pending_active]($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1295:13+20
-    assume {:print "$track_local(38,18,2):", $t6} $t6 == $t6;
+    // $t7 := get_field<stake::StakePool>.inactive($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:320:25+20
+    assume {:print "$at(131,14475,14495)"} true;
+    $t7 := $inactive#$1_stake_StakePool($t3);
 
-    // $t8 := get_field<stake::StakePool>.active($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1296:40+18
-    assume {:print "$at(131,61850,61868)"} true;
-    $t8 := $active#$1_stake_StakePool($t0);
-
-    // assume Identical($t9, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>(select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
+    // assume Identical($t8, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>(select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
     assume {:print "$at(95,1664,1763)"} true;
-    assume ($t9 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
+    assume ($t8 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
 
-    // $t10 := coin::value<aptos_coin::AptosCoin>($t8) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1296:28+31
-    assume {:print "$at(131,61838,61869)"} true;
-    call $t10 := $1_coin_value'$1_aptos_coin_AptosCoin'($t8);
+    // $t9 := coin::value<aptos_coin::AptosCoin>($t7) on_abort goto L2 with $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:320:13+33
+    assume {:print "$at(131,14463,14496)"} true;
+    call $t9 := $1_coin_value'$1_aptos_coin_AptosCoin'($t7);
     if ($abort_flag) {
-        assume {:print "$at(131,61838,61869)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(38,18):", $t7} $t7 == $t7;
+        assume {:print "$at(131,14463,14496)"} true;
+        $t2 := $abort_code;
+        assume {:print "$track_abort(38,22):", $t2} $t2 == $t2;
         goto L2;
     }
 
-    // trace_local[value_active]($t10) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1296:13+12
-    assume {:print "$track_local(38,18,1):", $t10} $t10 == $t10;
+    // $t10 := get_field<stake::StakePool>.pending_active($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:321:25+26
+    assume {:print "$at(131,14522,14548)"} true;
+    $t10 := $pending_active#$1_stake_StakePool($t3);
 
-    // $t11 := get_field<stake::StakePool>.pending_inactive($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1297:50+28
-    assume {:print "$at(131,61920,61948)"} true;
-    $t11 := $pending_inactive#$1_stake_StakePool($t0);
-
-    // assume Identical($t12, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>(select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
+    // assume Identical($t11, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>(select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
     assume {:print "$at(95,1664,1763)"} true;
-    assume ($t12 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
+    assume ($t11 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
 
-    // $t13 := coin::value<aptos_coin::AptosCoin>($t11) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1297:38+41
-    assume {:print "$at(131,61908,61949)"} true;
-    call $t13 := $1_coin_value'$1_aptos_coin_AptosCoin'($t11);
+    // $t12 := coin::value<aptos_coin::AptosCoin>($t10) on_abort goto L2 with $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:321:13+39
+    assume {:print "$at(131,14510,14549)"} true;
+    call $t12 := $1_coin_value'$1_aptos_coin_AptosCoin'($t10);
     if ($abort_flag) {
-        assume {:print "$at(131,61908,61949)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(38,18):", $t7} $t7 == $t7;
+        assume {:print "$at(131,14510,14549)"} true;
+        $t2 := $abort_code;
+        assume {:print "$track_abort(38,22):", $t2} $t2 == $t2;
         goto L2;
     }
 
-    // trace_local[value_pending_inactive]($t13) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1297:13+22
-    assume {:print "$track_local(38,18,3):", $t13} $t13 == $t13;
+    // $t13 := get_field<stake::StakePool>.pending_inactive($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:322:25+28
+    assume {:print "$at(131,14575,14603)"} true;
+    $t13 := $pending_inactive#$1_stake_StakePool($t3);
 
-    // assume Le(Add(Add($t6, $t10), $t13), 18446744073709551615) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1299:13+79
-    assume {:print "$at(131,61978,62057)"} true;
-    assume ((($t6 + $t10) + $t13) <= 18446744073709551615);
+    // assume Identical($t14, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>(select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
+    assume {:print "$at(95,1664,1763)"} true;
+    assume ($t14 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
 
-    // $t14 := +($t6, $t10) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1301:30+1
-    assume {:print "$at(131,62098,62099)"} true;
-    call $t14 := $AddU64($t6, $t10);
+    // $t15 := coin::value<aptos_coin::AptosCoin>($t13) on_abort goto L2 with $t2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:322:13+41
+    assume {:print "$at(131,14563,14604)"} true;
+    call $t15 := $1_coin_value'$1_aptos_coin_AptosCoin'($t13);
     if ($abort_flag) {
-        assume {:print "$at(131,62098,62099)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(38,18):", $t7} $t7 == $t7;
+        assume {:print "$at(131,14563,14604)"} true;
+        $t2 := $abort_code;
+        assume {:print "$track_abort(38,22):", $t2} $t2 == $t2;
         goto L2;
     }
 
-    // $t15 := +($t14, $t13) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1301:45+1
-    call $t15 := $AddU64($t14, $t13);
-    if ($abort_flag) {
-        assume {:print "$at(131,62113,62114)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(38,18):", $t7} $t7 == $t7;
-        goto L2;
-    }
+    // trace_return[0]($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:318:9+211
+    assume {:print "$at(131,14404,14615)"} true;
+    assume {:print "$track_return(38,22,0):", $t6} $t6 == $t6;
 
-    // trace_return[0]($t15) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1301:9+60
-    assume {:print "$track_return(38,18,0):", $t15} $t15 == $t15;
+    // trace_return[1]($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:318:9+211
+    assume {:print "$track_return(38,22,1):", $t9} $t9 == $t9;
 
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1302:5+1
-    assume {:print "$at(131,62142,62143)"} true;
+    // trace_return[2]($t12) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:318:9+211
+    assume {:print "$track_return(38,22,2):", $t12} $t12 == $t12;
+
+    // trace_return[3]($t15) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:318:9+211
+    assume {:print "$track_return(38,22,3):", $t15} $t15 == $t15;
+
+    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:324:5+1
+    assume {:print "$at(131,14620,14621)"} true;
 L1:
 
-    // return $t15 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1302:5+1
-    assume {:print "$at(131,62142,62143)"} true;
-    $ret0 := $t15;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1302:5+1
-L2:
-
-    // abort($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1302:5+1
-    assume {:print "$at(131,62142,62143)"} true;
-    $abort_code := $t7;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun stake::get_validator_state [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:328:5+652
-procedure {:inline 1} $1_stake_get_validator_state(_$t0: int) returns ($ret0: int)
-{
-    // declare local variables
-    var $t1: $1_option_Option'u64';
-    var $t2: $1_option_Option'u64';
-    var $t3: $1_option_Option'u64';
-    var $t4: int;
-    var $t5: int;
-    var $t6: int;
-    var $t7: $1_stake_ValidatorSet;
-    var $t8: $1_stake_ValidatorSet;
-    var $t9: int;
-    var $t10: $1_stake_ValidatorSet;
-    var $t11: int;
-    var $t12: Vec ($1_stake_ValidatorInfo);
-    var $t13: $1_option_Option'u64';
-    var $t14: bool;
-    var $t15: int;
-    var $t16: Vec ($1_stake_ValidatorInfo);
-    var $t17: $1_option_Option'u64';
-    var $t18: bool;
-    var $t19: int;
-    var $t20: Vec ($1_stake_ValidatorInfo);
-    var $t21: $1_option_Option'u64';
-    var $t22: bool;
-    var $t23: int;
-    var $t24: int;
-    var $t0: int;
-    var $temp_0'$1_stake_ValidatorSet': $1_stake_ValidatorSet;
-    var $temp_0'address': int;
-    var $temp_0'u64': int;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume Identical($t8, global<stake::ValidatorSet>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:240:9+59
-    assume {:print "$at(132,10317,10376)"} true;
-    assume ($t8 == $ResourceValue($1_stake_ValidatorSet_$memory, 1));
-
-    // trace_local[pool_address]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:328:5+1
-    assume {:print "$at(131,14678,14679)"} true;
-    assume {:print "$track_local(38,25,0):", $t0} $t0 == $t0;
-
-    // $t9 := 0x1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:329:57+16
-    assume {:print "$at(131,14817,14833)"} true;
-    $t9 := 1;
-    assume $IsValid'address'($t9);
-
-    // $t10 := get_global<stake::ValidatorSet>($t9) on_abort goto L10 with $t11 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:329:29+13
-    if (!$ResourceExists($1_stake_ValidatorSet_$memory, $t9)) {
-        call $ExecFailureAbort();
-    } else {
-        $t10 := $ResourceValue($1_stake_ValidatorSet_$memory, $t9);
-    }
-    if ($abort_flag) {
-        assume {:print "$at(131,14789,14802)"} true;
-        $t11 := $abort_code;
-        assume {:print "$track_abort(38,25):", $t11} $t11 == $t11;
-        goto L10;
-    }
-
-    // trace_local[validator_set]($t10) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:329:13+13
-    assume {:print "$track_local(38,25,7):", $t10} $t10 == $t10;
-
-    // $t12 := get_field<stake::ValidatorSet>.pending_active($t10) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:45+29
-    assume {:print "$at(131,14880,14909)"} true;
-    $t12 := $pending_active#$1_stake_ValidatorSet($t10);
-
-    // $t13 := opaque begin: stake::find_validator($t12, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:30+59
-
-    // assume And(WellFormed($t13), Le(Len<u64>(select option::Option.vec($t13)), 1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:30+59
-    assume ($IsValid'$1_option_Option'u64''($t13) && (LenVec($vec#$1_option_Option'u64'($t13)) <= 1));
-
-    // assume Implies(option::$is_none<u64>($t13), forall i: Range(0, Len<stake::ValidatorInfo>($t12)): Neq<address>(select stake::ValidatorInfo.addr(Index($t12, i)), $t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:30+59
-    assume ($1_option_$is_none'u64'($t13) ==> (var $range_0 := $Range(0, LenVec($t12)); (forall $i_1: int :: $InRange($range_0, $i_1) ==> (var i := $i_1;
-    (!$IsEqual'address'($addr#$1_stake_ValidatorInfo(ReadVec($t12, i)), $t0))))));
-
-    // assume Implies(option::$is_some<u64>($t13), Eq<address>(select stake::ValidatorInfo.addr(Index($t12, option::$borrow<u64>($t13))), $t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:30+59
-    assume ($1_option_$is_some'u64'($t13) ==> $IsEqual'address'($addr#$1_stake_ValidatorInfo(ReadVec($t12, $1_option_$borrow'u64'($t13))), $t0));
-
-    // assume Implies(option::$is_some<u64>($t13), stake::spec_contains($t12, $t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:30+59
-    assume ($1_option_$is_some'u64'($t13) ==> $1_stake_spec_contains($t12, $t0));
-
-    // $t13 := opaque end: stake::find_validator($t12, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:30+59
-
-    // $t14 := opaque begin: option::is_some<u64>($t13) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:13+77
-
-    // assume WellFormed($t14) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:13+77
-    assume $IsValid'bool'($t14);
-
-    // assume Eq<bool>($t14, option::spec_is_some<u64>($t13)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:13+77
-    assume $IsEqual'bool'($t14, $1_option_spec_is_some'u64'($t13));
-
-    // $t14 := opaque end: option::is_some<u64>($t13) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:13+77
-
-    // if ($t14) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:9+480
-    if ($t14) { goto L1; } else { goto L0; }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:9+480
-L1:
-
-    // $t15 := 1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:331:13+31
-    assume {:print "$at(131,14941,14972)"} true;
-    $t15 := 1;
-    assume $IsValid'u64'($t15);
-
-    // $t6 := $t15 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:9+480
-    assume {:print "$at(131,14844,15324)"} true;
-    $t6 := $t15;
-
-    // goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:9+480
-    goto L2;
-
-    // label L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:53+13
-    assume {:print "$at(131,15025,15038)"} true;
-L0:
-
-    // $t16 := get_field<stake::ValidatorSet>.active_validators($t10) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:52+32
-    assume {:print "$at(131,15024,15056)"} true;
-    $t16 := $active_validators#$1_stake_ValidatorSet($t10);
-
-    // $t17 := opaque begin: stake::find_validator($t16, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:37+62
-
-    // assume And(WellFormed($t17), Le(Len<u64>(select option::Option.vec($t17)), 1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:37+62
-    assume ($IsValid'$1_option_Option'u64''($t17) && (LenVec($vec#$1_option_Option'u64'($t17)) <= 1));
-
-    // assume Implies(option::$is_none<u64>($t17), forall i: Range(0, Len<stake::ValidatorInfo>($t16)): Neq<address>(select stake::ValidatorInfo.addr(Index($t16, i)), $t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:37+62
-    assume ($1_option_$is_none'u64'($t17) ==> (var $range_0 := $Range(0, LenVec($t16)); (forall $i_1: int :: $InRange($range_0, $i_1) ==> (var i := $i_1;
-    (!$IsEqual'address'($addr#$1_stake_ValidatorInfo(ReadVec($t16, i)), $t0))))));
-
-    // assume Implies(option::$is_some<u64>($t17), Eq<address>(select stake::ValidatorInfo.addr(Index($t16, option::$borrow<u64>($t17))), $t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:37+62
-    assume ($1_option_$is_some'u64'($t17) ==> $IsEqual'address'($addr#$1_stake_ValidatorInfo(ReadVec($t16, $1_option_$borrow'u64'($t17))), $t0));
-
-    // assume Implies(option::$is_some<u64>($t17), stake::spec_contains($t16, $t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:37+62
-    assume ($1_option_$is_some'u64'($t17) ==> $1_stake_spec_contains($t16, $t0));
-
-    // $t17 := opaque end: stake::find_validator($t16, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:37+62
-
-    // $t18 := opaque begin: option::is_some<u64>($t17) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:20+80
-
-    // assume WellFormed($t18) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:20+80
-    assume $IsValid'bool'($t18);
-
-    // assume Eq<bool>($t18, option::spec_is_some<u64>($t17)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:20+80
-    assume $IsEqual'bool'($t18, $1_option_spec_is_some'u64'($t17));
-
-    // $t18 := opaque end: option::is_some<u64>($t17) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:20+80
-
-    // if ($t18) goto L4 else goto L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:16+336
-    if ($t18) { goto L4; } else { goto L3; }
-
-    // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:16+336
-L4:
-
-    // $t19 := 2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:333:13+23
-    assume {:print "$at(131,15088,15111)"} true;
-    $t19 := 2;
-    assume $IsValid'u64'($t19);
-
-    // $t5 := $t19 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:16+336
-    assume {:print "$at(131,14988,15324)"} true;
-    $t5 := $t19;
-
-    // goto L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:16+336
-    goto L5;
-
-    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:334:53+13
-    assume {:print "$at(131,15164,15177)"} true;
-L3:
-
-    // $t20 := get_field<stake::ValidatorSet>.pending_inactive($t10) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:334:52+31
-    assume {:print "$at(131,15163,15194)"} true;
-    $t20 := $pending_inactive#$1_stake_ValidatorSet($t10);
-
-    // $t21 := opaque begin: stake::find_validator($t20, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:334:37+61
-
-    // assume And(WellFormed($t21), Le(Len<u64>(select option::Option.vec($t21)), 1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:334:37+61
-    assume ($IsValid'$1_option_Option'u64''($t21) && (LenVec($vec#$1_option_Option'u64'($t21)) <= 1));
-
-    // assume Implies(option::$is_none<u64>($t21), forall i: Range(0, Len<stake::ValidatorInfo>($t20)): Neq<address>(select stake::ValidatorInfo.addr(Index($t20, i)), $t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:334:37+61
-    assume ($1_option_$is_none'u64'($t21) ==> (var $range_0 := $Range(0, LenVec($t20)); (forall $i_1: int :: $InRange($range_0, $i_1) ==> (var i := $i_1;
-    (!$IsEqual'address'($addr#$1_stake_ValidatorInfo(ReadVec($t20, i)), $t0))))));
-
-    // assume Implies(option::$is_some<u64>($t21), Eq<address>(select stake::ValidatorInfo.addr(Index($t20, option::$borrow<u64>($t21))), $t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:334:37+61
-    assume ($1_option_$is_some'u64'($t21) ==> $IsEqual'address'($addr#$1_stake_ValidatorInfo(ReadVec($t20, $1_option_$borrow'u64'($t21))), $t0));
-
-    // assume Implies(option::$is_some<u64>($t21), stake::spec_contains($t20, $t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:334:37+61
-    assume ($1_option_$is_some'u64'($t21) ==> $1_stake_spec_contains($t20, $t0));
-
-    // $t21 := opaque end: stake::find_validator($t20, $t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:334:37+61
-
-    // $t22 := opaque begin: option::is_some<u64>($t21) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:334:20+79
-
-    // assume WellFormed($t22) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:334:20+79
-    assume $IsValid'bool'($t22);
-
-    // assume Eq<bool>($t22, option::spec_is_some<u64>($t21)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:334:20+79
-    assume $IsEqual'bool'($t22, $1_option_spec_is_some'u64'($t21));
-
-    // $t22 := opaque end: option::is_some<u64>($t21) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:334:20+79
-
-    // if ($t22) goto L7 else goto L6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:334:16+197
-    if ($t22) { goto L7; } else { goto L6; }
-
-    // label L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:335:13+33
-    assume {:print "$at(131,15226,15259)"} true;
-L7:
-
-    // $t23 := 3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:335:13+33
-    assume {:print "$at(131,15226,15259)"} true;
-    $t23 := 3;
-    assume $IsValid'u64'($t23);
-
-    // $t4 := $t23 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:334:16+197
-    assume {:print "$at(131,15127,15324)"} true;
-    $t4 := $t23;
-
-    // goto L8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:334:16+197
-    goto L8;
-
-    // label L6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:337:13+25
-    assume {:print "$at(131,15289,15314)"} true;
-L6:
-
-    // $t24 := 4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:337:13+25
-    assume {:print "$at(131,15289,15314)"} true;
-    $t24 := 4;
-    assume $IsValid'u64'($t24);
-
-    // $t4 := $t24 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:334:16+197
-    assume {:print "$at(131,15127,15324)"} true;
-    $t4 := $t24;
-
-    // label L8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:334:16+197
-L8:
-
-    // $t5 := $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:16+336
-    assume {:print "$at(131,14988,15324)"} true;
-    $t5 := $t4;
-
-    // label L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:332:16+336
-L5:
-
-    // $t6 := $t5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:9+480
-    assume {:print "$at(131,14844,15324)"} true;
-    $t6 := $t5;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:9+480
-L2:
-
-    // trace_return[0]($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:330:9+480
-    assume {:print "$at(131,14844,15324)"} true;
-    assume {:print "$track_return(38,25,0):", $t6} $t6 == $t6;
-
-    // label L9 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:339:5+1
-    assume {:print "$at(131,15329,15330)"} true;
-L9:
-
-    // return $t6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:339:5+1
-    assume {:print "$at(131,15329,15330)"} true;
+    // return ($t6, $t9, $t12, $t15) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:324:5+1
+    assume {:print "$at(131,14620,14621)"} true;
     $ret0 := $t6;
+    $ret1 := $t9;
+    $ret2 := $t12;
+    $ret3 := $t15;
     return;
 
-    // label L10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:339:5+1
-L10:
-
-    // abort($t11) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:339:5+1
-    assume {:print "$at(131,15329,15330)"} true;
-    $abort_code := $t11;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun stake::initialize_owner [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:516:5+1928
-procedure {:inline 1} $1_stake_initialize_owner(_$t0: $signer) returns ()
-{
-    // declare local variables
-    var $t1: $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $t2: $1_event_EventHandle'$1_stake_AddStakeEvent';
-    var $t3: $1_event_EventHandle'$1_stake_ReactivateStakeEvent';
-    var $t4: $1_event_EventHandle'$1_stake_RotateConsensusKeyEvent';
-    var $t5: $1_event_EventHandle'$1_stake_UpdateNetworkAndFullnodeAddressesEvent';
-    var $t6: $1_event_EventHandle'$1_stake_IncreaseLockupEvent';
-    var $t7: $1_event_EventHandle'$1_stake_JoinValidatorSetEvent';
-    var $t8: $1_event_EventHandle'$1_stake_DistributeRewardsEvent';
-    var $t9: $1_event_EventHandle'$1_stake_UnlockStakeEvent';
-    var $t10: $1_event_EventHandle'$1_stake_WithdrawStakeEvent';
-    var $t11: $1_event_EventHandle'$1_stake_LeaveValidatorSetEvent';
-    var $t12: $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $t13: $signer;
-    var $t14: $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $t15: $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $t16: int;
-    var $t17: int;
-    var $t18: $1_event_EventHandle'$1_stake_RegisterValidatorCandidateEvent';
-    var $t19: $1_event_EventHandle'$1_stake_SetOperatorEvent';
-    var $t20: int;
-    var $t21: int;
-    var $t22: int;
-    var $t23: bool;
-    var $t24: int;
-    var $t25: int;
-    var $t26: bool;
-    var $t27: bool;
-    var $t28: int;
-    var $t29: int;
-    var $t30: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t31: $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $t32: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t33: $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $t34: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t35: $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $t36: $1_option_Option'$1_optional_aggregator_OptionalAggregator';
-    var $t37: $1_coin_Coin'$1_aptos_coin_AptosCoin';
-    var $t38: int;
-    var $t39: $1_account_Account;
-    var $t40: $1_event_EventHandle'$1_stake_RegisterValidatorCandidateEvent';
-    var $t41: int;
-    var $t42: $1_account_Account;
-    var $t43: $1_event_EventHandle'$1_stake_SetOperatorEvent';
-    var $t44: int;
-    var $t45: $1_account_Account;
-    var $t46: $1_event_EventHandle'$1_stake_AddStakeEvent';
-    var $t47: int;
-    var $t48: $1_account_Account;
-    var $t49: $1_event_EventHandle'$1_stake_ReactivateStakeEvent';
-    var $t50: int;
-    var $t51: $1_account_Account;
-    var $t52: $1_event_EventHandle'$1_stake_RotateConsensusKeyEvent';
-    var $t53: int;
-    var $t54: $1_account_Account;
-    var $t55: $1_event_EventHandle'$1_stake_UpdateNetworkAndFullnodeAddressesEvent';
-    var $t56: int;
-    var $t57: $1_account_Account;
-    var $t58: $1_event_EventHandle'$1_stake_IncreaseLockupEvent';
-    var $t59: int;
-    var $t60: $1_account_Account;
-    var $t61: $1_event_EventHandle'$1_stake_JoinValidatorSetEvent';
-    var $t62: int;
-    var $t63: $1_account_Account;
-    var $t64: $1_event_EventHandle'$1_stake_DistributeRewardsEvent';
-    var $t65: int;
-    var $t66: $1_account_Account;
-    var $t67: $1_event_EventHandle'$1_stake_UnlockStakeEvent';
-    var $t68: int;
-    var $t69: $1_account_Account;
-    var $t70: $1_event_EventHandle'$1_stake_WithdrawStakeEvent';
-    var $t71: int;
-    var $t72: $1_account_Account;
-    var $t73: $1_event_EventHandle'$1_stake_LeaveValidatorSetEvent';
-    var $t74: int;
-    var $t75: $1_stake_StakePool;
-    var $t76: $1_stake_OwnerCapability;
-    var $t0: $signer;
-    var $temp_0'address': int;
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[owner]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:516:5+1
-    assume {:print "$at(131,22874,22875)"} true;
-    assume {:print "$track_local(38,29,0):", $t0} $t0 == $t0;
-
-    // $t21 := signer::address_of($t0) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:517:29+25
-    assume {:print "$at(131,22968,22993)"} true;
-    call $t21 := $1_signer_address_of($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,22968,22993)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // trace_local[owner_address]($t21) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:517:13+13
-    assume {:print "$track_local(38,29,20):", $t21} $t21 == $t21;
-
-    // $t23 := stake::is_allowed($t21) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:518:17+25
-    assume {:print "$at(131,23011,23036)"} true;
-    call $t23 := $1_stake_is_allowed($t21);
-    if ($abort_flag) {
-        assume {:print "$at(131,23011,23036)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // if ($t23) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:518:9+75
-    if ($t23) { goto L1; } else { goto L0; }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:518:9+75
-L1:
-
-    // goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:518:9+75
-    assume {:print "$at(131,23003,23078)"} true;
-    goto L2;
-
-    // label L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:518:9+75
-L0:
-
-    // $t24 := 17 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:518:61+21
-    assume {:print "$at(131,23055,23076)"} true;
-    $t24 := 17;
-    assume $IsValid'u64'($t24);
-
-    // $t25 := error::not_found($t24) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:518:44+39
-    call $t25 := $1_error_not_found($t24);
-    if ($abort_flag) {
-        assume {:print "$at(131,23038,23077)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // trace_abort($t25) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:518:9+75
-    assume {:print "$at(131,23003,23078)"} true;
-    assume {:print "$track_abort(38,29):", $t25} $t25 == $t25;
-
-    // $t22 := move($t25) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:518:9+75
-    $t22 := $t25;
-
-    // goto L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:518:9+75
-    goto L7;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:519:36+13
-    assume {:print "$at(131,23115,23128)"} true;
+    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:324:5+1
 L2:
 
-    // $t26 := stake::stake_pool_exists($t21) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:519:18+32
-    assume {:print "$at(131,23097,23129)"} true;
-    call $t26 := $1_stake_stake_pool_exists($t21);
-    if ($abort_flag) {
-        assume {:print "$at(131,23097,23129)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // $t27 := !($t26) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:519:17+1
-    call $t27 := $Not($t26);
-
-    // if ($t27) goto L4 else goto L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:519:9+86
-    if ($t27) { goto L4; } else { goto L3; }
-
-    // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:519:9+86
-L4:
-
-    // goto L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:519:9+86
-    assume {:print "$at(131,23088,23174)"} true;
-    goto L5;
-
-    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:519:9+86
-L3:
-
-    // $t28 := 8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:519:74+19
-    assume {:print "$at(131,23153,23172)"} true;
-    $t28 := 8;
-    assume $IsValid'u64'($t28);
-
-    // $t29 := error::already_exists($t28) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:519:52+42
-    call $t29 := $1_error_already_exists($t28);
-    if ($abort_flag) {
-        assume {:print "$at(131,23131,23173)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // trace_abort($t29) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:519:9+86
-    assume {:print "$at(131,23088,23174)"} true;
-    assume {:print "$track_abort(38,29):", $t29} $t29 == $t29;
-
-    // $t22 := move($t29) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:519:9+86
-    $t22 := $t29;
-
-    // goto L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:519:9+86
-    goto L7;
-
-    // label L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:521:17+5
-    assume {:print "$at(131,23193,23198)"} true;
-L5:
-
-    // assume Identical($t30, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>(select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
-    assume {:print "$at(95,1664,1763)"} true;
-    assume ($t30 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
-
-    // $t31 := coin::zero<aptos_coin::AptosCoin>() on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:522:21+23
-    assume {:print "$at(131,23232,23255)"} true;
-    call $t31 := $1_coin_zero'$1_aptos_coin_AptosCoin'();
-    if ($abort_flag) {
-        assume {:print "$at(131,23232,23255)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // assume Identical($t32, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>(select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
-    assume {:print "$at(95,1664,1763)"} true;
-    assume ($t32 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
-
-    // $t33 := coin::zero<aptos_coin::AptosCoin>() on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:523:29+23
-    assume {:print "$at(131,23285,23308)"} true;
-    call $t33 := $1_coin_zero'$1_aptos_coin_AptosCoin'();
-    if ($abort_flag) {
-        assume {:print "$at(131,23285,23308)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // assume Identical($t34, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>(select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
-    assume {:print "$at(95,1664,1763)"} true;
-    assume ($t34 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
-
-    // $t35 := coin::zero<aptos_coin::AptosCoin>() on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:524:31+23
-    assume {:print "$at(131,23340,23363)"} true;
-    call $t35 := $1_coin_zero'$1_aptos_coin_AptosCoin'();
-    if ($abort_flag) {
-        assume {:print "$at(131,23340,23363)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // assume Identical($t36, select coin::CoinInfo.supply(global<coin::CoinInfo<aptos_coin::AptosCoin>>(select type_info::TypeInfo.account_address(type_info::$type_of<aptos_coin::AptosCoin>())))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/coin.spec.move:32:9+99
-    assume {:print "$at(95,1664,1763)"} true;
-    assume ($t36 == $supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $account_address#$1_type_info_TypeInfo($1_type_info_TypeInfo(1, Vec(DefaultVecMap()[0 := 97][1 := 112][2 := 116][3 := 111][4 := 115][5 := 95][6 := 99][7 := 111][8 := 105][9 := 110], 10), Vec(DefaultVecMap()[0 := 65][1 := 112][2 := 116][3 := 111][4 := 115][5 := 67][6 := 111][7 := 105][8 := 110], 9))))));
-
-    // $t37 := coin::zero<aptos_coin::AptosCoin>() on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:525:23+23
-    assume {:print "$at(131,23387,23410)"} true;
-    call $t37 := $1_coin_zero'$1_aptos_coin_AptosCoin'();
-    if ($abort_flag) {
-        assume {:print "$at(131,23387,23410)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // assume Identical($t38, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t38 == $1_signer_$address_of($t0));
-
-    // assume Identical($t39, global<account::Account>($t38)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t39 == $ResourceValue($1_account_Account_$memory, $t38));
-
-    // $t40 := account::new_event_handle<stake::RegisterValidatorCandidateEvent>($t0) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:530:42+65
-    assume {:print "$at(131,23599,23664)"} true;
-    call $t40 := $1_account_new_event_handle'$1_stake_RegisterValidatorCandidateEvent'($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,23599,23664)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // assume Identical($t41, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t41 == $1_signer_$address_of($t0));
-
-    // assume Identical($t42, global<account::Account>($t41)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t42 == $ResourceValue($1_account_Account_$memory, $t41));
-
-    // $t43 := account::new_event_handle<stake::SetOperatorEvent>($t0) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:531:34+50
-    assume {:print "$at(131,23699,23749)"} true;
-    call $t43 := $1_account_new_event_handle'$1_stake_SetOperatorEvent'($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,23699,23749)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // assume Identical($t44, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t44 == $1_signer_$address_of($t0));
-
-    // assume Identical($t45, global<account::Account>($t44)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t45 == $ResourceValue($1_account_Account_$memory, $t44));
-
-    // $t46 := account::new_event_handle<stake::AddStakeEvent>($t0) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:532:31+47
-    assume {:print "$at(131,23781,23828)"} true;
-    call $t46 := $1_account_new_event_handle'$1_stake_AddStakeEvent'($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,23781,23828)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // assume Identical($t47, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t47 == $1_signer_$address_of($t0));
-
-    // assume Identical($t48, global<account::Account>($t47)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t48 == $ResourceValue($1_account_Account_$memory, $t47));
-
-    // $t49 := account::new_event_handle<stake::ReactivateStakeEvent>($t0) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:533:38+54
-    assume {:print "$at(131,23867,23921)"} true;
-    call $t49 := $1_account_new_event_handle'$1_stake_ReactivateStakeEvent'($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,23867,23921)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // assume Identical($t50, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t50 == $1_signer_$address_of($t0));
-
-    // assume Identical($t51, global<account::Account>($t50)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t51 == $ResourceValue($1_account_Account_$memory, $t50));
-
-    // $t52 := account::new_event_handle<stake::RotateConsensusKeyEvent>($t0) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:534:42+57
-    assume {:print "$at(131,23964,24021)"} true;
-    call $t52 := $1_account_new_event_handle'$1_stake_RotateConsensusKeyEvent'($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,23964,24021)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // assume Identical($t53, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t53 == $1_signer_$address_of($t0));
-
-    // assume Identical($t54, global<account::Account>($t53)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t54 == $ResourceValue($1_account_Account_$memory, $t53));
-
-    // $t55 := account::new_event_handle<stake::UpdateNetworkAndFullnodeAddressesEvent>($t0) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:535:59+72
-    assume {:print "$at(131,24081,24153)"} true;
-    call $t55 := $1_account_new_event_handle'$1_stake_UpdateNetworkAndFullnodeAddressesEvent'($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,24081,24153)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // assume Identical($t56, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t56 == $1_signer_$address_of($t0));
-
-    // assume Identical($t57, global<account::Account>($t56)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t57 == $ResourceValue($1_account_Account_$memory, $t56));
-
-    // $t58 := account::new_event_handle<stake::IncreaseLockupEvent>($t0) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:536:37+53
-    assume {:print "$at(131,24191,24244)"} true;
-    call $t58 := $1_account_new_event_handle'$1_stake_IncreaseLockupEvent'($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,24191,24244)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // assume Identical($t59, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t59 == $1_signer_$address_of($t0));
-
-    // assume Identical($t60, global<account::Account>($t59)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t60 == $ResourceValue($1_account_Account_$memory, $t59));
-
-    // $t61 := account::new_event_handle<stake::JoinValidatorSetEvent>($t0) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:537:40+55
-    assume {:print "$at(131,24285,24340)"} true;
-    call $t61 := $1_account_new_event_handle'$1_stake_JoinValidatorSetEvent'($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,24285,24340)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // assume Identical($t62, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t62 == $1_signer_$address_of($t0));
-
-    // assume Identical($t63, global<account::Account>($t62)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t63 == $ResourceValue($1_account_Account_$memory, $t62));
-
-    // $t64 := account::new_event_handle<stake::DistributeRewardsEvent>($t0) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:538:40+56
-    assume {:print "$at(131,24381,24437)"} true;
-    call $t64 := $1_account_new_event_handle'$1_stake_DistributeRewardsEvent'($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,24381,24437)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // assume Identical($t65, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t65 == $1_signer_$address_of($t0));
-
-    // assume Identical($t66, global<account::Account>($t65)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t66 == $ResourceValue($1_account_Account_$memory, $t65));
-
-    // $t67 := account::new_event_handle<stake::UnlockStakeEvent>($t0) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:539:34+50
-    assume {:print "$at(131,24472,24522)"} true;
-    call $t67 := $1_account_new_event_handle'$1_stake_UnlockStakeEvent'($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,24472,24522)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // assume Identical($t68, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t68 == $1_signer_$address_of($t0));
-
-    // assume Identical($t69, global<account::Account>($t68)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t69 == $ResourceValue($1_account_Account_$memory, $t68));
-
-    // $t70 := account::new_event_handle<stake::WithdrawStakeEvent>($t0) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:540:36+52
-    assume {:print "$at(131,24559,24611)"} true;
-    call $t70 := $1_account_new_event_handle'$1_stake_WithdrawStakeEvent'($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,24559,24611)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // assume Identical($t71, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:444:9+39
-    assume {:print "$at(73,21670,21709)"} true;
-    assume ($t71 == $1_signer_$address_of($t0));
-
-    // assume Identical($t72, global<account::Account>($t71)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:445:9+36
-    assume {:print "$at(73,21718,21754)"} true;
-    assume ($t72 == $ResourceValue($1_account_Account_$memory, $t71));
-
-    // $t73 := account::new_event_handle<stake::LeaveValidatorSetEvent>($t0) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:541:41+56
-    assume {:print "$at(131,24653,24709)"} true;
-    call $t73 := $1_account_new_event_handle'$1_stake_LeaveValidatorSetEvent'($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,24653,24709)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // $t74 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:526:32+1
-    assume {:print "$at(131,23443,23444)"} true;
-    $t74 := 0;
-    assume $IsValid'u64'($t74);
-
-    // $t75 := pack stake::StakePool($t31, $t37, $t33, $t35, $t74, $t21, $t21, $t40, $t43, $t46, $t49, $t52, $t55, $t58, $t61, $t64, $t67, $t70, $t73) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:521:24+1520
-    assume {:print "$at(131,23200,24720)"} true;
-    $t75 := $1_stake_StakePool($t31, $t37, $t33, $t35, $t74, $t21, $t21, $t40, $t43, $t46, $t49, $t52, $t55, $t58, $t61, $t64, $t67, $t70, $t73);
-
-    // move_to<stake::StakePool>($t75, $t0) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:521:9+7
-    if ($ResourceExists($1_stake_StakePool_$memory, $addr#$signer($t0))) {
-        call $ExecFailureAbort();
-    } else {
-        $1_stake_StakePool_$memory := $ResourceUpdate($1_stake_StakePool_$memory, $addr#$signer($t0), $t75);
-    }
-    if ($abort_flag) {
-        assume {:print "$at(131,23185,23192)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // $t76 := pack stake::OwnerCapability($t21) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:544:24+47
-    assume {:print "$at(131,24747,24794)"} true;
-    $t76 := $1_stake_OwnerCapability($t21);
-
-    // move_to<stake::OwnerCapability>($t76, $t0) on_abort goto L7 with $t22 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:544:9+7
-    if ($ResourceExists($1_stake_OwnerCapability_$memory, $addr#$signer($t0))) {
-        call $ExecFailureAbort();
-    } else {
-        $1_stake_OwnerCapability_$memory := $ResourceUpdate($1_stake_OwnerCapability_$memory, $addr#$signer($t0), $t76);
-    }
-    if ($abort_flag) {
-        assume {:print "$at(131,24732,24739)"} true;
-        $t22 := $abort_code;
-        assume {:print "$track_abort(38,29):", $t22} $t22 == $t22;
-        goto L7;
-    }
-
-    // label L6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:545:5+1
-    assume {:print "$at(131,24801,24802)"} true;
-L6:
-
-    // return () at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:545:5+1
-    assume {:print "$at(131,24801,24802)"} true;
-    return;
-
-    // label L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:545:5+1
-L7:
-
-    // abort($t22) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:545:5+1
-    assume {:print "$at(131,24801,24802)"} true;
-    $abort_code := $t22;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun stake::initialize_stake_owner [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:465:5+850
-procedure {:inline 1} $1_stake_initialize_stake_owner(_$t0: $signer, _$t1: int, _$t2: int, _$t3: int) returns ()
-{
-    // declare local variables
-    var $t4: int;
-    var $t5: int;
-    var $t6: Vec (int);
-    var $t7: Vec (int);
-    var $t8: Vec (int);
-    var $t9: int;
-    var $t10: $1_stake_ValidatorConfig;
-    var $t11: int;
-    var $t12: bool;
-    var $t13: int;
-    var $t14: bool;
-    var $t15: bool;
-    var $t0: $signer;
-    var $t1: int;
-    var $t2: int;
-    var $t3: int;
-    var $temp_0'address': int;
-    var $temp_0'signer': $signer;
-    var $temp_0'u64': int;
-    $t0 := _$t0;
-    $t1 := _$t1;
-    $t2 := _$t2;
-    $t3 := _$t3;
-
-    // bytecode translation starts here
-    // assume exists<stake::AptosCoinCapabilities>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:382:9+57
-    assume {:print "$at(132,17398,17455)"} true;
-    assume $ResourceExists($1_stake_AptosCoinCapabilities_$memory, 1);
-
-    // assume exists<stake::ValidatorPerformance>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:383:9+56
-    assume {:print "$at(132,17464,17520)"} true;
-    assume $ResourceExists($1_stake_ValidatorPerformance_$memory, 1);
-
-    // assume exists<stake::ValidatorSet>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:384:9+48
-    assume {:print "$at(132,17529,17577)"} true;
-    assume $ResourceExists($1_stake_ValidatorSet_$memory, 1);
-
-    // assume exists<staking_config::StakingConfig>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:385:9+49
-    assume {:print "$at(132,17586,17635)"} true;
-    assume $ResourceExists($1_staking_config_StakingConfig_$memory, 1);
-
-    // assume Or(exists<staking_config::StakingRewardsConfig>(1), Not(features::spec_periodical_reward_rate_decrease_enabled())) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:386:9+117
-    assume {:print "$at(132,17644,17761)"} true;
-    assume ($ResourceExists($1_staking_config_StakingRewardsConfig_$memory, 1) || !$1_features_spec_periodical_reward_rate_decrease_enabled());
-
-    // assume exists<timestamp::CurrentTimeMicroseconds>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:387:9+70
-    assume {:print "$at(132,17770,17840)"} true;
-    assume $ResourceExists($1_timestamp_CurrentTimeMicroseconds_$memory, 1);
-
-    // assume exists<stake::ValidatorFees>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:388:9+49
-    assume {:print "$at(132,17849,17898)"} true;
-    assume $ResourceExists($1_stake_ValidatorFees_$memory, 1);
-
-    // trace_local[owner]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:465:5+1
-    assume {:print "$at(131,21074,21075)"} true;
-    assume {:print "$track_local(38,30,0):", $t0} $t0 == $t0;
-
-    // trace_local[initial_stake_amount]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:465:5+1
-    assume {:print "$track_local(38,30,1):", $t1} $t1 == $t1;
-
-    // trace_local[operator]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:465:5+1
-    assume {:print "$track_local(38,30,2):", $t2} $t2 == $t2;
-
-    // trace_local[voter]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:465:5+1
-    assume {:print "$track_local(38,30,3):", $t3} $t3 == $t3;
-
-    // stake::initialize_owner($t0) on_abort goto L8 with $t5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:471:9+23
-    assume {:print "$at(131,21310,21333)"} true;
-    call $1_stake_initialize_owner($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,21310,21333)"} true;
-        $t5 := $abort_code;
-        assume {:print "$track_abort(38,30):", $t5} $t5 == $t5;
-        goto L8;
-    }
-
-    // $t6 := vector::empty<u8>() on_abort goto L8 with $t5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:473:31+15
-    assume {:print "$at(131,21406,21421)"} true;
-    call $t6 := $1_vector_empty'u8'();
-    if ($abort_flag) {
-        assume {:print "$at(131,21406,21421)"} true;
-        $t5 := $abort_code;
-        assume {:print "$track_abort(38,30):", $t5} $t5 == $t5;
-        goto L8;
-    }
-
-    // $t7 := vector::empty<u8>() on_abort goto L8 with $t5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:474:32+15
-    assume {:print "$at(131,21454,21469)"} true;
-    call $t7 := $1_vector_empty'u8'();
-    if ($abort_flag) {
-        assume {:print "$at(131,21454,21469)"} true;
-        $t5 := $abort_code;
-        assume {:print "$track_abort(38,30):", $t5} $t5 == $t5;
-        goto L8;
-    }
-
-    // $t8 := vector::empty<u8>() on_abort goto L8 with $t5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:475:33+15
-    assume {:print "$at(131,21503,21518)"} true;
-    call $t8 := $1_vector_empty'u8'();
-    if ($abort_flag) {
-        assume {:print "$at(131,21503,21518)"} true;
-        $t5 := $abort_code;
-        assume {:print "$track_abort(38,30):", $t5} $t5 == $t5;
-        goto L8;
-    }
-
-    // $t9 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:476:30+1
-    assume {:print "$at(131,21549,21550)"} true;
-    $t9 := 0;
-    assume $IsValid'u64'($t9);
-
-    // $t10 := pack stake::ValidatorConfig($t6, $t7, $t8, $t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:472:24+203
-    assume {:print "$at(131,21358,21561)"} true;
-    $t10 := $1_stake_ValidatorConfig($t6, $t7, $t8, $t9);
-
-    // move_to<stake::ValidatorConfig>($t10, $t0) on_abort goto L8 with $t5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:472:9+7
-    if ($ResourceExists($1_stake_ValidatorConfig_$memory, $addr#$signer($t0))) {
-        call $ExecFailureAbort();
-    } else {
-        $1_stake_ValidatorConfig_$memory := $ResourceUpdate($1_stake_ValidatorConfig_$memory, $addr#$signer($t0), $t10);
-    }
-    if ($abort_flag) {
-        assume {:print "$at(131,21343,21350)"} true;
-        $t5 := $abort_code;
-        assume {:print "$track_abort(38,30):", $t5} $t5 == $t5;
-        goto L8;
-    }
-
-    // $t11 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:479:36+1
-    assume {:print "$at(131,21600,21601)"} true;
-    $t11 := 0;
-    assume $IsValid'u64'($t11);
-
-    // $t12 := >($t1, $t11) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:479:34+1
-    call $t12 := $Gt($t1, $t11);
-
-    // if ($t12) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:479:9+93
-    if ($t12) { goto L1; } else { goto L0; }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:480:23+5
-    assume {:print "$at(131,21627,21632)"} true;
-L1:
-
-    // stake::add_stake($t0, $t1) on_abort goto L8 with $t5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:480:13+38
-    assume {:print "$at(131,21617,21655)"} true;
-    call $1_stake_add_stake($t0, $t1);
-    if ($abort_flag) {
-        assume {:print "$at(131,21617,21655)"} true;
-        $t5 := $abort_code;
-        assume {:print "$track_abort(38,30):", $t5} $t5 == $t5;
-        goto L8;
-    }
-
-    // label L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:483:50+5
-    assume {:print "$at(131,21718,21723)"} true;
-L0:
-
-    // $t13 := signer::address_of($t0) on_abort goto L8 with $t5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:483:31+25
-    assume {:print "$at(131,21699,21724)"} true;
-    call $t13 := $1_signer_address_of($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,21699,21724)"} true;
-        $t5 := $abort_code;
-        assume {:print "$track_abort(38,30):", $t5} $t5 == $t5;
-        goto L8;
-    }
-
-    // trace_local[account_address]($t13) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:483:13+15
-    assume {:print "$track_local(38,30,4):", $t13} $t13 == $t13;
-
-    // $t14 := !=($t13, $t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:484:29+2
-    assume {:print "$at(131,21754,21756)"} true;
-    $t14 := !$IsEqual'address'($t13, $t2);
-
-    // if ($t14) goto L3 else goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:484:9+86
-    if ($t14) { goto L3; } else { goto L2; }
-
-    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:485:26+5
-    assume {:print "$at(131,21794,21799)"} true;
-L3:
-
-    // stake::set_operator($t0, $t2) on_abort goto L8 with $t5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:485:13+29
-    assume {:print "$at(131,21781,21810)"} true;
-    call $1_stake_set_operator($t0, $t2);
-    if ($abort_flag) {
-        assume {:print "$at(131,21781,21810)"} true;
-        $t5 := $abort_code;
-        assume {:print "$track_abort(38,30):", $t5} $t5 == $t5;
-        goto L8;
-    }
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:487:13+15
-    assume {:print "$at(131,21834,21849)"} true;
-L2:
-
-    // $t15 := !=($t13, $t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:487:29+2
-    assume {:print "$at(131,21850,21852)"} true;
-    $t15 := !$IsEqual'address'($t13, $t3);
-
-    // if ($t15) goto L5 else goto L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:487:9+87
-    if ($t15) { goto L5; } else { goto L4; }
-
-    // label L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:488:33+5
-    assume {:print "$at(131,21894,21899)"} true;
-L5:
-
-    // stake::set_delegated_voter($t0, $t3) on_abort goto L8 with $t5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:488:13+33
-    assume {:print "$at(131,21874,21907)"} true;
-    call $1_stake_set_delegated_voter($t0, $t3);
-    if ($abort_flag) {
-        assume {:print "$at(131,21874,21907)"} true;
-        $t5 := $abort_code;
-        assume {:print "$track_abort(38,30):", $t5} $t5 == $t5;
-        goto L8;
-    }
-
-    // goto L6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:488:13+33
-    goto L6;
-
-    // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:487:9+87
-    assume {:print "$at(131,21830,21917)"} true;
-L4:
-
-    // label L6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:489:10+1
-    assume {:print "$at(131,21917,21918)"} true;
-L6:
-
-    // label L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:490:5+1
-    assume {:print "$at(131,21923,21924)"} true;
-L7:
-
-    // return () at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:490:5+1
-    assume {:print "$at(131,21923,21924)"} true;
-    return;
-
-    // label L8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:490:5+1
-L8:
-
-    // abort($t5) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:490:5+1
-    assume {:print "$at(131,21923,21924)"} true;
-    $abort_code := $t5;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun stake::is_allowed [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1341:5+313
-procedure {:inline 1} $1_stake_is_allowed(_$t0: int) returns ($ret0: bool)
-{
-    // declare local variables
-    var $t1: bool;
-    var $t2: int;
-    var $t3: bool;
-    var $t4: bool;
-    var $t5: bool;
-    var $t6: int;
-    var $t7: $1_stake_AllowedValidators;
-    var $t8: int;
-    var $t9: Vec (int);
-    var $t0: int;
-    var $temp_0'address': int;
-    var $temp_0'bool': bool;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // trace_local[account]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1341:5+1
-    assume {:print "$at(131,64067,64068)"} true;
-    assume {:print "$track_local(38,33,0):", $t0} $t0 == $t0;
-
-    // $t2 := 0x1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1342:40+16
-    assume {:print "$at(131,64174,64190)"} true;
-    $t2 := 1;
-    assume $IsValid'address'($t2);
-
-    // $t3 := exists<stake::AllowedValidators>($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1342:14+6
-    $t3 := $ResourceExists($1_stake_AllowedValidators_$memory, $t2);
-
-    // $t4 := !($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1342:13+1
-    call $t4 := $Not($t3);
-
-    // if ($t4) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1342:9+231
-    if ($t4) { goto L1; } else { goto L0; }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1343:13+4
-    assume {:print "$at(131,64207,64211)"} true;
-L1:
-
-    // $t5 := true at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1343:13+4
-    assume {:print "$at(131,64207,64211)"} true;
-    $t5 := true;
-    assume $IsValid'bool'($t5);
-
-    // $t1 := $t5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1342:9+231
-    assume {:print "$at(131,64143,64374)"} true;
-    $t1 := $t5;
-
-    // goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1342:9+231
-    goto L2;
-
-    // label L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1345:60+16
-    assume {:print "$at(131,64288,64304)"} true;
-L0:
-
-    // $t6 := 0x1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1345:60+16
-    assume {:print "$at(131,64288,64304)"} true;
-    $t6 := 1;
-    assume $IsValid'address'($t6);
-
-    // $t7 := get_global<stake::AllowedValidators>($t6) on_abort goto L4 with $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1345:27+13
-    if (!$ResourceExists($1_stake_AllowedValidators_$memory, $t6)) {
-        call $ExecFailureAbort();
-    } else {
-        $t7 := $ResourceValue($1_stake_AllowedValidators_$memory, $t6);
-    }
-    if ($abort_flag) {
-        assume {:print "$at(131,64255,64268)"} true;
-        $t8 := $abort_code;
-        assume {:print "$track_abort(38,33):", $t8} $t8 == $t8;
-        goto L4;
-    }
-
-    // $t9 := get_field<stake::AllowedValidators>.accounts($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1346:30+17
-    assume {:print "$at(131,64336,64353)"} true;
-    $t9 := $accounts#$1_stake_AllowedValidators($t7);
-
-    // $t1 := vector::contains<address>($t9, $t0) on_abort goto L4 with $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1346:13+45
-    call $t1 := $1_vector_contains'address'($t9, $t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,64319,64364)"} true;
-        $t8 := $abort_code;
-        assume {:print "$track_abort(38,33):", $t8} $t8 == $t8;
-        goto L4;
-    }
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1342:9+231
-    assume {:print "$at(131,64143,64374)"} true;
-L2:
-
-    // trace_return[0]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1342:9+231
-    assume {:print "$at(131,64143,64374)"} true;
-    assume {:print "$track_return(38,33,0):", $t1} $t1 == $t1;
-
-    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1348:5+1
-    assume {:print "$at(131,64379,64380)"} true;
-L3:
-
-    // return $t1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1348:5+1
-    assume {:print "$at(131,64379,64380)"} true;
-    $ret0 := $t1;
-    return;
-
-    // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1348:5+1
-L4:
-
-    // abort($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1348:5+1
-    assume {:print "$at(131,64379,64380)"} true;
-    $abort_code := $t8;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun stake::is_current_epoch_validator [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:979:5+316
-procedure {:inline 1} $1_stake_is_current_epoch_validator(_$t0: int) returns ($ret0: bool)
-{
-    // declare local variables
-    var $t1: bool;
-    var $t2: int;
-    var $t3: int;
-    var $t4: $1_stake_ValidatorSet;
-    var $t5: int;
-    var $t6: int;
-    var $t7: bool;
-    var $t8: bool;
-    var $t9: int;
-    var $t0: int;
-    var $temp_0'address': int;
-    var $temp_0'bool': bool;
-    var $temp_0'u64': int;
-    $t0 := _$t0;
-
-    // bytecode translation starts here
-    // assume exists<stake::AptosCoinCapabilities>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:382:9+57
-    assume {:print "$at(132,17398,17455)"} true;
-    assume $ResourceExists($1_stake_AptosCoinCapabilities_$memory, 1);
-
-    // assume exists<stake::ValidatorPerformance>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:383:9+56
-    assume {:print "$at(132,17464,17520)"} true;
-    assume $ResourceExists($1_stake_ValidatorPerformance_$memory, 1);
-
-    // assume exists<stake::ValidatorSet>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:384:9+48
-    assume {:print "$at(132,17529,17577)"} true;
-    assume $ResourceExists($1_stake_ValidatorSet_$memory, 1);
-
-    // assume exists<staking_config::StakingConfig>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:385:9+49
-    assume {:print "$at(132,17586,17635)"} true;
-    assume $ResourceExists($1_staking_config_StakingConfig_$memory, 1);
-
-    // assume Or(exists<staking_config::StakingRewardsConfig>(1), Not(features::spec_periodical_reward_rate_decrease_enabled())) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:386:9+117
-    assume {:print "$at(132,17644,17761)"} true;
-    assume ($ResourceExists($1_staking_config_StakingRewardsConfig_$memory, 1) || !$1_features_spec_periodical_reward_rate_decrease_enabled());
-
-    // assume exists<timestamp::CurrentTimeMicroseconds>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:387:9+70
-    assume {:print "$at(132,17770,17840)"} true;
-    assume $ResourceExists($1_timestamp_CurrentTimeMicroseconds_$memory, 1);
-
-    // assume exists<stake::ValidatorFees>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:388:9+49
-    assume {:print "$at(132,17849,17898)"} true;
-    assume $ResourceExists($1_stake_ValidatorFees_$memory, 1);
-
-    // trace_local[pool_address]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:979:5+1
-    assume {:print "$at(131,46317,46318)"} true;
-    assume {:print "$track_local(38,34,0):", $t0} $t0 == $t0;
-
-    // stake::assert_stake_pool_exists($t0) on_abort goto L4 with $t3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:980:9+38
-    assume {:print "$at(131,46416,46454)"} true;
-    call $1_stake_assert_stake_pool_exists($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,46416,46454)"} true;
-        $t3 := $abort_code;
-        assume {:print "$track_abort(38,34):", $t3} $t3 == $t3;
-        goto L4;
-    }
-
-    // assume Identical($t4, global<stake::ValidatorSet>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:240:9+59
-    assume {:print "$at(132,10317,10376)"} true;
-    assume ($t4 == $ResourceValue($1_stake_ValidatorSet_$memory, 1));
-
-    // $t5 := stake::get_validator_state($t0) on_abort goto L4 with $t3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:981:31+33
-    assume {:print "$at(131,46486,46519)"} true;
-    call $t5 := $1_stake_get_validator_state($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,46486,46519)"} true;
-        $t3 := $abort_code;
-        assume {:print "$track_abort(38,34):", $t3} $t3 == $t3;
-        goto L4;
-    }
-
-    // trace_local[validator_state]($t5) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:981:13+15
-    assume {:print "$track_local(38,34,2):", $t5} $t5 == $t5;
-
-    // $t6 := 2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:982:28+23
-    assume {:print "$at(131,46548,46571)"} true;
-    $t6 := 2;
-    assume $IsValid'u64'($t6);
-
-    // $t7 := ==($t5, $t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:982:25+2
-    $t7 := $IsEqual'u64'($t5, $t6);
-
-    // if ($t7) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:982:9+98
-    if ($t7) { goto L1; } else { goto L0; }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:982:9+98
-L1:
-
-    // $t8 := true at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:982:9+98
-    assume {:print "$at(131,46529,46627)"} true;
-    $t8 := true;
-    assume $IsValid'bool'($t8);
-
-    // $t1 := $t8 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:982:9+98
-    $t1 := $t8;
-
-    // goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:982:9+98
-    goto L2;
-
-    // label L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:982:55+15
-L0:
-
-    // $t9 := 3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:982:74+33
-    assume {:print "$at(131,46594,46627)"} true;
-    $t9 := 3;
-    assume $IsValid'u64'($t9);
-
-    // $t1 := ==($t5, $t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:982:71+2
-    $t1 := $IsEqual'u64'($t5, $t9);
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:982:9+98
-L2:
-
-    // trace_return[0]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:982:9+98
-    assume {:print "$at(131,46529,46627)"} true;
-    assume {:print "$track_return(38,34,0):", $t1} $t1 == $t1;
-
-    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:983:5+1
-    assume {:print "$at(131,46632,46633)"} true;
-L3:
-
-    // return $t1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:983:5+1
-    assume {:print "$at(131,46632,46633)"} true;
-    $ret0 := $t1;
-    return;
-
-    // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:983:5+1
-L4:
-
-    // abort($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:983:5+1
-    assume {:print "$at(131,46632,46633)"} true;
-    $abort_code := $t3;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun stake::set_delegated_voter [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:593:5+358
-procedure {:inline 1} $1_stake_set_delegated_voter(_$t0: $signer, _$t1: int) returns ()
-{
-    // declare local variables
-    var $t2: int;
-    var $t3: int;
-    var $t4: int;
-    var $t5: $1_stake_OwnerCapability;
-    var $t6: int;
-    var $t0: $signer;
-    var $t1: int;
-    var $temp_0'address': int;
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-    $t1 := _$t1;
-
-    // bytecode translation starts here
-    // trace_local[owner]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:593:5+1
-    assume {:print "$at(131,26864,26865)"} true;
-    assume {:print "$track_local(38,43,0):", $t0} $t0 == $t0;
-
-    // trace_local[new_voter]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:593:5+1
-    assume {:print "$track_local(38,43,1):", $t1} $t1 == $t1;
-
-    // $t3 := signer::address_of($t0) on_abort goto L2 with $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:594:29+25
-    assume {:print "$at(131,27003,27028)"} true;
-    call $t3 := $1_signer_address_of($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,27003,27028)"} true;
-        $t4 := $abort_code;
-        assume {:print "$track_abort(38,43):", $t4} $t4 == $t4;
-        goto L2;
-    }
-
-    // trace_local[owner_address]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:594:13+13
-    assume {:print "$track_local(38,43,2):", $t3} $t3 == $t3;
-
-    // stake::assert_owner_cap_exists($t3) on_abort goto L2 with $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:595:9+38
-    assume {:print "$at(131,27038,27076)"} true;
-    call $1_stake_assert_owner_cap_exists($t3);
-    if ($abort_flag) {
-        assume {:print "$at(131,27038,27076)"} true;
-        $t4 := $abort_code;
-        assume {:print "$track_abort(38,43):", $t4} $t4 == $t4;
-        goto L2;
-    }
-
-    // $t5 := get_global<stake::OwnerCapability>($t3) on_abort goto L2 with $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:596:29+13
-    assume {:print "$at(131,27106,27119)"} true;
-    if (!$ResourceExists($1_stake_OwnerCapability_$memory, $t3)) {
-        call $ExecFailureAbort();
-    } else {
-        $t5 := $ResourceValue($1_stake_OwnerCapability_$memory, $t3);
-    }
-    if ($abort_flag) {
-        assume {:print "$at(131,27106,27119)"} true;
-        $t4 := $abort_code;
-        assume {:print "$track_abort(38,43):", $t4} $t4 == $t4;
-        goto L2;
-    }
-
-    // assume Identical($t6, select stake::OwnerCapability.pool_address($t5)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:130:9+42
-    assume {:print "$at(132,5857,5899)"} true;
-    assume ($t6 == $pool_address#$1_stake_OwnerCapability($t5));
-
-    // stake::set_delegated_voter_with_cap($t5, $t1) on_abort goto L2 with $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:597:9+54
-    assume {:print "$at(131,27161,27215)"} true;
-    call $1_stake_set_delegated_voter_with_cap($t5, $t1);
-    if ($abort_flag) {
-        assume {:print "$at(131,27161,27215)"} true;
-        $t4 := $abort_code;
-        assume {:print "$track_abort(38,43):", $t4} $t4 == $t4;
-        goto L2;
-    }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:598:5+1
-    assume {:print "$at(131,27221,27222)"} true;
-L1:
-
-    // return () at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:598:5+1
-    assume {:print "$at(131,27221,27222)"} true;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:598:5+1
-L2:
-
-    // abort($t4) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:598:5+1
-    assume {:print "$at(131,27221,27222)"} true;
-    $abort_code := $t4;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun stake::set_delegated_voter_with_cap [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:601:5+331
-procedure {:inline 1} $1_stake_set_delegated_voter_with_cap(_$t0: $1_stake_OwnerCapability, _$t1: int) returns ()
-{
-    // declare local variables
-    var $t2: int;
-    var $t3: $Mutation ($1_stake_StakePool);
-    var $t4: int;
-    var $t5: int;
-    var $t6: int;
-    var $t7: $Mutation ($1_stake_StakePool);
-    var $t8: $Mutation (int);
-    var $t0: $1_stake_OwnerCapability;
-    var $t1: int;
-    var $1_stake_StakePool_$modifies: [int]bool;
-    var $temp_0'$1_stake_OwnerCapability': $1_stake_OwnerCapability;
-    var $temp_0'$1_stake_StakePool': $1_stake_StakePool;
-    var $temp_0'address': int;
-    $t0 := _$t0;
-    $t1 := _$t1;
-
-    // bytecode translation starts here
-    // assume Identical($t4, select stake::OwnerCapability.pool_address($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:130:9+42
-    assume {:print "$at(132,5857,5899)"} true;
-    assume ($t4 == $pool_address#$1_stake_OwnerCapability($t0));
-
-    // trace_local[owner_cap]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:601:5+1
-    assume {:print "$at(131,27301,27302)"} true;
-    assume {:print "$track_local(38,44,0):", $t0} $t0 == $t0;
-
-    // trace_local[new_voter]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:601:5+1
-    assume {:print "$track_local(38,44,1):", $t1} $t1 == $t1;
-
-    // $t5 := get_field<stake::OwnerCapability>.pool_address($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:602:28+22
-    assume {:print "$at(131,27438,27460)"} true;
-    $t5 := $pool_address#$1_stake_OwnerCapability($t0);
-
-    // trace_local[pool_address]($t5) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:602:13+12
-    assume {:print "$track_local(38,44,2):", $t5} $t5 == $t5;
-
-    // stake::assert_stake_pool_exists($t5) on_abort goto L2 with $t6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:603:9+38
-    assume {:print "$at(131,27470,27508)"} true;
-    call $1_stake_assert_stake_pool_exists($t5);
-    if ($abort_flag) {
-        assume {:print "$at(131,27470,27508)"} true;
-        $t6 := $abort_code;
-        assume {:print "$track_abort(38,44):", $t6} $t6 == $t6;
-        goto L2;
-    }
-
-    // $t7 := borrow_global<stake::StakePool>($t5) on_abort goto L2 with $t6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:604:26+17
-    assume {:print "$at(131,27535,27552)"} true;
-    if (!$ResourceExists($1_stake_StakePool_$memory, $t5)) {
-        call $ExecFailureAbort();
-    } else {
-        $t7 := $Mutation($Global($t5), EmptyVec(), $ResourceValue($1_stake_StakePool_$memory, $t5));
-    }
-    if ($abort_flag) {
-        assume {:print "$at(131,27535,27552)"} true;
-        $t6 := $abort_code;
-        assume {:print "$track_abort(38,44):", $t6} $t6 == $t6;
-        goto L2;
-    }
-
-    // trace_local[stake_pool]($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:604:13+10
-    $temp_0'$1_stake_StakePool' := $Dereference($t7);
-    assume {:print "$track_local(38,44,3):", $temp_0'$1_stake_StakePool'} $temp_0'$1_stake_StakePool' == $temp_0'$1_stake_StakePool';
-
-    // $t8 := borrow_field<stake::StakePool>.delegated_voter($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:605:9+26
-    assume {:print "$at(131,27587,27613)"} true;
-    $t8 := $ChildMutation($t7, 6, $delegated_voter#$1_stake_StakePool($Dereference($t7)));
-
-    // write_ref($t8, $t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:605:9+38
-    $t8 := $UpdateMutation($t8, $t1);
-
-    // write_back[Reference($t7).delegated_voter (address)]($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:605:9+38
-    $t7 := $UpdateMutation($t7, $Update'$1_stake_StakePool'_delegated_voter($Dereference($t7), $Dereference($t8)));
-
-    // write_back[stake::StakePool@]($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:605:9+38
-    $1_stake_StakePool_$memory := $ResourceUpdate($1_stake_StakePool_$memory, $GlobalLocationAddress($t7),
-        $Dereference($t7));
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:606:5+1
-    assume {:print "$at(131,27631,27632)"} true;
-L1:
-
-    // return () at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:606:5+1
-    assume {:print "$at(131,27631,27632)"} true;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:606:5+1
-L2:
-
-    // abort($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:606:5+1
-    assume {:print "$at(131,27631,27632)"} true;
-    $abort_code := $t6;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun stake::set_operator [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:567:5+350
-procedure {:inline 1} $1_stake_set_operator(_$t0: $signer, _$t1: int) returns ()
-{
-    // declare local variables
-    var $t2: int;
-    var $t3: int;
-    var $t4: int;
-    var $t5: $1_stake_OwnerCapability;
-    var $t6: int;
-    var $t0: $signer;
-    var $t1: int;
-    var $temp_0'address': int;
-    var $temp_0'signer': $signer;
-    $t0 := _$t0;
-    $t1 := _$t1;
-
-    // bytecode translation starts here
-    // trace_local[owner]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:567:5+1
-    assume {:print "$at(131,25724,25725)"} true;
-    assume {:print "$track_local(38,45,0):", $t0} $t0 == $t0;
-
-    // trace_local[new_operator]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:567:5+1
-    assume {:print "$track_local(38,45,1):", $t1} $t1 == $t1;
-
-    // $t3 := signer::address_of($t0) on_abort goto L2 with $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:568:29+25
-    assume {:print "$at(131,25859,25884)"} true;
-    call $t3 := $1_signer_address_of($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,25859,25884)"} true;
-        $t4 := $abort_code;
-        assume {:print "$track_abort(38,45):", $t4} $t4 == $t4;
-        goto L2;
-    }
-
-    // trace_local[owner_address]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:568:13+13
-    assume {:print "$track_local(38,45,2):", $t3} $t3 == $t3;
-
-    // stake::assert_owner_cap_exists($t3) on_abort goto L2 with $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:569:9+38
-    assume {:print "$at(131,25894,25932)"} true;
-    call $1_stake_assert_owner_cap_exists($t3);
-    if ($abort_flag) {
-        assume {:print "$at(131,25894,25932)"} true;
-        $t4 := $abort_code;
-        assume {:print "$track_abort(38,45):", $t4} $t4 == $t4;
-        goto L2;
-    }
-
-    // $t5 := get_global<stake::OwnerCapability>($t3) on_abort goto L2 with $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:570:29+13
-    assume {:print "$at(131,25962,25975)"} true;
-    if (!$ResourceExists($1_stake_OwnerCapability_$memory, $t3)) {
-        call $ExecFailureAbort();
-    } else {
-        $t5 := $ResourceValue($1_stake_OwnerCapability_$memory, $t3);
-    }
-    if ($abort_flag) {
-        assume {:print "$at(131,25962,25975)"} true;
-        $t4 := $abort_code;
-        assume {:print "$track_abort(38,45):", $t4} $t4 == $t4;
-        goto L2;
-    }
-
-    // assume Identical($t6, select stake::OwnerCapability.pool_address($t5)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:98:9+42
-    assume {:print "$at(132,4538,4580)"} true;
-    assume ($t6 == $pool_address#$1_stake_OwnerCapability($t5));
-
-    // stake::set_operator_with_cap($t5, $t1) on_abort goto L2 with $t4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:571:9+50
-    assume {:print "$at(131,26017,26067)"} true;
-    call $1_stake_set_operator_with_cap($t5, $t1);
-    if ($abort_flag) {
-        assume {:print "$at(131,26017,26067)"} true;
-        $t4 := $abort_code;
-        assume {:print "$track_abort(38,45):", $t4} $t4 == $t4;
-        goto L2;
-    }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:572:5+1
-    assume {:print "$at(131,26073,26074)"} true;
-L1:
-
-    // return () at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:572:5+1
-    assume {:print "$at(131,26073,26074)"} true;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:572:5+1
-L2:
-
-    // abort($t4) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:572:5+1
-    assume {:print "$at(131,26073,26074)"} true;
-    $abort_code := $t4;
-    $abort_flag := true;
-    return;
-
-}
-
-// fun stake::set_operator_with_cap [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:575:5+611
-procedure {:inline 1} $1_stake_set_operator_with_cap(_$t0: $1_stake_OwnerCapability, _$t1: int) returns ()
-{
-    // declare local variables
-    var $t2: int;
-    var $t3: int;
-    var $t4: $Mutation ($1_stake_StakePool);
-    var $t5: int;
-    var $t6: int;
-    var $t7: int;
-    var $t8: $Mutation ($1_stake_StakePool);
-    var $t9: int;
-    var $t10: $Mutation (int);
-    var $t11: $Mutation ($1_event_EventHandle'$1_stake_SetOperatorEvent');
-    var $t12: $1_stake_SetOperatorEvent;
-    var $t0: $1_stake_OwnerCapability;
-    var $t1: int;
-    var $1_stake_StakePool_$modifies: [int]bool;
-    var $temp_0'$1_stake_OwnerCapability': $1_stake_OwnerCapability;
-    var $temp_0'$1_stake_StakePool': $1_stake_StakePool;
-    var $temp_0'address': int;
-    $t0 := _$t0;
-    $t1 := _$t1;
-
-    // bytecode translation starts here
-    // assume Identical($t5, select stake::OwnerCapability.pool_address($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:98:9+42
-    assume {:print "$at(132,4538,4580)"} true;
-    assume ($t5 == $pool_address#$1_stake_OwnerCapability($t0));
-
-    // trace_local[owner_cap]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:575:5+1
-    assume {:print "$at(131,26174,26175)"} true;
-    assume {:print "$track_local(38,46,0):", $t0} $t0 == $t0;
-
-    // trace_local[new_operator]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:575:5+1
-    assume {:print "$track_local(38,46,1):", $t1} $t1 == $t1;
-
-    // $t6 := get_field<stake::OwnerCapability>.pool_address($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:576:28+22
-    assume {:print "$at(131,26307,26329)"} true;
-    $t6 := $pool_address#$1_stake_OwnerCapability($t0);
-
-    // trace_local[pool_address]($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:576:13+12
-    assume {:print "$track_local(38,46,3):", $t6} $t6 == $t6;
-
-    // stake::assert_stake_pool_exists($t6) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:577:9+38
-    assume {:print "$at(131,26339,26377)"} true;
-    call $1_stake_assert_stake_pool_exists($t6);
-    if ($abort_flag) {
-        assume {:print "$at(131,26339,26377)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(38,46):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // $t8 := borrow_global<stake::StakePool>($t6) on_abort goto L2 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:578:26+17
-    assume {:print "$at(131,26404,26421)"} true;
-    if (!$ResourceExists($1_stake_StakePool_$memory, $t6)) {
-        call $ExecFailureAbort();
-    } else {
-        $t8 := $Mutation($Global($t6), EmptyVec(), $ResourceValue($1_stake_StakePool_$memory, $t6));
-    }
-    if ($abort_flag) {
-        assume {:print "$at(131,26404,26421)"} true;
-        $t7 := $abort_code;
-        assume {:print "$track_abort(38,46):", $t7} $t7 == $t7;
-        goto L2;
-    }
-
-    // trace_local[stake_pool]($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:578:13+10
-    $temp_0'$1_stake_StakePool' := $Dereference($t8);
-    assume {:print "$track_local(38,46,4):", $temp_0'$1_stake_StakePool'} $temp_0'$1_stake_StakePool' == $temp_0'$1_stake_StakePool';
-
-    // $t9 := get_field<stake::StakePool>.operator_address($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:579:28+27
-    assume {:print "$at(131,26475,26502)"} true;
-    $t9 := $operator_address#$1_stake_StakePool($Dereference($t8));
-
-    // trace_local[old_operator]($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:579:13+12
-    assume {:print "$track_local(38,46,2):", $t9} $t9 == $t9;
-
-    // $t10 := borrow_field<stake::StakePool>.operator_address($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:580:9+27
-    assume {:print "$at(131,26512,26539)"} true;
-    $t10 := $ChildMutation($t8, 5, $operator_address#$1_stake_StakePool($Dereference($t8)));
-
-    // write_ref($t10, $t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:580:9+42
-    $t10 := $UpdateMutation($t10, $t1);
-
-    // write_back[Reference($t8).operator_address (address)]($t10) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:580:9+42
-    $t8 := $UpdateMutation($t8, $Update'$1_stake_StakePool'_operator_address($Dereference($t8), $Dereference($t10)));
-
-    // $t11 := borrow_field<stake::StakePool>.set_operator_events($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:583:13+35
-    assume {:print "$at(131,26596,26631)"} true;
-    $t11 := $ChildMutation($t8, 8, $set_operator_events#$1_stake_StakePool($Dereference($t8)));
-
-    // $t12 := pack stake::SetOperatorEvent($t6, $t9, $t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:584:13+122
-    assume {:print "$at(131,26645,26767)"} true;
-    $t12 := $1_stake_SetOperatorEvent($t6, $t9, $t1);
-
-    // opaque begin: event::emit_event<stake::SetOperatorEvent>($t11, $t12) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:582:9+213
-    assume {:print "$at(131,26565,26778)"} true;
-
-    // opaque end: event::emit_event<stake::SetOperatorEvent>($t11, $t12) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:582:9+213
-
-    // write_back[Reference($t8).set_operator_events (event::EventHandle<stake::SetOperatorEvent>)]($t11) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:582:9+213
-    $t8 := $UpdateMutation($t8, $Update'$1_stake_StakePool'_set_operator_events($Dereference($t8), $Dereference($t11)));
-
-    // write_back[stake::StakePool@]($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:582:9+213
-    $1_stake_StakePool_$memory := $ResourceUpdate($1_stake_StakePool_$memory, $GlobalLocationAddress($t8),
-        $Dereference($t8));
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:590:5+1
-    assume {:print "$at(131,26784,26785)"} true;
-L1:
-
-    // return () at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:590:5+1
-    assume {:print "$at(131,26784,26785)"} true;
-    return;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:590:5+1
-L2:
-
-    // abort($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:590:5+1
-    assume {:print "$at(131,26784,26785)"} true;
-    $abort_code := $t7;
+    // abort($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:324:5+1
+    assume {:print "$at(131,14620,14621)"} true;
+    $abort_code := $t2;
     $abort_flag := true;
     return;
 
@@ -16921,904 +9057,1024 @@ L1:
 
 }
 
-// fun stake::update_voting_power_increase [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1304:5+805
-procedure {:inline 1} $1_stake_update_voting_power_increase(_$t0: int) returns ()
+// struct pool_u64::Pool at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/../aptos-stdlib/sources/pool_u64.move:38:5+449
+type {:datatype} $1_pool_u64_Pool;
+function {:constructor} $1_pool_u64_Pool($shareholders_limit: int, $total_coins: int, $total_shares: int, $shares: Table int (int), $shareholders: Vec (int), $scaling_factor: int): $1_pool_u64_Pool;
+function {:inline} $Update'$1_pool_u64_Pool'_shareholders_limit(s: $1_pool_u64_Pool, x: int): $1_pool_u64_Pool {
+    $1_pool_u64_Pool(x, $total_coins#$1_pool_u64_Pool(s), $total_shares#$1_pool_u64_Pool(s), $shares#$1_pool_u64_Pool(s), $shareholders#$1_pool_u64_Pool(s), $scaling_factor#$1_pool_u64_Pool(s))
+}
+function {:inline} $Update'$1_pool_u64_Pool'_total_coins(s: $1_pool_u64_Pool, x: int): $1_pool_u64_Pool {
+    $1_pool_u64_Pool($shareholders_limit#$1_pool_u64_Pool(s), x, $total_shares#$1_pool_u64_Pool(s), $shares#$1_pool_u64_Pool(s), $shareholders#$1_pool_u64_Pool(s), $scaling_factor#$1_pool_u64_Pool(s))
+}
+function {:inline} $Update'$1_pool_u64_Pool'_total_shares(s: $1_pool_u64_Pool, x: int): $1_pool_u64_Pool {
+    $1_pool_u64_Pool($shareholders_limit#$1_pool_u64_Pool(s), $total_coins#$1_pool_u64_Pool(s), x, $shares#$1_pool_u64_Pool(s), $shareholders#$1_pool_u64_Pool(s), $scaling_factor#$1_pool_u64_Pool(s))
+}
+function {:inline} $Update'$1_pool_u64_Pool'_shares(s: $1_pool_u64_Pool, x: Table int (int)): $1_pool_u64_Pool {
+    $1_pool_u64_Pool($shareholders_limit#$1_pool_u64_Pool(s), $total_coins#$1_pool_u64_Pool(s), $total_shares#$1_pool_u64_Pool(s), x, $shareholders#$1_pool_u64_Pool(s), $scaling_factor#$1_pool_u64_Pool(s))
+}
+function {:inline} $Update'$1_pool_u64_Pool'_shareholders(s: $1_pool_u64_Pool, x: Vec (int)): $1_pool_u64_Pool {
+    $1_pool_u64_Pool($shareholders_limit#$1_pool_u64_Pool(s), $total_coins#$1_pool_u64_Pool(s), $total_shares#$1_pool_u64_Pool(s), $shares#$1_pool_u64_Pool(s), x, $scaling_factor#$1_pool_u64_Pool(s))
+}
+function {:inline} $Update'$1_pool_u64_Pool'_scaling_factor(s: $1_pool_u64_Pool, x: int): $1_pool_u64_Pool {
+    $1_pool_u64_Pool($shareholders_limit#$1_pool_u64_Pool(s), $total_coins#$1_pool_u64_Pool(s), $total_shares#$1_pool_u64_Pool(s), $shares#$1_pool_u64_Pool(s), $shareholders#$1_pool_u64_Pool(s), x)
+}
+function $IsValid'$1_pool_u64_Pool'(s: $1_pool_u64_Pool): bool {
+    $IsValid'u64'($shareholders_limit#$1_pool_u64_Pool(s))
+      && $IsValid'u64'($total_coins#$1_pool_u64_Pool(s))
+      && $IsValid'u64'($total_shares#$1_pool_u64_Pool(s))
+      && $IsValid'$1_simple_map_SimpleMap'address_u64''($shares#$1_pool_u64_Pool(s))
+      && $IsValid'vec'address''($shareholders#$1_pool_u64_Pool(s))
+      && $IsValid'u64'($scaling_factor#$1_pool_u64_Pool(s))
+}
+function {:inline} $IsEqual'$1_pool_u64_Pool'(s1: $1_pool_u64_Pool, s2: $1_pool_u64_Pool): bool {
+    $IsEqual'u64'($shareholders_limit#$1_pool_u64_Pool(s1), $shareholders_limit#$1_pool_u64_Pool(s2))
+    && $IsEqual'u64'($total_coins#$1_pool_u64_Pool(s1), $total_coins#$1_pool_u64_Pool(s2))
+    && $IsEqual'u64'($total_shares#$1_pool_u64_Pool(s1), $total_shares#$1_pool_u64_Pool(s2))
+    && $IsEqual'$1_simple_map_SimpleMap'address_u64''($shares#$1_pool_u64_Pool(s1), $shares#$1_pool_u64_Pool(s2))
+    && $IsEqual'vec'address''($shareholders#$1_pool_u64_Pool(s1), $shareholders#$1_pool_u64_Pool(s2))
+    && $IsEqual'u64'($scaling_factor#$1_pool_u64_Pool(s1), $scaling_factor#$1_pool_u64_Pool(s2))}
+
+// struct staking_contract::AddStakeEvent at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:129:5+122
+type {:datatype} $1_staking_contract_AddStakeEvent;
+function {:constructor} $1_staking_contract_AddStakeEvent($operator: int, $pool_address: int, $amount: int): $1_staking_contract_AddStakeEvent;
+function {:inline} $Update'$1_staking_contract_AddStakeEvent'_operator(s: $1_staking_contract_AddStakeEvent, x: int): $1_staking_contract_AddStakeEvent {
+    $1_staking_contract_AddStakeEvent(x, $pool_address#$1_staking_contract_AddStakeEvent(s), $amount#$1_staking_contract_AddStakeEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_AddStakeEvent'_pool_address(s: $1_staking_contract_AddStakeEvent, x: int): $1_staking_contract_AddStakeEvent {
+    $1_staking_contract_AddStakeEvent($operator#$1_staking_contract_AddStakeEvent(s), x, $amount#$1_staking_contract_AddStakeEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_AddStakeEvent'_amount(s: $1_staking_contract_AddStakeEvent, x: int): $1_staking_contract_AddStakeEvent {
+    $1_staking_contract_AddStakeEvent($operator#$1_staking_contract_AddStakeEvent(s), $pool_address#$1_staking_contract_AddStakeEvent(s), x)
+}
+function $IsValid'$1_staking_contract_AddStakeEvent'(s: $1_staking_contract_AddStakeEvent): bool {
+    $IsValid'address'($operator#$1_staking_contract_AddStakeEvent(s))
+      && $IsValid'address'($pool_address#$1_staking_contract_AddStakeEvent(s))
+      && $IsValid'u64'($amount#$1_staking_contract_AddStakeEvent(s))
+}
+function {:inline} $IsEqual'$1_staking_contract_AddStakeEvent'(s1: $1_staking_contract_AddStakeEvent, s2: $1_staking_contract_AddStakeEvent): bool {
+    s1 == s2
+}
+
+// struct staking_contract::UnlockStakeEvent at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:142:5+156
+type {:datatype} $1_staking_contract_UnlockStakeEvent;
+function {:constructor} $1_staking_contract_UnlockStakeEvent($operator: int, $pool_address: int, $amount: int, $commission_paid: int): $1_staking_contract_UnlockStakeEvent;
+function {:inline} $Update'$1_staking_contract_UnlockStakeEvent'_operator(s: $1_staking_contract_UnlockStakeEvent, x: int): $1_staking_contract_UnlockStakeEvent {
+    $1_staking_contract_UnlockStakeEvent(x, $pool_address#$1_staking_contract_UnlockStakeEvent(s), $amount#$1_staking_contract_UnlockStakeEvent(s), $commission_paid#$1_staking_contract_UnlockStakeEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_UnlockStakeEvent'_pool_address(s: $1_staking_contract_UnlockStakeEvent, x: int): $1_staking_contract_UnlockStakeEvent {
+    $1_staking_contract_UnlockStakeEvent($operator#$1_staking_contract_UnlockStakeEvent(s), x, $amount#$1_staking_contract_UnlockStakeEvent(s), $commission_paid#$1_staking_contract_UnlockStakeEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_UnlockStakeEvent'_amount(s: $1_staking_contract_UnlockStakeEvent, x: int): $1_staking_contract_UnlockStakeEvent {
+    $1_staking_contract_UnlockStakeEvent($operator#$1_staking_contract_UnlockStakeEvent(s), $pool_address#$1_staking_contract_UnlockStakeEvent(s), x, $commission_paid#$1_staking_contract_UnlockStakeEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_UnlockStakeEvent'_commission_paid(s: $1_staking_contract_UnlockStakeEvent, x: int): $1_staking_contract_UnlockStakeEvent {
+    $1_staking_contract_UnlockStakeEvent($operator#$1_staking_contract_UnlockStakeEvent(s), $pool_address#$1_staking_contract_UnlockStakeEvent(s), $amount#$1_staking_contract_UnlockStakeEvent(s), x)
+}
+function $IsValid'$1_staking_contract_UnlockStakeEvent'(s: $1_staking_contract_UnlockStakeEvent): bool {
+    $IsValid'address'($operator#$1_staking_contract_UnlockStakeEvent(s))
+      && $IsValid'address'($pool_address#$1_staking_contract_UnlockStakeEvent(s))
+      && $IsValid'u64'($amount#$1_staking_contract_UnlockStakeEvent(s))
+      && $IsValid'u64'($commission_paid#$1_staking_contract_UnlockStakeEvent(s))
+}
+function {:inline} $IsEqual'$1_staking_contract_UnlockStakeEvent'(s1: $1_staking_contract_UnlockStakeEvent, s2: $1_staking_contract_UnlockStakeEvent): bool {
+    s1 == s2
+}
+
+// struct staking_contract::AddDistributionEvent at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:155:5+130
+type {:datatype} $1_staking_contract_AddDistributionEvent;
+function {:constructor} $1_staking_contract_AddDistributionEvent($operator: int, $pool_address: int, $amount: int): $1_staking_contract_AddDistributionEvent;
+function {:inline} $Update'$1_staking_contract_AddDistributionEvent'_operator(s: $1_staking_contract_AddDistributionEvent, x: int): $1_staking_contract_AddDistributionEvent {
+    $1_staking_contract_AddDistributionEvent(x, $pool_address#$1_staking_contract_AddDistributionEvent(s), $amount#$1_staking_contract_AddDistributionEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_AddDistributionEvent'_pool_address(s: $1_staking_contract_AddDistributionEvent, x: int): $1_staking_contract_AddDistributionEvent {
+    $1_staking_contract_AddDistributionEvent($operator#$1_staking_contract_AddDistributionEvent(s), x, $amount#$1_staking_contract_AddDistributionEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_AddDistributionEvent'_amount(s: $1_staking_contract_AddDistributionEvent, x: int): $1_staking_contract_AddDistributionEvent {
+    $1_staking_contract_AddDistributionEvent($operator#$1_staking_contract_AddDistributionEvent(s), $pool_address#$1_staking_contract_AddDistributionEvent(s), x)
+}
+function $IsValid'$1_staking_contract_AddDistributionEvent'(s: $1_staking_contract_AddDistributionEvent): bool {
+    $IsValid'address'($operator#$1_staking_contract_AddDistributionEvent(s))
+      && $IsValid'address'($pool_address#$1_staking_contract_AddDistributionEvent(s))
+      && $IsValid'u64'($amount#$1_staking_contract_AddDistributionEvent(s))
+}
+function {:inline} $IsEqual'$1_staking_contract_AddDistributionEvent'(s1: $1_staking_contract_AddDistributionEvent, s2: $1_staking_contract_AddDistributionEvent): bool {
+    s1 == s2
+}
+
+// struct staking_contract::CreateStakingContractEvent at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:109:5+199
+type {:datatype} $1_staking_contract_CreateStakingContractEvent;
+function {:constructor} $1_staking_contract_CreateStakingContractEvent($operator: int, $voter: int, $pool_address: int, $principal: int, $commission_percentage: int): $1_staking_contract_CreateStakingContractEvent;
+function {:inline} $Update'$1_staking_contract_CreateStakingContractEvent'_operator(s: $1_staking_contract_CreateStakingContractEvent, x: int): $1_staking_contract_CreateStakingContractEvent {
+    $1_staking_contract_CreateStakingContractEvent(x, $voter#$1_staking_contract_CreateStakingContractEvent(s), $pool_address#$1_staking_contract_CreateStakingContractEvent(s), $principal#$1_staking_contract_CreateStakingContractEvent(s), $commission_percentage#$1_staking_contract_CreateStakingContractEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_CreateStakingContractEvent'_voter(s: $1_staking_contract_CreateStakingContractEvent, x: int): $1_staking_contract_CreateStakingContractEvent {
+    $1_staking_contract_CreateStakingContractEvent($operator#$1_staking_contract_CreateStakingContractEvent(s), x, $pool_address#$1_staking_contract_CreateStakingContractEvent(s), $principal#$1_staking_contract_CreateStakingContractEvent(s), $commission_percentage#$1_staking_contract_CreateStakingContractEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_CreateStakingContractEvent'_pool_address(s: $1_staking_contract_CreateStakingContractEvent, x: int): $1_staking_contract_CreateStakingContractEvent {
+    $1_staking_contract_CreateStakingContractEvent($operator#$1_staking_contract_CreateStakingContractEvent(s), $voter#$1_staking_contract_CreateStakingContractEvent(s), x, $principal#$1_staking_contract_CreateStakingContractEvent(s), $commission_percentage#$1_staking_contract_CreateStakingContractEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_CreateStakingContractEvent'_principal(s: $1_staking_contract_CreateStakingContractEvent, x: int): $1_staking_contract_CreateStakingContractEvent {
+    $1_staking_contract_CreateStakingContractEvent($operator#$1_staking_contract_CreateStakingContractEvent(s), $voter#$1_staking_contract_CreateStakingContractEvent(s), $pool_address#$1_staking_contract_CreateStakingContractEvent(s), x, $commission_percentage#$1_staking_contract_CreateStakingContractEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_CreateStakingContractEvent'_commission_percentage(s: $1_staking_contract_CreateStakingContractEvent, x: int): $1_staking_contract_CreateStakingContractEvent {
+    $1_staking_contract_CreateStakingContractEvent($operator#$1_staking_contract_CreateStakingContractEvent(s), $voter#$1_staking_contract_CreateStakingContractEvent(s), $pool_address#$1_staking_contract_CreateStakingContractEvent(s), $principal#$1_staking_contract_CreateStakingContractEvent(s), x)
+}
+function $IsValid'$1_staking_contract_CreateStakingContractEvent'(s: $1_staking_contract_CreateStakingContractEvent): bool {
+    $IsValid'address'($operator#$1_staking_contract_CreateStakingContractEvent(s))
+      && $IsValid'address'($voter#$1_staking_contract_CreateStakingContractEvent(s))
+      && $IsValid'address'($pool_address#$1_staking_contract_CreateStakingContractEvent(s))
+      && $IsValid'u64'($principal#$1_staking_contract_CreateStakingContractEvent(s))
+      && $IsValid'u64'($commission_percentage#$1_staking_contract_CreateStakingContractEvent(s))
+}
+function {:inline} $IsEqual'$1_staking_contract_CreateStakingContractEvent'(s1: $1_staking_contract_CreateStakingContractEvent, s2: $1_staking_contract_CreateStakingContractEvent): bool {
+    s1 == s2
+}
+
+// struct staking_contract::DistributeEvent at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:161:5+153
+type {:datatype} $1_staking_contract_DistributeEvent;
+function {:constructor} $1_staking_contract_DistributeEvent($operator: int, $pool_address: int, $recipient: int, $amount: int): $1_staking_contract_DistributeEvent;
+function {:inline} $Update'$1_staking_contract_DistributeEvent'_operator(s: $1_staking_contract_DistributeEvent, x: int): $1_staking_contract_DistributeEvent {
+    $1_staking_contract_DistributeEvent(x, $pool_address#$1_staking_contract_DistributeEvent(s), $recipient#$1_staking_contract_DistributeEvent(s), $amount#$1_staking_contract_DistributeEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_DistributeEvent'_pool_address(s: $1_staking_contract_DistributeEvent, x: int): $1_staking_contract_DistributeEvent {
+    $1_staking_contract_DistributeEvent($operator#$1_staking_contract_DistributeEvent(s), x, $recipient#$1_staking_contract_DistributeEvent(s), $amount#$1_staking_contract_DistributeEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_DistributeEvent'_recipient(s: $1_staking_contract_DistributeEvent, x: int): $1_staking_contract_DistributeEvent {
+    $1_staking_contract_DistributeEvent($operator#$1_staking_contract_DistributeEvent(s), $pool_address#$1_staking_contract_DistributeEvent(s), x, $amount#$1_staking_contract_DistributeEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_DistributeEvent'_amount(s: $1_staking_contract_DistributeEvent, x: int): $1_staking_contract_DistributeEvent {
+    $1_staking_contract_DistributeEvent($operator#$1_staking_contract_DistributeEvent(s), $pool_address#$1_staking_contract_DistributeEvent(s), $recipient#$1_staking_contract_DistributeEvent(s), x)
+}
+function $IsValid'$1_staking_contract_DistributeEvent'(s: $1_staking_contract_DistributeEvent): bool {
+    $IsValid'address'($operator#$1_staking_contract_DistributeEvent(s))
+      && $IsValid'address'($pool_address#$1_staking_contract_DistributeEvent(s))
+      && $IsValid'address'($recipient#$1_staking_contract_DistributeEvent(s))
+      && $IsValid'u64'($amount#$1_staking_contract_DistributeEvent(s))
+}
+function {:inline} $IsEqual'$1_staking_contract_DistributeEvent'(s1: $1_staking_contract_DistributeEvent, s2: $1_staking_contract_DistributeEvent): bool {
+    s1 == s2
+}
+
+// struct staking_contract::RequestCommissionEvent at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:135:5+177
+type {:datatype} $1_staking_contract_RequestCommissionEvent;
+function {:constructor} $1_staking_contract_RequestCommissionEvent($operator: int, $pool_address: int, $accumulated_rewards: int, $commission_amount: int): $1_staking_contract_RequestCommissionEvent;
+function {:inline} $Update'$1_staking_contract_RequestCommissionEvent'_operator(s: $1_staking_contract_RequestCommissionEvent, x: int): $1_staking_contract_RequestCommissionEvent {
+    $1_staking_contract_RequestCommissionEvent(x, $pool_address#$1_staking_contract_RequestCommissionEvent(s), $accumulated_rewards#$1_staking_contract_RequestCommissionEvent(s), $commission_amount#$1_staking_contract_RequestCommissionEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_RequestCommissionEvent'_pool_address(s: $1_staking_contract_RequestCommissionEvent, x: int): $1_staking_contract_RequestCommissionEvent {
+    $1_staking_contract_RequestCommissionEvent($operator#$1_staking_contract_RequestCommissionEvent(s), x, $accumulated_rewards#$1_staking_contract_RequestCommissionEvent(s), $commission_amount#$1_staking_contract_RequestCommissionEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_RequestCommissionEvent'_accumulated_rewards(s: $1_staking_contract_RequestCommissionEvent, x: int): $1_staking_contract_RequestCommissionEvent {
+    $1_staking_contract_RequestCommissionEvent($operator#$1_staking_contract_RequestCommissionEvent(s), $pool_address#$1_staking_contract_RequestCommissionEvent(s), x, $commission_amount#$1_staking_contract_RequestCommissionEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_RequestCommissionEvent'_commission_amount(s: $1_staking_contract_RequestCommissionEvent, x: int): $1_staking_contract_RequestCommissionEvent {
+    $1_staking_contract_RequestCommissionEvent($operator#$1_staking_contract_RequestCommissionEvent(s), $pool_address#$1_staking_contract_RequestCommissionEvent(s), $accumulated_rewards#$1_staking_contract_RequestCommissionEvent(s), x)
+}
+function $IsValid'$1_staking_contract_RequestCommissionEvent'(s: $1_staking_contract_RequestCommissionEvent): bool {
+    $IsValid'address'($operator#$1_staking_contract_RequestCommissionEvent(s))
+      && $IsValid'address'($pool_address#$1_staking_contract_RequestCommissionEvent(s))
+      && $IsValid'u64'($accumulated_rewards#$1_staking_contract_RequestCommissionEvent(s))
+      && $IsValid'u64'($commission_amount#$1_staking_contract_RequestCommissionEvent(s))
+}
+function {:inline} $IsEqual'$1_staking_contract_RequestCommissionEvent'(s1: $1_staking_contract_RequestCommissionEvent, s2: $1_staking_contract_RequestCommissionEvent): bool {
+    s1 == s2
+}
+
+// struct staking_contract::ResetLockupEvent at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:124:5+105
+type {:datatype} $1_staking_contract_ResetLockupEvent;
+function {:constructor} $1_staking_contract_ResetLockupEvent($operator: int, $pool_address: int): $1_staking_contract_ResetLockupEvent;
+function {:inline} $Update'$1_staking_contract_ResetLockupEvent'_operator(s: $1_staking_contract_ResetLockupEvent, x: int): $1_staking_contract_ResetLockupEvent {
+    $1_staking_contract_ResetLockupEvent(x, $pool_address#$1_staking_contract_ResetLockupEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_ResetLockupEvent'_pool_address(s: $1_staking_contract_ResetLockupEvent, x: int): $1_staking_contract_ResetLockupEvent {
+    $1_staking_contract_ResetLockupEvent($operator#$1_staking_contract_ResetLockupEvent(s), x)
+}
+function $IsValid'$1_staking_contract_ResetLockupEvent'(s: $1_staking_contract_ResetLockupEvent): bool {
+    $IsValid'address'($operator#$1_staking_contract_ResetLockupEvent(s))
+      && $IsValid'address'($pool_address#$1_staking_contract_ResetLockupEvent(s))
+}
+function {:inline} $IsEqual'$1_staking_contract_ResetLockupEvent'(s1: $1_staking_contract_ResetLockupEvent, s2: $1_staking_contract_ResetLockupEvent): bool {
+    s1 == s2
+}
+
+// struct staking_contract::StakingContract at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:68:5+692
+type {:datatype} $1_staking_contract_StakingContract;
+function {:constructor} $1_staking_contract_StakingContract($principal: int, $pool_address: int, $owner_cap: $1_stake_OwnerCapability, $commission_percentage: int, $distribution_pool: $1_pool_u64_Pool, $signer_cap: $1_account_SignerCapability): $1_staking_contract_StakingContract;
+function {:inline} $Update'$1_staking_contract_StakingContract'_principal(s: $1_staking_contract_StakingContract, x: int): $1_staking_contract_StakingContract {
+    $1_staking_contract_StakingContract(x, $pool_address#$1_staking_contract_StakingContract(s), $owner_cap#$1_staking_contract_StakingContract(s), $commission_percentage#$1_staking_contract_StakingContract(s), $distribution_pool#$1_staking_contract_StakingContract(s), $signer_cap#$1_staking_contract_StakingContract(s))
+}
+function {:inline} $Update'$1_staking_contract_StakingContract'_pool_address(s: $1_staking_contract_StakingContract, x: int): $1_staking_contract_StakingContract {
+    $1_staking_contract_StakingContract($principal#$1_staking_contract_StakingContract(s), x, $owner_cap#$1_staking_contract_StakingContract(s), $commission_percentage#$1_staking_contract_StakingContract(s), $distribution_pool#$1_staking_contract_StakingContract(s), $signer_cap#$1_staking_contract_StakingContract(s))
+}
+function {:inline} $Update'$1_staking_contract_StakingContract'_owner_cap(s: $1_staking_contract_StakingContract, x: $1_stake_OwnerCapability): $1_staking_contract_StakingContract {
+    $1_staking_contract_StakingContract($principal#$1_staking_contract_StakingContract(s), $pool_address#$1_staking_contract_StakingContract(s), x, $commission_percentage#$1_staking_contract_StakingContract(s), $distribution_pool#$1_staking_contract_StakingContract(s), $signer_cap#$1_staking_contract_StakingContract(s))
+}
+function {:inline} $Update'$1_staking_contract_StakingContract'_commission_percentage(s: $1_staking_contract_StakingContract, x: int): $1_staking_contract_StakingContract {
+    $1_staking_contract_StakingContract($principal#$1_staking_contract_StakingContract(s), $pool_address#$1_staking_contract_StakingContract(s), $owner_cap#$1_staking_contract_StakingContract(s), x, $distribution_pool#$1_staking_contract_StakingContract(s), $signer_cap#$1_staking_contract_StakingContract(s))
+}
+function {:inline} $Update'$1_staking_contract_StakingContract'_distribution_pool(s: $1_staking_contract_StakingContract, x: $1_pool_u64_Pool): $1_staking_contract_StakingContract {
+    $1_staking_contract_StakingContract($principal#$1_staking_contract_StakingContract(s), $pool_address#$1_staking_contract_StakingContract(s), $owner_cap#$1_staking_contract_StakingContract(s), $commission_percentage#$1_staking_contract_StakingContract(s), x, $signer_cap#$1_staking_contract_StakingContract(s))
+}
+function {:inline} $Update'$1_staking_contract_StakingContract'_signer_cap(s: $1_staking_contract_StakingContract, x: $1_account_SignerCapability): $1_staking_contract_StakingContract {
+    $1_staking_contract_StakingContract($principal#$1_staking_contract_StakingContract(s), $pool_address#$1_staking_contract_StakingContract(s), $owner_cap#$1_staking_contract_StakingContract(s), $commission_percentage#$1_staking_contract_StakingContract(s), $distribution_pool#$1_staking_contract_StakingContract(s), x)
+}
+function $IsValid'$1_staking_contract_StakingContract'(s: $1_staking_contract_StakingContract): bool {
+    $IsValid'u64'($principal#$1_staking_contract_StakingContract(s))
+      && $IsValid'address'($pool_address#$1_staking_contract_StakingContract(s))
+      && $IsValid'$1_stake_OwnerCapability'($owner_cap#$1_staking_contract_StakingContract(s))
+      && $IsValid'u64'($commission_percentage#$1_staking_contract_StakingContract(s))
+      && $IsValid'$1_pool_u64_Pool'($distribution_pool#$1_staking_contract_StakingContract(s))
+      && $IsValid'$1_account_SignerCapability'($signer_cap#$1_staking_contract_StakingContract(s))
+}
+function {:inline} $IsEqual'$1_staking_contract_StakingContract'(s1: $1_staking_contract_StakingContract, s2: $1_staking_contract_StakingContract): bool {
+    $IsEqual'u64'($principal#$1_staking_contract_StakingContract(s1), $principal#$1_staking_contract_StakingContract(s2))
+    && $IsEqual'address'($pool_address#$1_staking_contract_StakingContract(s1), $pool_address#$1_staking_contract_StakingContract(s2))
+    && $IsEqual'$1_stake_OwnerCapability'($owner_cap#$1_staking_contract_StakingContract(s1), $owner_cap#$1_staking_contract_StakingContract(s2))
+    && $IsEqual'u64'($commission_percentage#$1_staking_contract_StakingContract(s1), $commission_percentage#$1_staking_contract_StakingContract(s2))
+    && $IsEqual'$1_pool_u64_Pool'($distribution_pool#$1_staking_contract_StakingContract(s1), $distribution_pool#$1_staking_contract_StakingContract(s2))
+    && $IsEqual'$1_account_SignerCapability'($signer_cap#$1_staking_contract_StakingContract(s1), $signer_cap#$1_staking_contract_StakingContract(s2))}
+
+// struct staking_contract::Store at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:82:5+690
+type {:datatype} $1_staking_contract_Store;
+function {:constructor} $1_staking_contract_Store($staking_contracts: Table int ($1_staking_contract_StakingContract), $create_staking_contract_events: $1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent', $update_voter_events: $1_event_EventHandle'$1_staking_contract_UpdateVoterEvent', $reset_lockup_events: $1_event_EventHandle'$1_staking_contract_ResetLockupEvent', $add_stake_events: $1_event_EventHandle'$1_staking_contract_AddStakeEvent', $request_commission_events: $1_event_EventHandle'$1_staking_contract_RequestCommissionEvent', $unlock_stake_events: $1_event_EventHandle'$1_staking_contract_UnlockStakeEvent', $switch_operator_events: $1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent', $add_distribution_events: $1_event_EventHandle'$1_staking_contract_AddDistributionEvent', $distribute_events: $1_event_EventHandle'$1_staking_contract_DistributeEvent'): $1_staking_contract_Store;
+function {:inline} $Update'$1_staking_contract_Store'_staking_contracts(s: $1_staking_contract_Store, x: Table int ($1_staking_contract_StakingContract)): $1_staking_contract_Store {
+    $1_staking_contract_Store(x, $create_staking_contract_events#$1_staking_contract_Store(s), $update_voter_events#$1_staking_contract_Store(s), $reset_lockup_events#$1_staking_contract_Store(s), $add_stake_events#$1_staking_contract_Store(s), $request_commission_events#$1_staking_contract_Store(s), $unlock_stake_events#$1_staking_contract_Store(s), $switch_operator_events#$1_staking_contract_Store(s), $add_distribution_events#$1_staking_contract_Store(s), $distribute_events#$1_staking_contract_Store(s))
+}
+function {:inline} $Update'$1_staking_contract_Store'_create_staking_contract_events(s: $1_staking_contract_Store, x: $1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent'): $1_staking_contract_Store {
+    $1_staking_contract_Store($staking_contracts#$1_staking_contract_Store(s), x, $update_voter_events#$1_staking_contract_Store(s), $reset_lockup_events#$1_staking_contract_Store(s), $add_stake_events#$1_staking_contract_Store(s), $request_commission_events#$1_staking_contract_Store(s), $unlock_stake_events#$1_staking_contract_Store(s), $switch_operator_events#$1_staking_contract_Store(s), $add_distribution_events#$1_staking_contract_Store(s), $distribute_events#$1_staking_contract_Store(s))
+}
+function {:inline} $Update'$1_staking_contract_Store'_update_voter_events(s: $1_staking_contract_Store, x: $1_event_EventHandle'$1_staking_contract_UpdateVoterEvent'): $1_staking_contract_Store {
+    $1_staking_contract_Store($staking_contracts#$1_staking_contract_Store(s), $create_staking_contract_events#$1_staking_contract_Store(s), x, $reset_lockup_events#$1_staking_contract_Store(s), $add_stake_events#$1_staking_contract_Store(s), $request_commission_events#$1_staking_contract_Store(s), $unlock_stake_events#$1_staking_contract_Store(s), $switch_operator_events#$1_staking_contract_Store(s), $add_distribution_events#$1_staking_contract_Store(s), $distribute_events#$1_staking_contract_Store(s))
+}
+function {:inline} $Update'$1_staking_contract_Store'_reset_lockup_events(s: $1_staking_contract_Store, x: $1_event_EventHandle'$1_staking_contract_ResetLockupEvent'): $1_staking_contract_Store {
+    $1_staking_contract_Store($staking_contracts#$1_staking_contract_Store(s), $create_staking_contract_events#$1_staking_contract_Store(s), $update_voter_events#$1_staking_contract_Store(s), x, $add_stake_events#$1_staking_contract_Store(s), $request_commission_events#$1_staking_contract_Store(s), $unlock_stake_events#$1_staking_contract_Store(s), $switch_operator_events#$1_staking_contract_Store(s), $add_distribution_events#$1_staking_contract_Store(s), $distribute_events#$1_staking_contract_Store(s))
+}
+function {:inline} $Update'$1_staking_contract_Store'_add_stake_events(s: $1_staking_contract_Store, x: $1_event_EventHandle'$1_staking_contract_AddStakeEvent'): $1_staking_contract_Store {
+    $1_staking_contract_Store($staking_contracts#$1_staking_contract_Store(s), $create_staking_contract_events#$1_staking_contract_Store(s), $update_voter_events#$1_staking_contract_Store(s), $reset_lockup_events#$1_staking_contract_Store(s), x, $request_commission_events#$1_staking_contract_Store(s), $unlock_stake_events#$1_staking_contract_Store(s), $switch_operator_events#$1_staking_contract_Store(s), $add_distribution_events#$1_staking_contract_Store(s), $distribute_events#$1_staking_contract_Store(s))
+}
+function {:inline} $Update'$1_staking_contract_Store'_request_commission_events(s: $1_staking_contract_Store, x: $1_event_EventHandle'$1_staking_contract_RequestCommissionEvent'): $1_staking_contract_Store {
+    $1_staking_contract_Store($staking_contracts#$1_staking_contract_Store(s), $create_staking_contract_events#$1_staking_contract_Store(s), $update_voter_events#$1_staking_contract_Store(s), $reset_lockup_events#$1_staking_contract_Store(s), $add_stake_events#$1_staking_contract_Store(s), x, $unlock_stake_events#$1_staking_contract_Store(s), $switch_operator_events#$1_staking_contract_Store(s), $add_distribution_events#$1_staking_contract_Store(s), $distribute_events#$1_staking_contract_Store(s))
+}
+function {:inline} $Update'$1_staking_contract_Store'_unlock_stake_events(s: $1_staking_contract_Store, x: $1_event_EventHandle'$1_staking_contract_UnlockStakeEvent'): $1_staking_contract_Store {
+    $1_staking_contract_Store($staking_contracts#$1_staking_contract_Store(s), $create_staking_contract_events#$1_staking_contract_Store(s), $update_voter_events#$1_staking_contract_Store(s), $reset_lockup_events#$1_staking_contract_Store(s), $add_stake_events#$1_staking_contract_Store(s), $request_commission_events#$1_staking_contract_Store(s), x, $switch_operator_events#$1_staking_contract_Store(s), $add_distribution_events#$1_staking_contract_Store(s), $distribute_events#$1_staking_contract_Store(s))
+}
+function {:inline} $Update'$1_staking_contract_Store'_switch_operator_events(s: $1_staking_contract_Store, x: $1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent'): $1_staking_contract_Store {
+    $1_staking_contract_Store($staking_contracts#$1_staking_contract_Store(s), $create_staking_contract_events#$1_staking_contract_Store(s), $update_voter_events#$1_staking_contract_Store(s), $reset_lockup_events#$1_staking_contract_Store(s), $add_stake_events#$1_staking_contract_Store(s), $request_commission_events#$1_staking_contract_Store(s), $unlock_stake_events#$1_staking_contract_Store(s), x, $add_distribution_events#$1_staking_contract_Store(s), $distribute_events#$1_staking_contract_Store(s))
+}
+function {:inline} $Update'$1_staking_contract_Store'_add_distribution_events(s: $1_staking_contract_Store, x: $1_event_EventHandle'$1_staking_contract_AddDistributionEvent'): $1_staking_contract_Store {
+    $1_staking_contract_Store($staking_contracts#$1_staking_contract_Store(s), $create_staking_contract_events#$1_staking_contract_Store(s), $update_voter_events#$1_staking_contract_Store(s), $reset_lockup_events#$1_staking_contract_Store(s), $add_stake_events#$1_staking_contract_Store(s), $request_commission_events#$1_staking_contract_Store(s), $unlock_stake_events#$1_staking_contract_Store(s), $switch_operator_events#$1_staking_contract_Store(s), x, $distribute_events#$1_staking_contract_Store(s))
+}
+function {:inline} $Update'$1_staking_contract_Store'_distribute_events(s: $1_staking_contract_Store, x: $1_event_EventHandle'$1_staking_contract_DistributeEvent'): $1_staking_contract_Store {
+    $1_staking_contract_Store($staking_contracts#$1_staking_contract_Store(s), $create_staking_contract_events#$1_staking_contract_Store(s), $update_voter_events#$1_staking_contract_Store(s), $reset_lockup_events#$1_staking_contract_Store(s), $add_stake_events#$1_staking_contract_Store(s), $request_commission_events#$1_staking_contract_Store(s), $unlock_stake_events#$1_staking_contract_Store(s), $switch_operator_events#$1_staking_contract_Store(s), $add_distribution_events#$1_staking_contract_Store(s), x)
+}
+function $IsValid'$1_staking_contract_Store'(s: $1_staking_contract_Store): bool {
+    $IsValid'$1_simple_map_SimpleMap'address_$1_staking_contract_StakingContract''($staking_contracts#$1_staking_contract_Store(s))
+      && $IsValid'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''($create_staking_contract_events#$1_staking_contract_Store(s))
+      && $IsValid'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''($update_voter_events#$1_staking_contract_Store(s))
+      && $IsValid'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''($reset_lockup_events#$1_staking_contract_Store(s))
+      && $IsValid'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''($add_stake_events#$1_staking_contract_Store(s))
+      && $IsValid'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''($request_commission_events#$1_staking_contract_Store(s))
+      && $IsValid'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''($unlock_stake_events#$1_staking_contract_Store(s))
+      && $IsValid'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''($switch_operator_events#$1_staking_contract_Store(s))
+      && $IsValid'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''($add_distribution_events#$1_staking_contract_Store(s))
+      && $IsValid'$1_event_EventHandle'$1_staking_contract_DistributeEvent''($distribute_events#$1_staking_contract_Store(s))
+}
+function {:inline} $IsEqual'$1_staking_contract_Store'(s1: $1_staking_contract_Store, s2: $1_staking_contract_Store): bool {
+    $IsEqual'$1_simple_map_SimpleMap'address_$1_staking_contract_StakingContract''($staking_contracts#$1_staking_contract_Store(s1), $staking_contracts#$1_staking_contract_Store(s2))
+    && $IsEqual'$1_event_EventHandle'$1_staking_contract_CreateStakingContractEvent''($create_staking_contract_events#$1_staking_contract_Store(s1), $create_staking_contract_events#$1_staking_contract_Store(s2))
+    && $IsEqual'$1_event_EventHandle'$1_staking_contract_UpdateVoterEvent''($update_voter_events#$1_staking_contract_Store(s1), $update_voter_events#$1_staking_contract_Store(s2))
+    && $IsEqual'$1_event_EventHandle'$1_staking_contract_ResetLockupEvent''($reset_lockup_events#$1_staking_contract_Store(s1), $reset_lockup_events#$1_staking_contract_Store(s2))
+    && $IsEqual'$1_event_EventHandle'$1_staking_contract_AddStakeEvent''($add_stake_events#$1_staking_contract_Store(s1), $add_stake_events#$1_staking_contract_Store(s2))
+    && $IsEqual'$1_event_EventHandle'$1_staking_contract_RequestCommissionEvent''($request_commission_events#$1_staking_contract_Store(s1), $request_commission_events#$1_staking_contract_Store(s2))
+    && $IsEqual'$1_event_EventHandle'$1_staking_contract_UnlockStakeEvent''($unlock_stake_events#$1_staking_contract_Store(s1), $unlock_stake_events#$1_staking_contract_Store(s2))
+    && $IsEqual'$1_event_EventHandle'$1_staking_contract_SwitchOperatorEvent''($switch_operator_events#$1_staking_contract_Store(s1), $switch_operator_events#$1_staking_contract_Store(s2))
+    && $IsEqual'$1_event_EventHandle'$1_staking_contract_AddDistributionEvent''($add_distribution_events#$1_staking_contract_Store(s1), $add_distribution_events#$1_staking_contract_Store(s2))
+    && $IsEqual'$1_event_EventHandle'$1_staking_contract_DistributeEvent''($distribute_events#$1_staking_contract_Store(s1), $distribute_events#$1_staking_contract_Store(s2))}
+var $1_staking_contract_Store_$memory: $Memory $1_staking_contract_Store;
+
+// struct staking_contract::SwitchOperatorEvent at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:149:5+143
+type {:datatype} $1_staking_contract_SwitchOperatorEvent;
+function {:constructor} $1_staking_contract_SwitchOperatorEvent($old_operator: int, $new_operator: int, $pool_address: int): $1_staking_contract_SwitchOperatorEvent;
+function {:inline} $Update'$1_staking_contract_SwitchOperatorEvent'_old_operator(s: $1_staking_contract_SwitchOperatorEvent, x: int): $1_staking_contract_SwitchOperatorEvent {
+    $1_staking_contract_SwitchOperatorEvent(x, $new_operator#$1_staking_contract_SwitchOperatorEvent(s), $pool_address#$1_staking_contract_SwitchOperatorEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_SwitchOperatorEvent'_new_operator(s: $1_staking_contract_SwitchOperatorEvent, x: int): $1_staking_contract_SwitchOperatorEvent {
+    $1_staking_contract_SwitchOperatorEvent($old_operator#$1_staking_contract_SwitchOperatorEvent(s), x, $pool_address#$1_staking_contract_SwitchOperatorEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_SwitchOperatorEvent'_pool_address(s: $1_staking_contract_SwitchOperatorEvent, x: int): $1_staking_contract_SwitchOperatorEvent {
+    $1_staking_contract_SwitchOperatorEvent($old_operator#$1_staking_contract_SwitchOperatorEvent(s), $new_operator#$1_staking_contract_SwitchOperatorEvent(s), x)
+}
+function $IsValid'$1_staking_contract_SwitchOperatorEvent'(s: $1_staking_contract_SwitchOperatorEvent): bool {
+    $IsValid'address'($old_operator#$1_staking_contract_SwitchOperatorEvent(s))
+      && $IsValid'address'($new_operator#$1_staking_contract_SwitchOperatorEvent(s))
+      && $IsValid'address'($pool_address#$1_staking_contract_SwitchOperatorEvent(s))
+}
+function {:inline} $IsEqual'$1_staking_contract_SwitchOperatorEvent'(s1: $1_staking_contract_SwitchOperatorEvent, s2: $1_staking_contract_SwitchOperatorEvent): bool {
+    s1 == s2
+}
+
+// struct staking_contract::UpdateVoterEvent at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:117:5+161
+type {:datatype} $1_staking_contract_UpdateVoterEvent;
+function {:constructor} $1_staking_contract_UpdateVoterEvent($operator: int, $pool_address: int, $old_voter: int, $new_voter: int): $1_staking_contract_UpdateVoterEvent;
+function {:inline} $Update'$1_staking_contract_UpdateVoterEvent'_operator(s: $1_staking_contract_UpdateVoterEvent, x: int): $1_staking_contract_UpdateVoterEvent {
+    $1_staking_contract_UpdateVoterEvent(x, $pool_address#$1_staking_contract_UpdateVoterEvent(s), $old_voter#$1_staking_contract_UpdateVoterEvent(s), $new_voter#$1_staking_contract_UpdateVoterEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_UpdateVoterEvent'_pool_address(s: $1_staking_contract_UpdateVoterEvent, x: int): $1_staking_contract_UpdateVoterEvent {
+    $1_staking_contract_UpdateVoterEvent($operator#$1_staking_contract_UpdateVoterEvent(s), x, $old_voter#$1_staking_contract_UpdateVoterEvent(s), $new_voter#$1_staking_contract_UpdateVoterEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_UpdateVoterEvent'_old_voter(s: $1_staking_contract_UpdateVoterEvent, x: int): $1_staking_contract_UpdateVoterEvent {
+    $1_staking_contract_UpdateVoterEvent($operator#$1_staking_contract_UpdateVoterEvent(s), $pool_address#$1_staking_contract_UpdateVoterEvent(s), x, $new_voter#$1_staking_contract_UpdateVoterEvent(s))
+}
+function {:inline} $Update'$1_staking_contract_UpdateVoterEvent'_new_voter(s: $1_staking_contract_UpdateVoterEvent, x: int): $1_staking_contract_UpdateVoterEvent {
+    $1_staking_contract_UpdateVoterEvent($operator#$1_staking_contract_UpdateVoterEvent(s), $pool_address#$1_staking_contract_UpdateVoterEvent(s), $old_voter#$1_staking_contract_UpdateVoterEvent(s), x)
+}
+function $IsValid'$1_staking_contract_UpdateVoterEvent'(s: $1_staking_contract_UpdateVoterEvent): bool {
+    $IsValid'address'($operator#$1_staking_contract_UpdateVoterEvent(s))
+      && $IsValid'address'($pool_address#$1_staking_contract_UpdateVoterEvent(s))
+      && $IsValid'address'($old_voter#$1_staking_contract_UpdateVoterEvent(s))
+      && $IsValid'address'($new_voter#$1_staking_contract_UpdateVoterEvent(s))
+}
+function {:inline} $IsEqual'$1_staking_contract_UpdateVoterEvent'(s1: $1_staking_contract_UpdateVoterEvent, s2: $1_staking_contract_UpdateVoterEvent): bool {
+    s1 == s2
+}
+
+// fun staking_contract::assert_staking_contract_exists [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:622:5+446
+procedure {:inline 1} $1_staking_contract_assert_staking_contract_exists(_$t0: int, _$t1: int) returns ()
 {
     // declare local variables
-    var $t1: $1_staking_config_StakingConfig;
-    var $t2: $Mutation ($1_stake_ValidatorSet);
-    var $t3: int;
-    var $t4: int;
-    var $t5: $1_stake_ValidatorSet;
-    var $t6: $1_staking_config_StakingConfig;
+    var $t2: int;
+    var $t3: Table int ($1_staking_contract_StakingContract);
+    var $t4: bool;
+    var $t5: int;
+    var $t6: int;
     var $t7: int;
-    var $t8: int;
-    var $t9: $Mutation ($1_stake_ValidatorSet);
-    var $t10: int;
-    var $t11: $1_staking_config_StakingConfig;
+    var $t8: $Mutation ($1_staking_contract_Store);
+    var $t9: $Mutation (Table int ($1_staking_contract_StakingContract));
+    var $t10: Table int ($1_staking_contract_StakingContract);
+    var $t11: bool;
     var $t12: int;
     var $t13: int;
-    var $t14: int;
-    var $t15: int;
-    var $t16: int;
-    var $t17: $Mutation (int);
-    var $t18: int;
-    var $t19: int;
-    var $t20: bool;
-    var $t21: int;
-    var $t22: int;
-    var $t23: int;
-    var $t24: int;
-    var $t25: int;
-    var $t26: bool;
-    var $t27: int;
-    var $t28: int;
     var $t0: int;
-    var $temp_0'$1_stake_ValidatorSet': $1_stake_ValidatorSet;
-    var $temp_0'u128': int;
-    var $temp_0'u64': int;
+    var $t1: int;
+    var $temp_0'address': int;
     $t0 := _$t0;
+    $t1 := _$t1;
 
     // bytecode translation starts here
-    // assume Identical($t4, 1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:302:9+29
-    assume {:print "$at(132,13815,13844)"} true;
-    assume ($t4 == 1);
+    // assume Identical($t3, select staking_contract::Store.staking_contracts(global<staking_contract::Store>($t0))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:307:9+64
+    assume {:print "$at(3,12992,13056)"} true;
+    assume ($t3 == $staking_contracts#$1_staking_contract_Store($ResourceValue($1_staking_contract_Store_$memory, $t0)));
 
-    // assume Identical($t5, global<stake::ValidatorSet>($t4)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:303:9+52
-    assume {:print "$at(132,13853,13905)"} true;
-    assume ($t5 == $ResourceValue($1_stake_ValidatorSet_$memory, $t4));
+    // trace_local[staker]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:622:5+1
+    assume {:print "$at(2,29541,29542)"} true;
+    assume {:print "$track_local(56,2,0):", $t0} $t0 == $t0;
 
-    // assume Identical($t6, global<staking_config::StakingConfig>($t4)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:305:9+66
-    assume {:print "$at(132,13976,14042)"} true;
-    assume ($t6 == $ResourceValue($1_staking_config_StakingConfig_$memory, $t4));
+    // trace_local[operator]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:622:5+1
+    assume {:print "$track_local(56,2,1):", $t1} $t1 == $t1;
 
-    // assume Identical($t7, select staking_config::StakingConfig.voting_power_increase_limit($t6)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:306:9+77
-    assume {:print "$at(132,14051,14128)"} true;
-    assume ($t7 == $voting_power_increase_limit#$1_staking_config_StakingConfig($t6));
+    // $t4 := exists<staking_contract::Store>($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:623:17+6
+    assume {:print "$at(2,29645,29651)"} true;
+    $t4 := $ResourceExists($1_staking_contract_Store_$memory, $t0);
 
-    // trace_local[increase_amount]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1304:5+1
-    assume {:print "$at(131,62149,62150)"} true;
-    assume {:print "$track_local(38,54,0):", $t0} $t0 == $t0;
+    // if ($t4) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:623:9+87
+    if ($t4) { goto L1; } else { goto L0; }
 
-    // $t8 := 0x1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1305:61+16
-    assume {:print "$at(131,62288,62304)"} true;
-    $t8 := 1;
-    assume $IsValid'address'($t8);
-
-    // $t9 := borrow_global<stake::ValidatorSet>($t8) on_abort goto L7 with $t10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1305:29+17
-    if (!$ResourceExists($1_stake_ValidatorSet_$memory, $t8)) {
-        call $ExecFailureAbort();
-    } else {
-        $t9 := $Mutation($Global($t8), EmptyVec(), $ResourceValue($1_stake_ValidatorSet_$memory, $t8));
-    }
-    if ($abort_flag) {
-        assume {:print "$at(131,62256,62273)"} true;
-        $t10 := $abort_code;
-        assume {:print "$track_abort(38,54):", $t10} $t10 == $t10;
-        goto L7;
-    }
-
-    // trace_local[validator_set]($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1305:13+13
-    $temp_0'$1_stake_ValidatorSet' := $Dereference($t9);
-    assume {:print "$track_local(38,54,2):", $temp_0'$1_stake_ValidatorSet'} $temp_0'$1_stake_ValidatorSet' == $temp_0'$1_stake_ValidatorSet';
-
-    // $t11 := staking_config::get() on_abort goto L7 with $t10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1307:63+21
-    assume {:print "$at(131,62411,62432)"} true;
-    call $t11 := $1_staking_config_get();
-    if ($abort_flag) {
-        assume {:print "$at(131,62411,62432)"} true;
-        $t10 := $abort_code;
-        assume {:print "$track_abort(38,54):", $t10} $t10 == $t10;
-        goto L7;
-    }
-
-    // $t12 := staking_config::get_voting_power_increase_limit($t11) on_abort goto L7 with $t10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1307:14+71
-    call $t12 := $1_staking_config_get_voting_power_increase_limit($t11);
-    if ($abort_flag) {
-        assume {:print "$at(131,62362,62433)"} true;
-        $t10 := $abort_code;
-        assume {:print "$track_abort(38,54):", $t10} $t10 == $t10;
-        goto L7;
-    }
-
-    // $t13 := (u128)($t12) on_abort goto L7 with $t10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1307:13+81
-    call $t13 := $CastU128($t12);
-    if ($abort_flag) {
-        assume {:print "$at(131,62361,62442)"} true;
-        $t10 := $abort_code;
-        assume {:print "$track_abort(38,54):", $t10} $t10 == $t10;
-        goto L7;
-    }
-
-    // trace_local[voting_power_increase_limit]($t13) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1306:13+27
-    assume {:print "$at(131,62319,62346)"} true;
-    assume {:print "$track_local(38,54,3):", $t13} $t13 == $t13;
-
-    // $t14 := get_field<stake::ValidatorSet>.total_joining_power($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1308:45+33
-    assume {:print "$at(131,62488,62521)"} true;
-    $t14 := $total_joining_power#$1_stake_ValidatorSet($Dereference($t9));
-
-    // $t15 := (u128)($t0) on_abort goto L7 with $t10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1308:81+25
-    call $t15 := $CastU128($t0);
-    if ($abort_flag) {
-        assume {:print "$at(131,62524,62549)"} true;
-        $t10 := $abort_code;
-        assume {:print "$track_abort(38,54):", $t10} $t10 == $t10;
-        goto L7;
-    }
-
-    // $t16 := +($t14, $t15) on_abort goto L7 with $t10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1308:79+1
-    call $t16 := $AddU128($t14, $t15);
-    if ($abort_flag) {
-        assume {:print "$at(131,62522,62523)"} true;
-        $t10 := $abort_code;
-        assume {:print "$track_abort(38,54):", $t10} $t10 == $t10;
-        goto L7;
-    }
-
-    // $t17 := borrow_field<stake::ValidatorSet>.total_joining_power($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1308:9+33
-    $t17 := $ChildMutation($t9, 5, $total_joining_power#$1_stake_ValidatorSet($Dereference($t9)));
-
-    // write_ref($t17, $t16) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1308:9+97
-    $t17 := $UpdateMutation($t17, $t16);
-
-    // write_back[Reference($t9).total_joining_power (u128)]($t17) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1308:9+97
-    $t9 := $UpdateMutation($t9, $Update'$1_stake_ValidatorSet'_total_joining_power($Dereference($t9), $Dereference($t17)));
-
-    // $t18 := get_field<stake::ValidatorSet>.total_voting_power($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1311:13+32
-    assume {:print "$at(131,62661,62693)"} true;
-    $t18 := $total_voting_power#$1_stake_ValidatorSet($Dereference($t9));
-
-    // $t19 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1311:48+1
-    $t19 := 0;
-    assume $IsValid'u128'($t19);
-
-    // $t20 := >($t18, $t19) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1311:46+1
-    call $t20 := $Gt($t18, $t19);
-
-    // if ($t20) goto L1 else goto L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1311:9+291
-    if ($t20) { goto L1; } else { goto L0; }
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1313:17+13
-    assume {:print "$at(131,62738,62751)"} true;
+    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:623:9+87
 L1:
 
-    // $t21 := get_field<stake::ValidatorSet>.total_joining_power($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1313:17+33
-    assume {:print "$at(131,62738,62771)"} true;
-    $t21 := $total_joining_power#$1_stake_ValidatorSet($Dereference($t9));
+    // goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:623:9+87
+    assume {:print "$at(2,29637,29724)"} true;
+    goto L2;
 
-    // $t22 := get_field<stake::ValidatorSet>.total_voting_power($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1313:54+32
-    $t22 := $total_voting_power#$1_stake_ValidatorSet($Dereference($t9));
-
-    // write_back[stake::ValidatorSet@]($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1313:54+32
-    $1_stake_ValidatorSet_$memory := $ResourceUpdate($1_stake_ValidatorSet_$memory, $GlobalLocationAddress($t9),
-        $Dereference($t9));
-
-    // $t23 := *($t22, $t13) on_abort goto L7 with $t10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1313:87+1
-    call $t23 := $MulU128($t22, $t13);
-    if ($abort_flag) {
-        assume {:print "$at(131,62808,62809)"} true;
-        $t10 := $abort_code;
-        assume {:print "$track_abort(38,54):", $t10} $t10 == $t10;
-        goto L7;
-    }
-
-    // $t24 := 100 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1313:119+3
-    $t24 := 100;
-    assume $IsValid'u128'($t24);
-
-    // $t25 := /($t23, $t24) on_abort goto L7 with $t10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1313:117+1
-    call $t25 := $Div($t23, $t24);
-    if ($abort_flag) {
-        assume {:print "$at(131,62838,62839)"} true;
-        $t10 := $abort_code;
-        assume {:print "$track_abort(38,54):", $t10} $t10 == $t10;
-        goto L7;
-    }
-
-    // $t26 := <=($t21, $t25) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1313:51+2
-    call $t26 := $Le($t21, $t25);
-
-    // if ($t26) goto L3 else goto L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1312:13+224
-    assume {:print "$at(131,62713,62937)"} true;
-    if ($t26) { goto L3; } else { goto L2; }
-
-    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1312:13+224
-L3:
-
-    // goto L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1312:13+224
-    assume {:print "$at(131,62713,62937)"} true;
-    goto L4;
-
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1314:41+36
-    assume {:print "$at(131,62885,62921)"} true;
-L2:
-
-    // $t27 := 13 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1314:41+36
-    assume {:print "$at(131,62885,62921)"} true;
-    $t27 := 13;
-    assume $IsValid'u64'($t27);
-
-    // $t28 := error::invalid_argument($t27) on_abort goto L7 with $t10 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1314:17+61
-    call $t28 := $1_error_invalid_argument($t27);
-    if ($abort_flag) {
-        assume {:print "$at(131,62861,62922)"} true;
-        $t10 := $abort_code;
-        assume {:print "$track_abort(38,54):", $t10} $t10 == $t10;
-        goto L7;
-    }
-
-    // trace_abort($t28) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1312:13+224
-    assume {:print "$at(131,62713,62937)"} true;
-    assume {:print "$track_abort(38,54):", $t28} $t28 == $t28;
-
-    // $t10 := move($t28) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1312:13+224
-    $t10 := $t28;
-
-    // goto L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1312:13+224
-    goto L7;
-
-    // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1311:9+291
-    assume {:print "$at(131,62657,62948)"} true;
-L4:
-
-    // goto L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1311:9+291
-    assume {:print "$at(131,62657,62948)"} true;
-    goto L5;
-
-    // label L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1311:9+291
+    // label L0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:623:57+37
 L0:
 
-    // write_back[stake::ValidatorSet@]($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1311:9+291
-    assume {:print "$at(131,62657,62948)"} true;
-    $1_stake_ValidatorSet_$memory := $ResourceUpdate($1_stake_ValidatorSet_$memory, $GlobalLocationAddress($t9),
-        $Dereference($t9));
+    // $t5 := 3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:623:57+37
+    assume {:print "$at(2,29685,29722)"} true;
+    $t5 := 3;
+    assume $IsValid'u64'($t5);
 
-    // destroy($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1311:9+291
+    // $t6 := error::not_found($t5) on_abort goto L7 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:623:40+55
+    call $t6 := $1_error_not_found($t5);
+    if ($abort_flag) {
+        assume {:print "$at(2,29668,29723)"} true;
+        $t7 := $abort_code;
+        assume {:print "$track_abort(56,2):", $t7} $t7 == $t7;
+        goto L7;
+    }
 
-    // label L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1311:9+291
+    // trace_abort($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:623:9+87
+    assume {:print "$at(2,29637,29724)"} true;
+    assume {:print "$track_abort(56,2):", $t6} $t6 == $t6;
+
+    // $t7 := move($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:623:9+87
+    $t7 := $t6;
+
+    // goto L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:623:9+87
+    goto L7;
+
+    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:624:63+6
+    assume {:print "$at(2,29788,29794)"} true;
+L2:
+
+    // $t8 := borrow_global<staking_contract::Store>($t0) on_abort goto L7 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:624:38+17
+    assume {:print "$at(2,29763,29780)"} true;
+    if (!$ResourceExists($1_staking_contract_Store_$memory, $t0)) {
+        call $ExecFailureAbort();
+    } else {
+        $t8 := $Mutation($Global($t0), EmptyVec(), $ResourceValue($1_staking_contract_Store_$memory, $t0));
+    }
+    if ($abort_flag) {
+        assume {:print "$at(2,29763,29780)"} true;
+        $t7 := $abort_code;
+        assume {:print "$track_abort(56,2):", $t7} $t7 == $t7;
+        goto L7;
+    }
+
+    // $t9 := borrow_field<staking_contract::Store>.staking_contracts($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:624:33+55
+    $t9 := $ChildMutation($t8, 0, $staking_contracts#$1_staking_contract_Store($Dereference($t8)));
+
+    // $t10 := read_ref($t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:626:37+30
+    assume {:print "$at(2,29868,29898)"} true;
+    $t10 := $Dereference($t9);
+
+    // pack_ref_deep($t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:626:37+30
+
+    // $t11 := simple_map::contains_key<address, staking_contract::StakingContract>($t10, $t1) on_abort goto L7 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:626:13+54
+    call $t11 := $1_simple_map_contains_key'address_$1_staking_contract_StakingContract'($t10, $t1);
+    if ($abort_flag) {
+        assume {:print "$at(2,29844,29898)"} true;
+        $t7 := $abort_code;
+        assume {:print "$track_abort(56,2):", $t7} $t7 == $t7;
+        goto L7;
+    }
+
+    // if ($t11) goto L4 else goto L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:625:9+157
+    assume {:print "$at(2,29823,29980)"} true;
+    if ($t11) { goto L4; } else { goto L3; }
+
+    // label L4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:625:9+157
+L4:
+
+    // goto L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:625:9+157
+    assume {:print "$at(2,29823,29980)"} true;
+    goto L5;
+
+    // label L3 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:627:30+39
+    assume {:print "$at(2,29929,29968)"} true;
+L3:
+
+    // $t12 := 4 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:627:30+39
+    assume {:print "$at(2,29929,29968)"} true;
+    $t12 := 4;
+    assume $IsValid'u64'($t12);
+
+    // $t13 := error::not_found($t12) on_abort goto L7 with $t7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:627:13+57
+    call $t13 := $1_error_not_found($t12);
+    if ($abort_flag) {
+        assume {:print "$at(2,29912,29969)"} true;
+        $t7 := $abort_code;
+        assume {:print "$track_abort(56,2):", $t7} $t7 == $t7;
+        goto L7;
+    }
+
+    // trace_abort($t13) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:625:9+157
+    assume {:print "$at(2,29823,29980)"} true;
+    assume {:print "$track_abort(56,2):", $t13} $t13 == $t13;
+
+    // $t7 := move($t13) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:625:9+157
+    $t7 := $t13;
+
+    // goto L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:625:9+157
+    goto L7;
+
+    // label L5 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:628:10+1
+    assume {:print "$at(2,29980,29981)"} true;
 L5:
 
-    // label L6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1317:5+1
-    assume {:print "$at(131,62953,62954)"} true;
+    // label L6 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:629:5+1
+    assume {:print "$at(2,29986,29987)"} true;
 L6:
 
-    // return () at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1317:5+1
-    assume {:print "$at(131,62953,62954)"} true;
+    // return () at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:629:5+1
+    assume {:print "$at(2,29986,29987)"} true;
     return;
 
-    // label L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1317:5+1
+    // label L7 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:629:5+1
 L7:
 
-    // abort($t10) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.move:1317:5+1
-    assume {:print "$at(131,62953,62954)"} true;
-    $abort_code := $t10;
+    // abort($t7) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:629:5+1
+    assume {:print "$at(2,29986,29987)"} true;
+    $abort_code := $t7;
     $abort_flag := true;
     return;
 
 }
 
-// spec fun at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/reconfiguration.move:154:5+155
-function {:inline} $1_reconfiguration_$last_reconfiguration_time($1_reconfiguration_Configuration_$memory: $Memory $1_reconfiguration_Configuration): int {
-    $last_reconfiguration_time#$1_reconfiguration_Configuration($ResourceValue($1_reconfiguration_Configuration_$memory, 1))
-}
-
-// struct reconfiguration::Configuration at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/reconfiguration.move:33:5+306
-type {:datatype} $1_reconfiguration_Configuration;
-function {:constructor} $1_reconfiguration_Configuration($epoch: int, $last_reconfiguration_time: int, $events: $1_event_EventHandle'$1_reconfiguration_NewEpochEvent'): $1_reconfiguration_Configuration;
-function {:inline} $Update'$1_reconfiguration_Configuration'_epoch(s: $1_reconfiguration_Configuration, x: int): $1_reconfiguration_Configuration {
-    $1_reconfiguration_Configuration(x, $last_reconfiguration_time#$1_reconfiguration_Configuration(s), $events#$1_reconfiguration_Configuration(s))
-}
-function {:inline} $Update'$1_reconfiguration_Configuration'_last_reconfiguration_time(s: $1_reconfiguration_Configuration, x: int): $1_reconfiguration_Configuration {
-    $1_reconfiguration_Configuration($epoch#$1_reconfiguration_Configuration(s), x, $events#$1_reconfiguration_Configuration(s))
-}
-function {:inline} $Update'$1_reconfiguration_Configuration'_events(s: $1_reconfiguration_Configuration, x: $1_event_EventHandle'$1_reconfiguration_NewEpochEvent'): $1_reconfiguration_Configuration {
-    $1_reconfiguration_Configuration($epoch#$1_reconfiguration_Configuration(s), $last_reconfiguration_time#$1_reconfiguration_Configuration(s), x)
-}
-function $IsValid'$1_reconfiguration_Configuration'(s: $1_reconfiguration_Configuration): bool {
-    $IsValid'u64'($epoch#$1_reconfiguration_Configuration(s))
-      && $IsValid'u64'($last_reconfiguration_time#$1_reconfiguration_Configuration(s))
-      && $IsValid'$1_event_EventHandle'$1_reconfiguration_NewEpochEvent''($events#$1_reconfiguration_Configuration(s))
-}
-function {:inline} $IsEqual'$1_reconfiguration_Configuration'(s1: $1_reconfiguration_Configuration, s2: $1_reconfiguration_Configuration): bool {
-    s1 == s2
-}
-var $1_reconfiguration_Configuration_$memory: $Memory $1_reconfiguration_Configuration;
-
-// struct reconfiguration::NewEpochEvent at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/reconfiguration.move:28:5+64
-type {:datatype} $1_reconfiguration_NewEpochEvent;
-function {:constructor} $1_reconfiguration_NewEpochEvent($epoch: int): $1_reconfiguration_NewEpochEvent;
-function {:inline} $Update'$1_reconfiguration_NewEpochEvent'_epoch(s: $1_reconfiguration_NewEpochEvent, x: int): $1_reconfiguration_NewEpochEvent {
-    $1_reconfiguration_NewEpochEvent(x)
-}
-function $IsValid'$1_reconfiguration_NewEpochEvent'(s: $1_reconfiguration_NewEpochEvent): bool {
-    $IsValid'u64'($epoch#$1_reconfiguration_NewEpochEvent(s))
-}
-function {:inline} $IsEqual'$1_reconfiguration_NewEpochEvent'(s1: $1_reconfiguration_NewEpochEvent, s2: $1_reconfiguration_NewEpochEvent): bool {
-    s1 == s2
-}
-
-// fun staking_contract::create_stake_pool [verification] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1450
-procedure {:timeLimit 40} $1_staking_contract_create_stake_pool$verify(_$t0: $signer, _$t1: int, _$t2: int, _$t3: Vec (int)) returns ($ret0: $signer, $ret1: $1_account_SignerCapability, $ret2: $1_stake_OwnerCapability)
+// fun staking_contract::get_staking_contract_amounts_internal [baseline] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:653:5+1388
+procedure {:inline 1} $1_staking_contract_get_staking_contract_amounts_internal(_$t0: $1_staking_contract_StakingContract) returns ($ret0: int, $ret1: int, $ret2: int)
 {
     // declare local variables
-    var $t4: int;
-    var $t5: $1_stake_OwnerCapability;
-    var $t6: Vec (int);
-    var $t7: $signer;
-    var $t8: $1_account_SignerCapability;
-    var $t9: int;
-    var $t10: Vec (int);
-    var $t11: Vec (int);
-    var $t12: int;
-    var $t13: $1_account_Account;
-    var $t14: $1_stake_AllowedValidators;
-    var $t15: int;
-    var $t16: int;
-    var $t17: $Mutation (Vec (int));
-    var $t18: Vec (int);
-    var $t19: $Mutation (Vec (int));
-    var $t20: Vec (int);
-    var $t21: $Mutation (Vec (int));
-    var $t22: Vec (int);
-    var $t23: int;
-    var $t24: int;
-    var $t25: $1_account_Account;
-    var $t26: Vec (int);
-    var $t27: $signer;
-    var $t28: $1_account_SignerCapability;
-    var $t29: int;
-    var $t30: int;
-    var $t31: $1_stake_OwnerCapability;
-    var $t32: $1_account_Account;
-    var $t33: $1_stake_OwnerCapability;
-    var $t34: int;
-    var $t35: $1_stake_StakePool;
-    var $t36: int;
-    var $t37: int;
-    var $t0: $signer;
     var $t1: int;
     var $t2: int;
-    var $t3: Vec (int);
-    var $temp_0'$1_account_SignerCapability': $1_account_SignerCapability;
-    var $temp_0'$1_stake_OwnerCapability': $1_stake_OwnerCapability;
+    var $t3: int;
+    var $t4: int;
+    var $t5: int;
+    var $t6: $1_stake_StakePool;
+    var $t7: int;
+    var $t8: int;
+    var $t9: int;
+    var $t10: int;
+    var $t11: int;
+    var $t12: int;
+    var $t13: int;
+    var $t14: int;
+    var $t15: int;
+    var $t16: int;
+    var $t17: int;
+    var $t18: int;
+    var $t19: int;
+    var $t20: int;
+    var $t21: int;
+    var $t22: int;
+    var $t23: int;
+    var $t0: $1_staking_contract_StakingContract;
+    var $temp_0'$1_staking_contract_StakingContract': $1_staking_contract_StakingContract;
+    var $temp_0'u64': int;
+    $t0 := _$t0;
+
+    // bytecode translation starts here
+    // assume Identical($t5, select staking_contract::StakingContract.pool_address($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:338:9+49
+    assume {:print "$at(3,14132,14181)"} true;
+    assume ($t5 == $pool_address#$1_staking_contract_StakingContract($t0));
+
+    // assume Identical($t6, global<stake::StakePool>($t5)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:339:9+56
+    assume {:print "$at(3,14190,14246)"} true;
+    assume ($t6 == $ResourceValue($1_stake_StakePool_$memory, $t5));
+
+    // assume Identical($t7, coin::$value<aptos_coin::AptosCoin>(select stake::StakePool.active($t6))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:340:9+44
+    assume {:print "$at(3,14255,14299)"} true;
+    assume ($t7 == $1_coin_$value'$1_aptos_coin_AptosCoin'($active#$1_stake_StakePool($t6)));
+
+    // assume Identical($t8, coin::$value<aptos_coin::AptosCoin>(select stake::StakePool.pending_active($t6))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:341:9+60
+    assume {:print "$at(3,14308,14368)"} true;
+    assume ($t8 == $1_coin_$value'$1_aptos_coin_AptosCoin'($pending_active#$1_stake_StakePool($t6)));
+
+    // assume Identical($t9, Add($t7, $t8)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:342:9+49
+    assume {:print "$at(3,14377,14426)"} true;
+    assume ($t9 == ($t7 + $t8));
+
+    // assume Identical($t10, Sub($t9, select staking_contract::StakingContract.principal($t0))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:343:9+74
+    assume {:print "$at(3,14435,14509)"} true;
+    assume ($t10 == ($t9 - $principal#$1_staking_contract_StakingContract($t0)));
+
+    // trace_local[staking_contract]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:653:5+1
+    assume {:print "$at(2,31011,31012)"} true;
+    assume {:print "$track_local(56,9,0):", $t0} $t0 == $t0;
+
+    // $t11 := get_field<staking_contract::StakingContract>.pool_address($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:658:63+29
+    assume {:print "$at(2,31532,31561)"} true;
+    $t11 := $pool_address#$1_staking_contract_StakingContract($t0);
+
+    // ($t12, $t13, $t14, $t15) := stake::get_stake($t11) on_abort goto L2 with $t16 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:658:46+47
+    call $t12,$t13,$t14,$t15 := $1_stake_get_stake($t11);
+    if ($abort_flag) {
+        assume {:print "$at(2,31515,31562)"} true;
+        $t16 := $abort_code;
+        assume {:print "$track_abort(56,9):", $t16} $t16 == $t16;
+        goto L2;
+    }
+
+    // destroy($t15) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:658:41+1
+
+    // trace_local[pending_active]($t14) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:658:25+14
+    assume {:print "$track_local(56,9,3):", $t14} $t14 == $t14;
+
+    // destroy($t13) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:658:22+1
+
+    // $t17 := +($t12, $t14) on_abort goto L2 with $t16 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:659:41+1
+    assume {:print "$at(2,31604,31605)"} true;
+    call $t17 := $AddU64($t12, $t14);
+    if ($abort_flag) {
+        assume {:print "$at(2,31604,31605)"} true;
+        $t16 := $abort_code;
+        assume {:print "$track_abort(56,9):", $t16} $t16 == $t16;
+        goto L2;
+    }
+
+    // trace_local[total_active_stake]($t17) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:659:13+18
+    assume {:print "$track_local(56,9,4):", $t17} $t17 == $t17;
+
+    // assume Le(Sub($t17, select staking_contract::StakingContract.principal($t0)), 100) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:662:13+62
+    assume {:print "$at(2,31716,31778)"} true;
+    assume (($t17 - $principal#$1_staking_contract_StakingContract($t0)) <= 100);
+
+    // $t18 := get_field<staking_contract::StakingContract>.principal($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:664:56+26
+    assume {:print "$at(2,31845,31871)"} true;
+    $t18 := $principal#$1_staking_contract_StakingContract($t0);
+
+    // $t19 := -($t17, $t18) on_abort goto L2 with $t16 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:664:54+1
+    call $t19 := $Sub($t17, $t18);
+    if ($abort_flag) {
+        assume {:print "$at(2,31843,31844)"} true;
+        $t16 := $abort_code;
+        assume {:print "$track_abort(56,9):", $t16} $t16 == $t16;
+        goto L2;
+    }
+
+    // trace_local[accumulated_rewards]($t19) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:664:13+19
+    assume {:print "$track_local(56,9,1):", $t19} $t19 == $t19;
+
+    // assume And(Ge(select staking_contract::StakingContract.commission_percentage($t0), 0), Le(select staking_contract::StakingContract.commission_percentage($t0), 100)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:668:13+100
+    assume {:print "$at(2,32112,32212)"} true;
+    assume (($commission_percentage#$1_staking_contract_StakingContract($t0) >= 0) && ($commission_percentage#$1_staking_contract_StakingContract($t0) <= 100));
+
+    // $t20 := get_field<staking_contract::StakingContract>.commission_percentage($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:670:55+38
+    assume {:print "$at(2,32278,32316)"} true;
+    $t20 := $commission_percentage#$1_staking_contract_StakingContract($t0);
+
+    // $t21 := *($t19, $t20) on_abort goto L2 with $t16 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:670:53+1
+    call $t21 := $MulU64($t19, $t20);
+    if ($abort_flag) {
+        assume {:print "$at(2,32276,32277)"} true;
+        $t16 := $abort_code;
+        assume {:print "$track_abort(56,9):", $t16} $t16 == $t16;
+        goto L2;
+    }
+
+    // $t22 := 100 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:670:96+3
+    $t22 := 100;
+    assume $IsValid'u64'($t22);
+
+    // $t23 := /($t21, $t22) on_abort goto L2 with $t16 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:670:94+1
+    call $t23 := $Div($t21, $t22);
+    if ($abort_flag) {
+        assume {:print "$at(2,32317,32318)"} true;
+        $t16 := $abort_code;
+        assume {:print "$track_abort(56,9):", $t16} $t16 == $t16;
+        goto L2;
+    }
+
+    // trace_local[commission_amount]($t23) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:670:13+17
+    assume {:print "$track_local(56,9,2):", $t23} $t23 == $t23;
+
+    // trace_return[0]($t17) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:672:9+60
+    assume {:print "$at(2,32333,32393)"} true;
+    assume {:print "$track_return(56,9,0):", $t17} $t17 == $t17;
+
+    // trace_return[1]($t19) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:672:9+60
+    assume {:print "$track_return(56,9,1):", $t19} $t19 == $t19;
+
+    // trace_return[2]($t23) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:672:9+60
+    assume {:print "$track_return(56,9,2):", $t23} $t23 == $t23;
+
+    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:673:5+1
+    assume {:print "$at(2,32398,32399)"} true;
+L1:
+
+    // return ($t17, $t19, $t23) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:673:5+1
+    assume {:print "$at(2,32398,32399)"} true;
+    $ret0 := $t17;
+    $ret1 := $t19;
+    $ret2 := $t23;
+    return;
+
+    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:673:5+1
+L2:
+
+    // abort($t16) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:673:5+1
+    assume {:print "$at(2,32398,32399)"} true;
+    $abort_code := $t16;
+    $abort_flag := true;
+    return;
+
+}
+
+// fun staking_contract::staking_contract_amounts [verification] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:208:5+395
+procedure {:timeLimit 200} $1_staking_contract_staking_contract_amounts$verify(_$t0: int, _$t1: int) returns ($ret0: int, $ret1: int, $ret2: int)
+{
+    // declare local variables
+    var $t2: Table int ($1_staking_contract_StakingContract);
+    var $t3: $1_staking_contract_StakingContract;
+    var $t4: int;
+    var $t5: $1_stake_StakePool;
+    var $t6: int;
+    var $t7: int;
+    var $t8: int;
+    var $t9: int;
+    var $t10: Table int ($1_staking_contract_StakingContract);
+    var $t11: int;
+    var $t12: $1_stake_StakePool;
+    var $t13: int;
+    var $t14: int;
+    var $t15: int;
+    var $t16: int;
+    var $t17: Table int ($1_staking_contract_StakingContract);
+    var $t18: int;
+    var $t19: $1_staking_contract_Store;
+    var $t20: Table int ($1_staking_contract_StakingContract);
+    var $t21: $1_staking_contract_StakingContract;
+    var $t22: int;
+    var $t23: $1_stake_StakePool;
+    var $t24: int;
+    var $t25: int;
+    var $t26: int;
+    var $t27: int;
+    var $t28: int;
+    var $t29: int;
+    var $t30: int;
+    var $t0: int;
+    var $t1: int;
     var $temp_0'address': int;
-    var $temp_0'signer': $signer;
-    var $temp_0'vec'u8'': Vec (int);
-    var $1_account_Account_$memory#47: $Memory $1_account_Account;
-    var $1_stake_ValidatorConfig_$memory#48: $Memory $1_stake_ValidatorConfig;
-    var $1_stake_AllowedValidators_$memory#49: $Memory $1_stake_AllowedValidators;
-    var $1_stake_StakePool_$memory#50: $Memory $1_stake_StakePool;
-    var $1_stake_OwnerCapability_$memory#51: $Memory $1_stake_OwnerCapability;
+    var $temp_0'u64': int;
+    var $1_staking_contract_Store_$memory#20: $Memory $1_staking_contract_Store;
+    var $1_stake_StakePool_$memory#21: $Memory $1_stake_StakePool;
     $t0 := _$t0;
     $t1 := _$t1;
-    $t2 := _$t2;
-    $t3 := _$t3;
 
     // verification entrypoint assumptions
     call $InitVerification();
 
     // bytecode translation starts here
-    // assume WellFormed($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume {:print "$at(2,32405,32406)"} true;
-    assume $IsValid'signer'($t0) && $1_signer_is_txn_signer($t0) && $1_signer_is_txn_signer_addr($addr#$signer($t0));
+    // assume WellFormed($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:208:5+1
+    assume {:print "$at(2,9573,9574)"} true;
+    assume $IsValid'address'($t0);
 
-    // assume WellFormed($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
+    // assume WellFormed($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:208:5+1
     assume $IsValid'address'($t1);
 
-    // assume WellFormed($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume $IsValid'address'($t2);
-
-    // assume WellFormed($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume $IsValid'vec'u8''($t3);
-
-    // assume forall $rsc: ResourceDomain<account::Account>(): And(WellFormed($rsc), And(Le(Len<address>(select option::Option.vec(select account::CapabilityOffer.for(select account::Account.rotation_capability_offer($rsc)))), 1), Le(Len<address>(select option::Option.vec(select account::CapabilityOffer.for(select account::Account.signer_capability_offer($rsc)))), 1))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume (forall $a_0: int :: {$ResourceValue($1_account_Account_$memory, $a_0)}(var $rsc := $ResourceValue($1_account_Account_$memory, $a_0);
-    (($IsValid'$1_account_Account'($rsc) && ((LenVec($vec#$1_option_Option'address'($for#$1_account_CapabilityOffer'$1_account_RotationCapability'($rotation_capability_offer#$1_account_Account($rsc)))) <= 1) && (LenVec($vec#$1_option_Option'address'($for#$1_account_CapabilityOffer'$1_account_SignerCapability'($signer_capability_offer#$1_account_Account($rsc)))) <= 1))))));
-
-    // assume forall $rsc: ResourceDomain<coin::CoinInfo<aptos_coin::AptosCoin>>(): And(WellFormed($rsc), And(Le(Len<optional_aggregator::OptionalAggregator>(select option::Option.vec(select coin::CoinInfo.supply($rsc))), 1), forall $elem: select option::Option.vec(select coin::CoinInfo.supply($rsc)): And(And(And(And(And(Iff(option::$is_some<aggregator::Aggregator>(select optional_aggregator::OptionalAggregator.aggregator($elem)), option::$is_none<optional_aggregator::Integer>(select optional_aggregator::OptionalAggregator.integer($elem))), Iff(option::$is_some<optional_aggregator::Integer>(select optional_aggregator::OptionalAggregator.integer($elem)), option::$is_none<aggregator::Aggregator>(select optional_aggregator::OptionalAggregator.aggregator($elem)))), Implies(option::$is_some<optional_aggregator::Integer>(select optional_aggregator::OptionalAggregator.integer($elem)), Le(select optional_aggregator::Integer.value(option::$borrow<optional_aggregator::Integer>(select optional_aggregator::OptionalAggregator.integer($elem))), select optional_aggregator::Integer.limit(option::$borrow<optional_aggregator::Integer>(select optional_aggregator::OptionalAggregator.integer($elem)))))), Implies(option::$is_some<aggregator::Aggregator>(select optional_aggregator::OptionalAggregator.aggregator($elem)), Le(aggregator::spec_aggregator_get_val(option::$borrow<aggregator::Aggregator>(select optional_aggregator::OptionalAggregator.aggregator($elem))), aggregator::spec_get_limit(option::$borrow<aggregator::Aggregator>(select optional_aggregator::OptionalAggregator.aggregator($elem)))))), Le(Len<aggregator::Aggregator>(select option::Option.vec(select optional_aggregator::OptionalAggregator.aggregator($elem))), 1)), Le(Len<optional_aggregator::Integer>(select option::Option.vec(select optional_aggregator::OptionalAggregator.integer($elem))), 1)))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
+    // assume forall $rsc: ResourceDomain<coin::CoinInfo<aptos_coin::AptosCoin>>(): And(WellFormed($rsc), And(Le(Len<optional_aggregator::OptionalAggregator>(select option::Option.vec(select coin::CoinInfo.supply($rsc))), 1), forall $elem: select option::Option.vec(select coin::CoinInfo.supply($rsc)): And(And(And(And(And(Iff(option::$is_some<aggregator::Aggregator>(select optional_aggregator::OptionalAggregator.aggregator($elem)), option::$is_none<optional_aggregator::Integer>(select optional_aggregator::OptionalAggregator.integer($elem))), Iff(option::$is_some<optional_aggregator::Integer>(select optional_aggregator::OptionalAggregator.integer($elem)), option::$is_none<aggregator::Aggregator>(select optional_aggregator::OptionalAggregator.aggregator($elem)))), Implies(option::$is_some<optional_aggregator::Integer>(select optional_aggregator::OptionalAggregator.integer($elem)), Le(select optional_aggregator::Integer.value(option::$borrow<optional_aggregator::Integer>(select optional_aggregator::OptionalAggregator.integer($elem))), select optional_aggregator::Integer.limit(option::$borrow<optional_aggregator::Integer>(select optional_aggregator::OptionalAggregator.integer($elem)))))), Implies(option::$is_some<aggregator::Aggregator>(select optional_aggregator::OptionalAggregator.aggregator($elem)), Le(aggregator::spec_aggregator_get_val(option::$borrow<aggregator::Aggregator>(select optional_aggregator::OptionalAggregator.aggregator($elem))), aggregator::spec_get_limit(option::$borrow<aggregator::Aggregator>(select optional_aggregator::OptionalAggregator.aggregator($elem)))))), Le(Len<aggregator::Aggregator>(select option::Option.vec(select optional_aggregator::OptionalAggregator.aggregator($elem))), 1)), Le(Len<optional_aggregator::Integer>(select option::Option.vec(select optional_aggregator::OptionalAggregator.integer($elem))), 1)))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:208:5+1
     assume (forall $a_0: int :: {$ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $a_0)}(var $rsc := $ResourceValue($1_coin_CoinInfo'$1_aptos_coin_AptosCoin'_$memory, $a_0);
     (($IsValid'$1_coin_CoinInfo'$1_aptos_coin_AptosCoin''($rsc) && ((LenVec($vec#$1_option_Option'$1_optional_aggregator_OptionalAggregator'($supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($rsc))) <= 1) && (var $range_1 := $vec#$1_option_Option'$1_optional_aggregator_OptionalAggregator'($supply#$1_coin_CoinInfo'$1_aptos_coin_AptosCoin'($rsc)); (forall $i_2: int :: InRangeVec($range_1, $i_2) ==> (var $elem := ReadVec($range_1, $i_2);
     ((((((($1_option_$is_some'$1_aggregator_Aggregator'($aggregator#$1_optional_aggregator_OptionalAggregator($elem)) <==> $1_option_$is_none'$1_optional_aggregator_Integer'($integer#$1_optional_aggregator_OptionalAggregator($elem))) && ($1_option_$is_some'$1_optional_aggregator_Integer'($integer#$1_optional_aggregator_OptionalAggregator($elem)) <==> $1_option_$is_none'$1_aggregator_Aggregator'($aggregator#$1_optional_aggregator_OptionalAggregator($elem)))) && ($1_option_$is_some'$1_optional_aggregator_Integer'($integer#$1_optional_aggregator_OptionalAggregator($elem)) ==> ($value#$1_optional_aggregator_Integer($1_option_$borrow'$1_optional_aggregator_Integer'($integer#$1_optional_aggregator_OptionalAggregator($elem))) <= $limit#$1_optional_aggregator_Integer($1_option_$borrow'$1_optional_aggregator_Integer'($integer#$1_optional_aggregator_OptionalAggregator($elem)))))) && ($1_option_$is_some'$1_aggregator_Aggregator'($aggregator#$1_optional_aggregator_OptionalAggregator($elem)) ==> ($1_aggregator_spec_aggregator_get_val($1_option_$borrow'$1_aggregator_Aggregator'($aggregator#$1_optional_aggregator_OptionalAggregator($elem))) <= $1_aggregator_spec_get_limit($1_option_$borrow'$1_aggregator_Aggregator'($aggregator#$1_optional_aggregator_OptionalAggregator($elem)))))) && (LenVec($vec#$1_option_Option'$1_aggregator_Aggregator'($aggregator#$1_optional_aggregator_OptionalAggregator($elem))) <= 1)) && (LenVec($vec#$1_option_Option'$1_optional_aggregator_Integer'($integer#$1_optional_aggregator_OptionalAggregator($elem))) <= 1)))))))))));
 
-    // assume forall $rsc: ResourceDomain<coin::CoinStore<aptos_coin::AptosCoin>>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume (forall $a_0: int :: {$ResourceValue($1_coin_CoinStore'$1_aptos_coin_AptosCoin'_$memory, $a_0)}(var $rsc := $ResourceValue($1_coin_CoinStore'$1_aptos_coin_AptosCoin'_$memory, $a_0);
-    ($IsValid'$1_coin_CoinStore'$1_aptos_coin_AptosCoin''($rsc))));
-
-    // assume forall $rsc: ResourceDomain<coin::Ghost$supply<aptos_coin::AptosCoin>>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
+    // assume forall $rsc: ResourceDomain<coin::Ghost$supply<aptos_coin::AptosCoin>>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:208:5+1
     assume (forall $a_0: int :: {$ResourceValue($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $a_0)}(var $rsc := $ResourceValue($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, $a_0);
     ($IsValid'$1_coin_Ghost$supply'$1_aptos_coin_AptosCoin''($rsc))));
 
-    // assume exists<coin::Ghost$supply<aptos_coin::AptosCoin>>(0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
+    // assume exists<coin::Ghost$supply<aptos_coin::AptosCoin>>(0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:208:5+1
     assume $ResourceExists($1_coin_Ghost$supply'$1_aptos_coin_AptosCoin'_$memory, 0);
 
-    // assume forall $rsc: ResourceDomain<coin::Ghost$aggregate_supply<aptos_coin::AptosCoin>>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
+    // assume forall $rsc: ResourceDomain<coin::Ghost$aggregate_supply<aptos_coin::AptosCoin>>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:208:5+1
     assume (forall $a_0: int :: {$ResourceValue($1_coin_Ghost$aggregate_supply'$1_aptos_coin_AptosCoin'_$memory, $a_0)}(var $rsc := $ResourceValue($1_coin_Ghost$aggregate_supply'$1_aptos_coin_AptosCoin'_$memory, $a_0);
     ($IsValid'$1_coin_Ghost$aggregate_supply'$1_aptos_coin_AptosCoin''($rsc))));
 
-    // assume exists<coin::Ghost$aggregate_supply<aptos_coin::AptosCoin>>(0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
+    // assume exists<coin::Ghost$aggregate_supply<aptos_coin::AptosCoin>>(0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:208:5+1
     assume $ResourceExists($1_coin_Ghost$aggregate_supply'$1_aptos_coin_AptosCoin'_$memory, 0);
 
-    // assume forall $rsc: ResourceDomain<chain_status::GenesisEndMarker>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume (forall $a_0: int :: {$ResourceValue($1_chain_status_GenesisEndMarker_$memory, $a_0)}(var $rsc := $ResourceValue($1_chain_status_GenesisEndMarker_$memory, $a_0);
-    ($IsValid'$1_chain_status_GenesisEndMarker'($rsc))));
-
-    // assume forall $rsc: ResourceDomain<timestamp::CurrentTimeMicroseconds>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume (forall $a_0: int :: {$ResourceValue($1_timestamp_CurrentTimeMicroseconds_$memory, $a_0)}(var $rsc := $ResourceValue($1_timestamp_CurrentTimeMicroseconds_$memory, $a_0);
-    ($IsValid'$1_timestamp_CurrentTimeMicroseconds'($rsc))));
-
-    // assume forall $rsc: ResourceDomain<staking_config::StakingConfig>(): And(WellFormed($rsc), And(And(Le(select staking_config::StakingConfig.rewards_rate($rsc), 1000000), Gt(select staking_config::StakingConfig.rewards_rate_denominator($rsc), 0)), Le(select staking_config::StakingConfig.rewards_rate($rsc), select staking_config::StakingConfig.rewards_rate_denominator($rsc)))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume (forall $a_0: int :: {$ResourceValue($1_staking_config_StakingConfig_$memory, $a_0)}(var $rsc := $ResourceValue($1_staking_config_StakingConfig_$memory, $a_0);
-    (($IsValid'$1_staking_config_StakingConfig'($rsc) && ((($rewards_rate#$1_staking_config_StakingConfig($rsc) <= 1000000) && ($rewards_rate_denominator#$1_staking_config_StakingConfig($rsc) > 0)) && ($rewards_rate#$1_staking_config_StakingConfig($rsc) <= $rewards_rate_denominator#$1_staking_config_StakingConfig($rsc)))))));
-
-    // assume forall $rsc: ResourceDomain<staking_config::StakingRewardsConfig>(): And(WellFormed($rsc), And(And(And(fixed_point64::spec_less_or_equal(select staking_config::StakingRewardsConfig.rewards_rate($rsc), fixed_point64::spec_create_from_u128(1)), fixed_point64::spec_less_or_equal(select staking_config::StakingRewardsConfig.min_rewards_rate($rsc), select staking_config::StakingRewardsConfig.rewards_rate($rsc))), Eq<u64>(select staking_config::StakingRewardsConfig.rewards_rate_period_in_secs($rsc), 31536000)), Le(fixed_point64::spec_ceil(select staking_config::StakingRewardsConfig.rewards_rate_decrease_rate($rsc)), 1))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume (forall $a_0: int :: {$ResourceValue($1_staking_config_StakingRewardsConfig_$memory, $a_0)}(var $rsc := $ResourceValue($1_staking_config_StakingRewardsConfig_$memory, $a_0);
-    (($IsValid'$1_staking_config_StakingRewardsConfig'($rsc) && ((($1_fixed_point64_spec_less_or_equal($rewards_rate#$1_staking_config_StakingRewardsConfig($rsc), $1_fixed_point64_spec_create_from_u128(1)) && $1_fixed_point64_spec_less_or_equal($min_rewards_rate#$1_staking_config_StakingRewardsConfig($rsc), $rewards_rate#$1_staking_config_StakingRewardsConfig($rsc))) && $IsEqual'u64'($rewards_rate_period_in_secs#$1_staking_config_StakingRewardsConfig($rsc), 31536000)) && ($1_fixed_point64_spec_ceil($rewards_rate_decrease_rate#$1_staking_config_StakingRewardsConfig($rsc)) <= 1))))));
-
-    // assume forall $rsc: ResourceDomain<stake::AllowedValidators>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume (forall $a_0: int :: {$ResourceValue($1_stake_AllowedValidators_$memory, $a_0)}(var $rsc := $ResourceValue($1_stake_AllowedValidators_$memory, $a_0);
-    ($IsValid'$1_stake_AllowedValidators'($rsc))));
-
-    // assume forall $rsc: ResourceDomain<stake::AptosCoinCapabilities>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume (forall $a_0: int :: {$ResourceValue($1_stake_AptosCoinCapabilities_$memory, $a_0)}(var $rsc := $ResourceValue($1_stake_AptosCoinCapabilities_$memory, $a_0);
-    ($IsValid'$1_stake_AptosCoinCapabilities'($rsc))));
-
-    // assume forall $rsc: ResourceDomain<stake::OwnerCapability>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume (forall $a_0: int :: {$ResourceValue($1_stake_OwnerCapability_$memory, $a_0)}(var $rsc := $ResourceValue($1_stake_OwnerCapability_$memory, $a_0);
-    ($IsValid'$1_stake_OwnerCapability'($rsc))));
-
-    // assume forall $rsc: ResourceDomain<stake::StakePool>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
+    // assume forall $rsc: ResourceDomain<stake::StakePool>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:208:5+1
     assume (forall $a_0: int :: {$ResourceValue($1_stake_StakePool_$memory, $a_0)}(var $rsc := $ResourceValue($1_stake_StakePool_$memory, $a_0);
     ($IsValid'$1_stake_StakePool'($rsc))));
 
-    // assume forall $rsc: ResourceDomain<stake::ValidatorConfig>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
+    // assume forall $rsc: ResourceDomain<stake::ValidatorConfig>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:208:5+1
     assume (forall $a_0: int :: {$ResourceValue($1_stake_ValidatorConfig_$memory, $a_0)}(var $rsc := $ResourceValue($1_stake_ValidatorConfig_$memory, $a_0);
     ($IsValid'$1_stake_ValidatorConfig'($rsc))));
 
-    // assume forall $rsc: ResourceDomain<stake::ValidatorFees>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume (forall $a_0: int :: {$ResourceValue($1_stake_ValidatorFees_$memory, $a_0)}(var $rsc := $ResourceValue($1_stake_ValidatorFees_$memory, $a_0);
-    ($IsValid'$1_stake_ValidatorFees'($rsc))));
-
-    // assume forall $rsc: ResourceDomain<stake::ValidatorPerformance>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
+    // assume forall $rsc: ResourceDomain<stake::ValidatorPerformance>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:208:5+1
     assume (forall $a_0: int :: {$ResourceValue($1_stake_ValidatorPerformance_$memory, $a_0)}(var $rsc := $ResourceValue($1_stake_ValidatorPerformance_$memory, $a_0);
     ($IsValid'$1_stake_ValidatorPerformance'($rsc))));
 
-    // assume forall $rsc: ResourceDomain<stake::ValidatorSet>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
+    // assume forall $rsc: ResourceDomain<stake::ValidatorSet>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:208:5+1
     assume (forall $a_0: int :: {$ResourceValue($1_stake_ValidatorSet_$memory, $a_0)}(var $rsc := $ResourceValue($1_stake_ValidatorSet_$memory, $a_0);
     ($IsValid'$1_stake_ValidatorSet'($rsc))));
 
-    // assume forall $rsc: ResourceDomain<reconfiguration::Configuration>(): WellFormed($rsc) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume (forall $a_0: int :: {$ResourceValue($1_reconfiguration_Configuration_$memory, $a_0)}(var $rsc := $ResourceValue($1_reconfiguration_Configuration_$memory, $a_0);
-    ($IsValid'$1_reconfiguration_Configuration'($rsc))));
+    // assume forall $rsc: ResourceDomain<staking_contract::Store>(): And(WellFormed($rsc), forall $key: select staking_contract::Store.staking_contracts($rsc): And(forall addr: TypeDomain<address>(): Eq<bool>(simple_map::spec_contains_key<address, u64>(select pool_u64::Pool.shares(select staking_contract::StakingContract.distribution_pool(simple_map::spec_get<address, staking_contract::StakingContract>(select staking_contract::Store.staking_contracts($rsc), $key))), addr), vector::spec_contains<address>(select pool_u64::Pool.shareholders(select staking_contract::StakingContract.distribution_pool(simple_map::spec_get<address, staking_contract::StakingContract>(select staking_contract::Store.staking_contracts($rsc), $key))), addr)), forall i: Range(0, Len<address>(select pool_u64::Pool.shareholders(select staking_contract::StakingContract.distribution_pool(simple_map::spec_get<address, staking_contract::StakingContract>(select staking_contract::Store.staking_contracts($rsc), $key))))), j: Range(0, Len<address>(select pool_u64::Pool.shareholders(select staking_contract::StakingContract.distribution_pool(simple_map::spec_get<address, staking_contract::StakingContract>(select staking_contract::Store.staking_contracts($rsc), $key))))): Implies(Eq<address>(Index(select pool_u64::Pool.shareholders(select staking_contract::StakingContract.distribution_pool(simple_map::spec_get<address, staking_contract::StakingContract>(select staking_contract::Store.staking_contracts($rsc), $key))), i), Index(select pool_u64::Pool.shareholders(select staking_contract::StakingContract.distribution_pool(simple_map::spec_get<address, staking_contract::StakingContract>(select staking_contract::Store.staking_contracts($rsc), $key))), j)), Eq<num>(i, j)))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:208:5+1
+    assume (forall $a_0: int :: {$ResourceValue($1_staking_contract_Store_$memory, $a_0)}(var $rsc := $ResourceValue($1_staking_contract_Store_$memory, $a_0);
+    (($IsValid'$1_staking_contract_Store'($rsc) && (var $range_1 := $staking_contracts#$1_staking_contract_Store($rsc); (forall $key: int :: ContainsTable($range_1, $EncodeKey'address'($key)) ==> (((forall addr: int :: $IsValid'address'(addr) ==> ($IsEqual'bool'($1_simple_map_spec_contains_key'address_u64'($shares#$1_pool_u64_Pool($distribution_pool#$1_staking_contract_StakingContract($1_simple_map_spec_get'address_$1_staking_contract_StakingContract'($staking_contracts#$1_staking_contract_Store($rsc), $key))), addr), $1_vector_spec_contains'address'($shareholders#$1_pool_u64_Pool($distribution_pool#$1_staking_contract_StakingContract($1_simple_map_spec_get'address_$1_staking_contract_StakingContract'($staking_contracts#$1_staking_contract_Store($rsc), $key))), addr)))) && (var $range_2 := $Range(0, LenVec($shareholders#$1_pool_u64_Pool($distribution_pool#$1_staking_contract_StakingContract($1_simple_map_spec_get'address_$1_staking_contract_StakingContract'($staking_contracts#$1_staking_contract_Store($rsc), $key))))); (var $range_3 := $Range(0, LenVec($shareholders#$1_pool_u64_Pool($distribution_pool#$1_staking_contract_StakingContract($1_simple_map_spec_get'address_$1_staking_contract_StakingContract'($staking_contracts#$1_staking_contract_Store($rsc), $key))))); (forall $i_4: int, $i_5: int :: $InRange($range_2, $i_4) ==> $InRange($range_3, $i_5) ==> (var i := $i_4;
+    (var j := $i_5;
+    (($IsEqual'address'(ReadVec($shareholders#$1_pool_u64_Pool($distribution_pool#$1_staking_contract_StakingContract($1_simple_map_spec_get'address_$1_staking_contract_StakingContract'($staking_contracts#$1_staking_contract_Store($rsc), $key))), i), ReadVec($shareholders#$1_pool_u64_Pool($distribution_pool#$1_staking_contract_StakingContract($1_simple_map_spec_get'address_$1_staking_contract_StakingContract'($staking_contracts#$1_staking_contract_Store($rsc), $key))), j)) ==> $IsEqual'num'(i, j))))))))))))))));
 
-    // assume Implies(chain_status::$is_operating(), exists<timestamp::CurrentTimeMicroseconds>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1450
-    // global invariant at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/timestamp.spec.move:4:9+93
-    assume ($1_chain_status_$is_operating($1_chain_status_GenesisEndMarker_$memory) ==> $ResourceExists($1_timestamp_CurrentTimeMicroseconds_$memory, 1));
-
-    // assume Implies(chain_status::$is_operating(), exists<staking_config::StakingConfig>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1450
-    // global invariant at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/configs/staking_config.spec.move:4:9+83
-    assume ($1_chain_status_$is_operating($1_chain_status_GenesisEndMarker_$memory) ==> $ResourceExists($1_staking_config_StakingConfig_$memory, 1));
-
-    // assume Implies(exists<stake::ValidatorSet>(1), stake::validator_set_is_valid()) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1450
+    // assume Implies(exists<stake::ValidatorSet>(1), stake::validator_set_is_valid()) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:208:5+395
     // global invariant at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:9:9+92
     assume ($ResourceExists($1_stake_ValidatorSet_$memory, 1) ==> $1_stake_validator_set_is_valid($1_stake_StakePool_$memory, $1_stake_ValidatorConfig_$memory, $1_stake_ValidatorPerformance_$memory, $1_stake_ValidatorSet_$memory));
 
-    // assume Implies(chain_status::$is_operating(), exists<stake::AptosCoinCapabilities>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1450
-    // global invariant at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:11:9+105
-    assume ($1_chain_status_$is_operating($1_chain_status_GenesisEndMarker_$memory) ==> $ResourceExists($1_stake_AptosCoinCapabilities_$memory, 1));
+    // assume Identical($t2, select staking_contract::Store.staking_contracts(global<staking_contract::Store>($t0))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:25:9+64
+    assume {:print "$at(3,914,978)"} true;
+    assume ($t2 == $staking_contracts#$1_staking_contract_Store($ResourceValue($1_staking_contract_Store_$memory, $t0)));
 
-    // assume Implies(chain_status::$is_operating(), exists<stake::ValidatorPerformance>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1450
-    // global invariant at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:12:9+104
-    assume ($1_chain_status_$is_operating($1_chain_status_GenesisEndMarker_$memory) ==> $ResourceExists($1_stake_ValidatorPerformance_$memory, 1));
+    // assume Identical($t3, simple_map::spec_get<address, staking_contract::StakingContract>($t2, $t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:26:9+73
+    assume {:print "$at(3,987,1060)"} true;
+    assume ($t3 == $1_simple_map_spec_get'address_$1_staking_contract_StakingContract'($t2, $t1));
 
-    // assume Implies(chain_status::$is_operating(), exists<stake::ValidatorSet>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1450
-    // global invariant at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:13:9+96
-    assume ($1_chain_status_$is_operating($1_chain_status_GenesisEndMarker_$memory) ==> $ResourceExists($1_stake_ValidatorSet_$memory, 1));
+    // assume Identical($t4, select staking_contract::StakingContract.pool_address($t3)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:30:9+49
+    assume {:print "$at(3,1179,1228)"} true;
+    assume ($t4 == $pool_address#$1_staking_contract_StakingContract($t3));
 
-    // assume Implies(chain_status::$is_operating(), Ge(timestamp::spec_now_microseconds(), reconfiguration::$last_reconfiguration_time())) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1450
-    // global invariant at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/reconfiguration.spec.move:8:9+137
-    assume ($1_chain_status_$is_operating($1_chain_status_GenesisEndMarker_$memory) ==> ($1_timestamp_spec_now_microseconds($1_timestamp_CurrentTimeMicroseconds_$memory) >= $1_reconfiguration_$last_reconfiguration_time($1_reconfiguration_Configuration_$memory)));
+    // assume Identical($t5, global<stake::StakePool>($t4)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:31:9+56
+    assume {:print "$at(3,1237,1293)"} true;
+    assume ($t5 == $ResourceValue($1_stake_StakePool_$memory, $t4));
 
-    // assume Identical($t9, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:254:9+48
-    assume {:print "$at(3,10453,10501)"} true;
-    assume ($t9 == $1_signer_$address_of($t0));
+    // assume Identical($t6, coin::$value<aptos_coin::AptosCoin>(select stake::StakePool.active($t5))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:32:9+44
+    assume {:print "$at(3,1302,1346)"} true;
+    assume ($t6 == $1_coin_$value'$1_aptos_coin_AptosCoin'($active#$1_stake_StakePool($t5)));
 
-    // assume Identical($t10, bcs::$to_bytes<address>($t9)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:257:9+43
-    assume {:print "$at(3,10572,10615)"} true;
-    assume ($t10 == $1_bcs_$to_bytes'address'($t9));
+    // assume Identical($t7, coin::$value<aptos_coin::AptosCoin>(select stake::StakePool.pending_active($t5))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:33:9+60
+    assume {:print "$at(3,1355,1415)"} true;
+    assume ($t7 == $1_coin_$value'$1_aptos_coin_AptosCoin'($pending_active#$1_stake_StakePool($t5)));
 
-    // assume Identical($t11, ConcatVec<u8>(ConcatVec<u8>(ConcatVec<u8>($t10, bcs::$to_bytes<address>($t1)), [97, 112, 116, 111, 115, 95, 102, 114, 97, 109, 101, 119, 111, 114, 107, 58, 58, 115, 116, 97, 107, 105, 110, 103, 95, 99, 111, 110, 116, 114, 97, 99, 116]), $t3)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:258:9+99
-    assume {:print "$at(3,10624,10723)"} true;
-    assume ($t11 == ConcatVec(ConcatVec(ConcatVec($t10, $1_bcs_$to_bytes'address'($t1)), ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(97, 112, 116, 111), MakeVec4(115, 95, 102, 114)), MakeVec4(97, 109, 101, 119)), MakeVec4(111, 114, 107, 58)), MakeVec4(58, 115, 116, 97)), MakeVec4(107, 105, 110, 103)), MakeVec4(95, 99, 111, 110)), MakeVec4(116, 114, 97, 99)), MakeVec1(116))), $t3));
+    // assume Identical($t8, Add($t6, $t7)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:34:9+49
+    assume {:print "$at(3,1424,1473)"} true;
+    assume ($t8 == ($t6 + $t7));
 
-    // assume Identical($t12, account::spec_create_resource_address($t9, $t11)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:259:9+82
-    assume {:print "$at(3,10732,10814)"} true;
-    assume ($t12 == $1_account_spec_create_resource_address($t9, $t11));
+    // assume Identical($t9, Sub($t8, select staking_contract::StakingContract.principal($t3))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:35:9+74
+    assume {:print "$at(3,1482,1556)"} true;
+    assume ($t9 == ($t8 - $principal#$1_staking_contract_StakingContract($t3)));
 
-    // assume Identical($t13, global<account::Account>($t12)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:457:9+50
-    assume {:print "$at(3,20947,20997)"} true;
-    assume ($t13 == $ResourceValue($1_account_Account_$memory, $t12));
+    // assume Identical($t10, select staking_contract::Store.staking_contracts(global<staking_contract::Store>($t0))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:307:9+64
+    assume {:print "$at(3,12992,13056)"} true;
+    assume ($t10 == $staking_contracts#$1_staking_contract_Store($ResourceValue($1_staking_contract_Store_$memory, $t0)));
 
-    // assume Identical($t14, global<stake::AllowedValidators>(1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:464:9+65
-    assume {:print "$at(3,21416,21481)"} true;
-    assume ($t14 == $ResourceValue($1_stake_AllowedValidators_$memory, 1));
+    // assume Identical($t11, select staking_contract::StakingContract.pool_address($t3)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:338:9+49
+    assume {:print "$at(3,14132,14181)"} true;
+    assume ($t11 == $pool_address#$1_staking_contract_StakingContract($t3));
 
-    // assume exists<stake::AptosCoinCapabilities>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:382:9+57
-    assume {:print "$at(132,17398,17455)"} true;
-    assume $ResourceExists($1_stake_AptosCoinCapabilities_$memory, 1);
+    // assume Identical($t12, global<stake::StakePool>($t11)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:339:9+56
+    assume {:print "$at(3,14190,14246)"} true;
+    assume ($t12 == $ResourceValue($1_stake_StakePool_$memory, $t11));
 
-    // assume exists<stake::ValidatorPerformance>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:383:9+56
-    assume {:print "$at(132,17464,17520)"} true;
-    assume $ResourceExists($1_stake_ValidatorPerformance_$memory, 1);
+    // assume Identical($t13, coin::$value<aptos_coin::AptosCoin>(select stake::StakePool.active($t12))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:340:9+44
+    assume {:print "$at(3,14255,14299)"} true;
+    assume ($t13 == $1_coin_$value'$1_aptos_coin_AptosCoin'($active#$1_stake_StakePool($t12)));
 
-    // assume exists<stake::ValidatorSet>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:384:9+48
-    assume {:print "$at(132,17529,17577)"} true;
-    assume $ResourceExists($1_stake_ValidatorSet_$memory, 1);
+    // assume Identical($t14, coin::$value<aptos_coin::AptosCoin>(select stake::StakePool.pending_active($t12))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:341:9+60
+    assume {:print "$at(3,14308,14368)"} true;
+    assume ($t14 == $1_coin_$value'$1_aptos_coin_AptosCoin'($pending_active#$1_stake_StakePool($t12)));
 
-    // assume exists<staking_config::StakingConfig>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:385:9+49
-    assume {:print "$at(132,17586,17635)"} true;
-    assume $ResourceExists($1_staking_config_StakingConfig_$memory, 1);
+    // assume Identical($t15, Add($t13, $t14)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:342:9+49
+    assume {:print "$at(3,14377,14426)"} true;
+    assume ($t15 == ($t13 + $t14));
 
-    // assume Or(exists<staking_config::StakingRewardsConfig>(1), Not(features::spec_periodical_reward_rate_decrease_enabled())) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:386:9+117
-    assume {:print "$at(132,17644,17761)"} true;
-    assume ($ResourceExists($1_staking_config_StakingRewardsConfig_$memory, 1) || !$1_features_spec_periodical_reward_rate_decrease_enabled());
+    // assume Identical($t16, Sub($t15, select staking_contract::StakingContract.principal($t3))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:343:9+74
+    assume {:print "$at(3,14435,14509)"} true;
+    assume ($t16 == ($t15 - $principal#$1_staking_contract_StakingContract($t3)));
 
-    // assume exists<timestamp::CurrentTimeMicroseconds>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:387:9+70
-    assume {:print "$at(132,17770,17840)"} true;
-    assume $ResourceExists($1_timestamp_CurrentTimeMicroseconds_$memory, 1);
+    // assume And(Ge(select staking_contract::StakingContract.commission_percentage($t3), 0), Le(select staking_contract::StakingContract.commission_percentage($t3), 100)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:24:9+102
+    assume {:print "$at(3,803,905)"} true;
+    assume (($commission_percentage#$1_staking_contract_StakingContract($t3) >= 0) && ($commission_percentage#$1_staking_contract_StakingContract($t3) <= 100));
 
-    // assume exists<stake::ValidatorFees>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:388:9+49
-    assume {:print "$at(132,17849,17898)"} true;
-    assume $ResourceExists($1_stake_ValidatorFees_$memory, 1);
+    // @21 := save_mem(stake::StakePool) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:24:9+102
+    $1_stake_StakePool_$memory#21 := $1_stake_StakePool_$memory;
 
-    // @47 := save_mem(account::Account) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:388:9+49
-    $1_account_Account_$memory#47 := $1_account_Account_$memory;
+    // @20 := save_mem(staking_contract::Store) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:24:9+102
+    $1_staking_contract_Store_$memory#20 := $1_staking_contract_Store_$memory;
 
-    // @49 := save_mem(stake::AllowedValidators) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:388:9+49
-    $1_stake_AllowedValidators_$memory#49 := $1_stake_AllowedValidators_$memory;
+    // trace_local[staker]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:208:5+1
+    assume {:print "$at(2,9573,9574)"} true;
+    assume {:print "$track_local(56,17,0):", $t0} $t0 == $t0;
 
-    // @51 := save_mem(stake::OwnerCapability) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:388:9+49
-    $1_stake_OwnerCapability_$memory#51 := $1_stake_OwnerCapability_$memory;
+    // trace_local[operator]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:208:5+1
+    assume {:print "$track_local(56,17,1):", $t1} $t1 == $t1;
 
-    // @50 := save_mem(stake::StakePool) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:388:9+49
-    $1_stake_StakePool_$memory#50 := $1_stake_StakePool_$memory;
+    // assume Identical($t17, select staking_contract::Store.staking_contracts(global<staking_contract::Store>($t0))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:307:9+64
+    assume {:print "$at(3,12992,13056)"} true;
+    assume ($t17 == $staking_contracts#$1_staking_contract_Store($ResourceValue($1_staking_contract_Store_$memory, $t0)));
 
-    // @48 := save_mem(stake::ValidatorConfig) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:388:9+49
-    $1_stake_ValidatorConfig_$memory#48 := $1_stake_ValidatorConfig_$memory;
-
-    // trace_local[staker]($t0) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume {:print "$at(2,32405,32406)"} true;
-    assume {:print "$track_local(56,4,0):", $t0} $t0 == $t0;
-
-    // trace_local[operator]($t1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume {:print "$track_local(56,4,1):", $t1} $t1 == $t1;
-
-    // trace_local[voter]($t2) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume {:print "$track_local(56,4,2):", $t2} $t2 == $t2;
-
-    // trace_local[contract_creation_seed]($t3) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:675:5+1
-    assume {:print "$track_local(56,4,3):", $t3} $t3 == $t3;
-
-    // $t15 := signer::address_of($t0) on_abort goto L2 with $t16 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:682:35+26
-    assume {:print "$at(2,32744,32770)"} true;
-    call $t15 := $1_signer_address_of($t0);
+    // staking_contract::assert_staking_contract_exists($t0, $t1) on_abort goto L2 with $t18 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:209:9+48
+    assume {:print "$at(2,9687,9735)"} true;
+    call $1_staking_contract_assert_staking_contract_exists($t0, $t1);
     if ($abort_flag) {
-        assume {:print "$at(2,32744,32770)"} true;
-        $t16 := $abort_code;
-        assume {:print "$track_abort(56,4):", $t16} $t16 == $t16;
+        assume {:print "$at(2,9687,9735)"} true;
+        $t18 := $abort_code;
+        assume {:print "$track_abort(56,17):", $t18} $t18 == $t18;
         goto L2;
     }
 
-    // $t6 := bcs::to_bytes<address>($t15) on_abort goto L2 with $t16 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:682:20+42
-    call $t6 := $1_bcs_to_bytes'address'($t15);
+    // $t19 := get_global<staking_contract::Store>($t0) on_abort goto L2 with $t18 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:210:34+13
+    assume {:print "$at(2,9770,9783)"} true;
+    if (!$ResourceExists($1_staking_contract_Store_$memory, $t0)) {
+        call $ExecFailureAbort();
+    } else {
+        $t19 := $ResourceValue($1_staking_contract_Store_$memory, $t0);
+    }
     if ($abort_flag) {
-        assume {:print "$at(2,32729,32771)"} true;
-        $t16 := $abort_code;
-        assume {:print "$track_abort(56,4):", $t16} $t16 == $t16;
+        assume {:print "$at(2,9770,9783)"} true;
+        $t18 := $abort_code;
+        assume {:print "$track_abort(56,17):", $t18} $t18 == $t18;
         goto L2;
     }
 
-    // trace_local[seed]($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:682:13+4
-    assume {:print "$track_local(56,4,6):", $t6} $t6 == $t6;
+    // $t20 := get_field<staking_contract::Store>.staking_contracts($t19) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:210:33+47
+    $t20 := $staking_contracts#$1_staking_contract_Store($t19);
 
-    // $t17 := borrow_local($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:683:24+9
-    assume {:print "$at(2,32796,32805)"} true;
-    $t17 := $Mutation($Local(6), EmptyVec(), $t6);
-
-    // $t18 := bcs::to_bytes<address>($t1) on_abort goto L2 with $t16 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:683:35+24
-    call $t18 := $1_bcs_to_bytes'address'($t1);
+    // $t21 := simple_map::borrow<address, staking_contract::StakingContract>($t20, $t1) on_abort goto L2 with $t18 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:211:32+48
+    assume {:print "$at(2,9849,9897)"} true;
+    call $t21 := $1_simple_map_borrow'address_$1_staking_contract_StakingContract'($t20, $t1);
     if ($abort_flag) {
-        assume {:print "$at(2,32807,32831)"} true;
-        $t16 := $abort_code;
-        assume {:print "$track_abort(56,4):", $t16} $t16 == $t16;
+        assume {:print "$at(2,9849,9897)"} true;
+        $t18 := $abort_code;
+        assume {:print "$track_abort(56,17):", $t18} $t18 == $t18;
         goto L2;
     }
 
-    // vector::append<u8>($t17, $t18) on_abort goto L2 with $t16 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:683:9+51
-    call $t17 := $1_vector_append'u8'($t17, $t18);
+    // assume Identical($t22, select staking_contract::StakingContract.pool_address($t21)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:338:9+49
+    assume {:print "$at(3,14132,14181)"} true;
+    assume ($t22 == $pool_address#$1_staking_contract_StakingContract($t21));
+
+    // assume Identical($t23, global<stake::StakePool>($t22)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:339:9+56
+    assume {:print "$at(3,14190,14246)"} true;
+    assume ($t23 == $ResourceValue($1_stake_StakePool_$memory, $t22));
+
+    // assume Identical($t24, coin::$value<aptos_coin::AptosCoin>(select stake::StakePool.active($t23))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:340:9+44
+    assume {:print "$at(3,14255,14299)"} true;
+    assume ($t24 == $1_coin_$value'$1_aptos_coin_AptosCoin'($active#$1_stake_StakePool($t23)));
+
+    // assume Identical($t25, coin::$value<aptos_coin::AptosCoin>(select stake::StakePool.pending_active($t23))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:341:9+60
+    assume {:print "$at(3,14308,14368)"} true;
+    assume ($t25 == $1_coin_$value'$1_aptos_coin_AptosCoin'($pending_active#$1_stake_StakePool($t23)));
+
+    // assume Identical($t26, Add($t24, $t25)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:342:9+49
+    assume {:print "$at(3,14377,14426)"} true;
+    assume ($t26 == ($t24 + $t25));
+
+    // assume Identical($t27, Sub($t26, select staking_contract::StakingContract.principal($t21))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:343:9+74
+    assume {:print "$at(3,14435,14509)"} true;
+    assume ($t27 == ($t26 - $principal#$1_staking_contract_StakingContract($t21)));
+
+    // ($t28, $t29, $t30) := staking_contract::get_staking_contract_amounts_internal($t21) on_abort goto L2 with $t18 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:212:9+55
+    assume {:print "$at(2,9907,9962)"} true;
+    call $t28,$t29,$t30 := $1_staking_contract_get_staking_contract_amounts_internal($t21);
     if ($abort_flag) {
-        assume {:print "$at(2,32781,32832)"} true;
-        $t16 := $abort_code;
-        assume {:print "$track_abort(56,4):", $t16} $t16 == $t16;
+        assume {:print "$at(2,9907,9962)"} true;
+        $t18 := $abort_code;
+        assume {:print "$track_abort(56,17):", $t18} $t18 == $t18;
         goto L2;
     }
 
-    // write_back[LocalRoot($t6)@]($t17) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:683:9+51
-    $t6 := $Dereference($t17);
+    // trace_return[0]($t28) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:212:9+55
+    assume {:print "$track_return(56,17,0):", $t28} $t28 == $t28;
 
-    // trace_local[seed]($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:683:9+51
-    assume {:print "$track_local(56,4,6):", $t6} $t6 == $t6;
+    // trace_return[1]($t29) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:212:9+55
+    assume {:print "$track_return(56,17,1):", $t29} $t29 == $t29;
 
-    // $t19 := borrow_local($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:686:24+9
-    assume {:print "$at(2,33045,33054)"} true;
-    $t19 := $Mutation($Local(6), EmptyVec(), $t6);
+    // trace_return[2]($t30) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:212:9+55
+    assume {:print "$track_return(56,17,2):", $t30} $t30 == $t30;
 
-    // $t20 := [97, 112, 116, 111, 115, 95, 102, 114, 97, 109, 101, 119, 111, 114, 107, 58, 58, 115, 116, 97, 107, 105, 110, 103, 95, 99, 111, 110, 116, 114, 97, 99, 116] at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:686:35+4
-    $t20 := ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(97, 112, 116, 111), MakeVec4(115, 95, 102, 114)), MakeVec4(97, 109, 101, 119)), MakeVec4(111, 114, 107, 58)), MakeVec4(58, 115, 116, 97)), MakeVec4(107, 105, 110, 103)), MakeVec4(95, 99, 111, 110)), MakeVec4(116, 114, 97, 99)), MakeVec1(116));
-    assume $IsValid'vec'u8''($t20);
-
-    // vector::append<u8>($t19, $t20) on_abort goto L2 with $t16 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:686:9+31
-    call $t19 := $1_vector_append'u8'($t19, $t20);
-    if ($abort_flag) {
-        assume {:print "$at(2,33030,33061)"} true;
-        $t16 := $abort_code;
-        assume {:print "$track_abort(56,4):", $t16} $t16 == $t16;
-        goto L2;
-    }
-
-    // write_back[LocalRoot($t6)@]($t19) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:686:9+31
-    $t6 := $Dereference($t19);
-
-    // trace_local[seed]($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:686:9+31
-    assume {:print "$track_local(56,4,6):", $t6} $t6 == $t6;
-
-    // $t21 := borrow_local($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:688:24+9
-    assume {:print "$at(2,33202,33211)"} true;
-    $t21 := $Mutation($Local(6), EmptyVec(), $t6);
-
-    // vector::append<u8>($t21, $t3) on_abort goto L2 with $t16 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:688:9+49
-    call $t21 := $1_vector_append'u8'($t21, $t3);
-    if ($abort_flag) {
-        assume {:print "$at(2,33187,33236)"} true;
-        $t16 := $abort_code;
-        assume {:print "$track_abort(56,4):", $t16} $t16 == $t16;
-        goto L2;
-    }
-
-    // write_back[LocalRoot($t6)@]($t21) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:688:9+49
-    $t6 := $Dereference($t21);
-
-    // trace_local[seed]($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:688:9+49
-    assume {:print "$track_local(56,4,6):", $t6} $t6 == $t6;
-
-    // $t22 := move($t6) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:690:99+4
-    assume {:print "$at(2,33337,33341)"} true;
-    $t22 := $t6;
-
-    // assume Identical($t23, signer::$address_of($t0)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:396:9+45
-    assume {:print "$at(73,19786,19831)"} true;
-    assume ($t23 == $1_signer_$address_of($t0));
-
-    // assume Identical($t24, account::spec_create_resource_address($t23, $t22)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:397:9+68
-    assume {:print "$at(73,19840,19908)"} true;
-    assume ($t24 == $1_account_spec_create_resource_address($t23, $t22));
-
-    // assume Identical($t25, global<account::Account>($t24)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:464:9+45
-    assume {:print "$at(73,22424,22469)"} true;
-    assume ($t25 == $ResourceValue($1_account_Account_$memory, $t24));
-
-    // assume Identical($t26, bcs::$to_bytes<address>($t24)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/account.spec.move:34:9+45
-    assume {:print "$at(73,1495,1540)"} true;
-    assume ($t26 == $1_bcs_$to_bytes'address'($t24));
-
-    // ($t27, $t28) := account::create_resource_account($t0, $t22) on_abort goto L2 with $t16 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:690:58+46
-    assume {:print "$at(2,33296,33342)"} true;
-    call $t27,$t28 := $1_account_create_resource_account($t0, $t22);
-    if ($abort_flag) {
-        assume {:print "$at(2,33296,33342)"} true;
-        $t16 := $abort_code;
-        assume {:print "$track_abort(56,4):", $t16} $t16 == $t16;
-        goto L2;
-    }
-
-    // trace_local[stake_pool_signer_cap]($t28) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:690:33+21
-    assume {:print "$track_local(56,4,8):", $t28} $t28 == $t28;
-
-    // trace_local[stake_pool_signer]($t27) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:690:14+17
-    assume {:print "$track_local(56,4,7):", $t27} $t27 == $t27;
-
-    // $t29 := 0 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:691:59+1
-    assume {:print "$at(2,33402,33403)"} true;
-    $t29 := 0;
-    assume $IsValid'u64'($t29);
-
-    // assert exists<stake::AptosCoinCapabilities>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:382:9+57
-    assume {:print "$at(132,17398,17455)"} true;
-    assert {:msg "assert_failed(132,17398,17455): precondition does not hold at this call"}
-      $ResourceExists($1_stake_AptosCoinCapabilities_$memory, 1);
-
-    // assert exists<stake::ValidatorPerformance>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:383:9+56
-    assume {:print "$at(132,17464,17520)"} true;
-    assert {:msg "assert_failed(132,17464,17520): precondition does not hold at this call"}
-      $ResourceExists($1_stake_ValidatorPerformance_$memory, 1);
-
-    // assert exists<stake::ValidatorSet>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:384:9+48
-    assume {:print "$at(132,17529,17577)"} true;
-    assert {:msg "assert_failed(132,17529,17577): precondition does not hold at this call"}
-      $ResourceExists($1_stake_ValidatorSet_$memory, 1);
-
-    // assert exists<staking_config::StakingConfig>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:385:9+49
-    assume {:print "$at(132,17586,17635)"} true;
-    assert {:msg "assert_failed(132,17586,17635): precondition does not hold at this call"}
-      $ResourceExists($1_staking_config_StakingConfig_$memory, 1);
-
-    // assert Or(exists<staking_config::StakingRewardsConfig>(1), Not(features::spec_periodical_reward_rate_decrease_enabled())) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:386:9+117
-    assume {:print "$at(132,17644,17761)"} true;
-    assert {:msg "assert_failed(132,17644,17761): precondition does not hold at this call"}
-      ($ResourceExists($1_staking_config_StakingRewardsConfig_$memory, 1) || !$1_features_spec_periodical_reward_rate_decrease_enabled());
-
-    // assert exists<timestamp::CurrentTimeMicroseconds>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:387:9+70
-    assume {:print "$at(132,17770,17840)"} true;
-    assert {:msg "assert_failed(132,17770,17840): precondition does not hold at this call"}
-      $ResourceExists($1_timestamp_CurrentTimeMicroseconds_$memory, 1);
-
-    // assert exists<stake::ValidatorFees>(1) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:388:9+49
-    assume {:print "$at(132,17849,17898)"} true;
-    assert {:msg "assert_failed(132,17849,17898): precondition does not hold at this call"}
-      $ResourceExists($1_stake_ValidatorFees_$memory, 1);
-
-    // stake::initialize_stake_owner($t27, $t29, $t1, $t2) on_abort goto L2 with $t16 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:691:9+69
-    assume {:print "$at(2,33352,33421)"} true;
-    call $1_stake_initialize_stake_owner($t27, $t29, $t1, $t2);
-    if ($abort_flag) {
-        assume {:print "$at(2,33352,33421)"} true;
-        $t16 := $abort_code;
-        assume {:print "$track_abort(56,4):", $t16} $t16 == $t16;
-        goto L2;
-    }
-
-    // assume Identical($t30, signer::$address_of($t27)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/stake.spec.move:40:9+46
-    assume {:print "$at(132,1834,1880)"} true;
-    assume ($t30 == $1_signer_$address_of($t27));
-
-    // $t31 := stake::extract_owner_cap($t27) on_abort goto L2 with $t16 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:696:25+44
-    assume {:print "$at(2,33741,33785)"} true;
-    call $t31 := $1_stake_extract_owner_cap($t27);
-    if ($abort_flag) {
-        assume {:print "$at(2,33741,33785)"} true;
-        $t16 := $abort_code;
-        assume {:print "$track_abort(56,4):", $t16} $t16 == $t16;
-        goto L2;
-    }
-
-    // trace_local[owner_cap]($t31) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:696:13+9
-    assume {:print "$track_local(56,4,5):", $t31} $t31 == $t31;
-
-    // trace_return[0]($t27) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:698:9+53
-    assume {:print "$at(2,33796,33849)"} true;
-    assume {:print "$track_return(56,4,0):", $t27} $t27 == $t27;
-
-    // trace_return[1]($t28) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:698:9+53
-    assume {:print "$track_return(56,4,1):", $t28} $t28 == $t28;
-
-    // trace_return[2]($t31) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:698:9+53
-    assume {:print "$track_return(56,4,2):", $t31} $t31 == $t31;
-
-    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:699:5+1
-    assume {:print "$at(2,33854,33855)"} true;
+    // label L1 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:213:5+1
+    assume {:print "$at(2,9967,9968)"} true;
 L1:
 
-    // assume Identical($t32, global<account::Account>($t12)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:262:9+64
-    assume {:print "$at(3,10937,11001)"} true;
-    assume ($t32 == $ResourceValue($1_account_Account_$memory, $t12));
+    // assert Not(Not(exists[@20]<staking_contract::Store>($t0))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:306:9+33
+    assume {:print "$at(3,12950,12983)"} true;
+    assert {:msg "assert_failed(3,12950,12983): function does not abort under this condition"}
+      !!$ResourceExists($1_staking_contract_Store_$memory#20, $t0);
 
-    // assume Identical($t33, global<stake::OwnerCapability>($t12)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:268:9+72
-    assume {:print "$at(3,11292,11364)"} true;
-    assume ($t33 == $ResourceValue($1_stake_OwnerCapability_$memory, $t12));
+    // assert Not(Not(simple_map::spec_contains_key[]<address, staking_contract::StakingContract>($t10, $t1))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:308:9+70
+    assume {:print "$at(3,13065,13135)"} true;
+    assert {:msg "assert_failed(3,13065,13135): function does not abort under this condition"}
+      !!$1_simple_map_spec_contains_key'address_$1_staking_contract_StakingContract'($t10, $t1);
 
-    // assume Identical($t34, select stake::OwnerCapability.pool_address($t33)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:269:9+57
-    assume {:print "$at(3,11373,11430)"} true;
-    assume ($t34 == $pool_address#$1_stake_OwnerCapability($t33));
+    // assert Not(Not(exists[@21]<stake::StakePool>($t11))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:344:9+50
+    assume {:print "$at(3,14518,14568)"} true;
+    assert {:msg "assert_failed(3,14518,14568): function does not abort under this condition"}
+      !!$ResourceExists($1_stake_StakePool_$memory#21, $t11);
 
-    // assume Identical($t35, global<stake::StakePool>($t34)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:270:9+71
-    assume {:print "$at(3,11439,11510)"} true;
-    assume ($t35 == $ResourceValue($1_stake_StakePool_$memory, $t34));
+    // assert Not(Gt(Add($t13, $t14), 18446744073709551615)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:345:9+44
+    assume {:print "$at(3,14577,14621)"} true;
+    assert {:msg "assert_failed(3,14577,14621): function does not abort under this condition"}
+      !(($t13 + $t14) > 18446744073709551615);
 
-    // assume Identical($t36, select stake::StakePool.operator_address($t35)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:271:9+58
-    assume {:print "$at(3,11519,11577)"} true;
-    assume ($t36 == $operator_address#$1_stake_StakePool($t35));
+    // assert Not(Lt($t15, select staking_contract::StakingContract.principal($t3))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:346:9+58
+    assume {:print "$at(3,14630,14688)"} true;
+    assert {:msg "assert_failed(3,14630,14688): function does not abort under this condition"}
+      !($t15 < $principal#$1_staking_contract_StakingContract($t3));
 
-    // assume Identical($t37, select stake::StakePool.delegated_voter($t35)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:272:9+64
-    assume {:print "$at(3,11586,11650)"} true;
-    assume ($t37 == $delegated_voter#$1_stake_StakePool($t35));
+    // assert Not(Gt(Mul($t16, select staking_contract::StakingContract.commission_percentage($t3)), 18446744073709551615)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:347:9+81
+    assume {:print "$at(3,14697,14778)"} true;
+    assert {:msg "assert_failed(3,14697,14778): function does not abort under this condition"}
+      !(($t16 * $commission_percentage#$1_staking_contract_StakingContract($t3)) > 18446744073709551615);
 
-    // assert Not(And(exists[@47]<account::Account>($t12), Or(Neq<num>(Len<address>(select option::Option.vec(select account::CapabilityOffer.for(select account::Account.signer_capability_offer($t13)))), 0), Neq<u64>(select account::Account.sequence_number($t13), 0)))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:458:9+129
-    assume {:print "$at(3,21006,21135)"} true;
-    assert {:msg "assert_failed(3,21006,21135): function does not abort under this condition"}
-      !($ResourceExists($1_account_Account_$memory#47, $t12) && (!$IsEqual'num'(LenVec($vec#$1_option_Option'address'($for#$1_account_CapabilityOffer'$1_account_SignerCapability'($signer_capability_offer#$1_account_Account($t13)))), 0) || !$IsEqual'u64'($sequence_number#$1_account_Account($t13), 0)));
+    // assert Eq<u64>($t28, $t8) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:36:9+39
+    assume {:print "$at(3,1565,1604)"} true;
+    assert {:msg "assert_failed(3,1565,1604): post-condition does not hold"}
+      $IsEqual'u64'($t28, $t8);
 
-    // assert Not(And(Not(exists[@47]<account::Account>($t12)), Neq<num>(Len<u8>(bcs::$to_bytes[]<address>($t12)), 32))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:459:9+94
-    assume {:print "$at(3,21144,21238)"} true;
-    assert {:msg "assert_failed(3,21144,21238): function does not abort under this condition"}
-      !(!$ResourceExists($1_account_Account_$memory#47, $t12) && !$IsEqual'num'(LenVec($1_bcs_$to_bytes'address'($t12)), 32));
+    // assert Eq<u64>($t29, $t9) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:37:9+40
+    assume {:print "$at(3,1613,1653)"} true;
+    assert {:msg "assert_failed(3,1613,1653): post-condition does not hold"}
+      $IsEqual'u64'($t29, $t9);
 
-    // assert Not(Neq<num>(Len<u8>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 32)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:460:9+44
-    assume {:print "$at(3,21247,21291)"} true;
-    assert {:msg "assert_failed(3,21247,21291): function does not abort under this condition"}
-      !!$IsEqual'num'(LenVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(0, 0, 0, 0), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0))), 32);
+    // assert Eq<u64>($t30, Div(Mul($t9, select staking_contract::StakingContract.commission_percentage($t3)), 100)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:38:9+87
+    assume {:print "$at(3,1662,1749)"} true;
+    assert {:msg "assert_failed(3,1662,1749): post-condition does not hold"}
+      $IsEqual'u64'($t30, (($t9 * $commission_percentage#$1_staking_contract_StakingContract($t3)) div 100));
 
-    // assert Not(exists[@48]<stake::ValidatorConfig>($t12)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:463:9+56
-    assume {:print "$at(3,21351,21407)"} true;
-    assert {:msg "assert_failed(3,21351,21407): function does not abort under this condition"}
-      !$ResourceExists($1_stake_ValidatorConfig_$memory#48, $t12);
-
-    // assert Not(And(exists[@49]<stake::AllowedValidators>(1), Not(ContainsVec<address>(select stake::AllowedValidators.accounts($t14), $t12)))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:465:9+107
-    assume {:print "$at(3,21490,21597)"} true;
-    assert {:msg "assert_failed(3,21490,21597): function does not abort under this condition"}
-      !($ResourceExists($1_stake_AllowedValidators_$memory#49, 1) && !$ContainsVec'address'($accounts#$1_stake_AllowedValidators($t14), $t12));
-
-    // assert Not(exists[@50]<stake::StakePool>($t12)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:466:9+50
-    assume {:print "$at(3,21606,21656)"} true;
-    assert {:msg "assert_failed(3,21606,21656): function does not abort under this condition"}
-      !$ResourceExists($1_stake_StakePool_$memory#50, $t12);
-
-    // assert Not(exists[@51]<stake::OwnerCapability>($t12)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:467:9+56
-    assume {:print "$at(3,21665,21721)"} true;
-    assert {:msg "assert_failed(3,21665,21721): function does not abort under this condition"}
-      !$ResourceExists($1_stake_OwnerCapability_$memory#51, $t12);
-
-    // assert Not(And(exists[@47]<account::Account>($t12), Ge(Add(select account::Account.guid_creation_num($t13), 12), 1125899906842624))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:468:9+114
-    assume {:print "$at(3,21730,21844)"} true;
-    assert {:msg "assert_failed(3,21730,21844): function does not abort under this condition"}
-      !($ResourceExists($1_account_Account_$memory#47, $t12) && (($guid_creation_num#$1_account_Account($t13) + 12) >= 1125899906842624));
-
-    // assert exists<account::Account>($t12) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:261:9+48
-    assume {:print "$at(3,10880,10928)"} true;
-    assert {:msg "assert_failed(3,10880,10928): post-condition does not hold"}
-      $ResourceExists($1_account_Account_$memory, $t12);
-
-    // assert Eq<vector<u8>>(select account::Account.authentication_key($t32), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:263:9+66
-    assume {:print "$at(3,11010,11076)"} true;
-    assert {:msg "assert_failed(3,11010,11076): post-condition does not hold"}
-      $IsEqual'vec'u8''($authentication_key#$1_account_Account($t32), ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(0, 0, 0, 0), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)));
-
-    // assert Eq<option::Option<address>>(select account::CapabilityOffer.for(select account::Account.signer_capability_offer($t32)), option::spec_some<address>($t12)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:264:9+90
-    assume {:print "$at(3,11085,11175)"} true;
-    assert {:msg "assert_failed(3,11085,11175): post-condition does not hold"}
-      $IsEqual'$1_option_Option'address''($for#$1_account_CapabilityOffer'$1_account_SignerCapability'($signer_capability_offer#$1_account_Account($t32)), $1_option_spec_some'address'($t12));
-
-    // assert exists<stake::StakePool>($t12) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:267:9+48
-    assume {:print "$at(3,11235,11283)"} true;
-    assert {:msg "assert_failed(3,11235,11283): post-condition does not hold"}
-      $ResourceExists($1_stake_StakePool_$memory, $t12);
-
-    // assert Implies(Neq<address>($t12, $t1), Eq<address>($t36, $t1)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:273:9+64
-    assume {:print "$at(3,11659,11723)"} true;
-    assert {:msg "assert_failed(3,11659,11723): post-condition does not hold"}
-      (!$IsEqual'address'($t12, $t1) ==> $IsEqual'address'($t36, $t1));
-
-    // assert Implies(Neq<address>($t12, $t2), Eq<address>($t37, $t2)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:274:9+65
-    assume {:print "$at(3,11732,11797)"} true;
-    assert {:msg "assert_failed(3,11732,11797): post-condition does not hold"}
-      (!$IsEqual'address'($t12, $t2) ==> $IsEqual'address'($t37, $t2));
-
-    // return ($t27, $t28, $t31) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:274:9+65
-    $ret0 := $t27;
-    $ret1 := $t28;
-    $ret2 := $t31;
+    // return ($t28, $t29, $t30) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:38:9+87
+    $ret0 := $t28;
+    $ret1 := $t29;
+    $ret2 := $t30;
     return;
 
-    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:699:5+1
-    assume {:print "$at(2,33854,33855)"} true;
+    // label L2 at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.move:213:5+1
+    assume {:print "$at(2,9967,9968)"} true;
 L2:
 
-    // assert Or(Or(Or(Or(Or(Or(Or(And(exists[@47]<account::Account>($t12), Or(Neq<num>(Len<address>(select option::Option.vec(select account::CapabilityOffer.for(select account::Account.signer_capability_offer($t13)))), 0), Neq<u64>(select account::Account.sequence_number($t13), 0))), And(Not(exists[@47]<account::Account>($t12)), Neq<num>(Len<u8>(bcs::$to_bytes[]<address>($t12)), 32))), Neq<num>(Len<u8>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 32)), exists[@48]<stake::ValidatorConfig>($t12)), And(exists[@49]<stake::AllowedValidators>(1), Not(ContainsVec<address>(select stake::AllowedValidators.accounts($t14), $t12)))), exists[@50]<stake::StakePool>($t12)), exists[@51]<stake::OwnerCapability>($t12)), And(exists[@47]<account::Account>($t12), Ge(Add(select account::Account.guid_creation_num($t13), 12), 1125899906842624))) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:243:5+1656
-    assume {:print "$at(3,10147,11803)"} true;
-    assert {:msg "assert_failed(3,10147,11803): abort not covered by any of the `aborts_if` clauses"}
-      (((((((($ResourceExists($1_account_Account_$memory#47, $t12) && (!$IsEqual'num'(LenVec($vec#$1_option_Option'address'($for#$1_account_CapabilityOffer'$1_account_SignerCapability'($signer_capability_offer#$1_account_Account($t13)))), 0) || !$IsEqual'u64'($sequence_number#$1_account_Account($t13), 0))) || (!$ResourceExists($1_account_Account_$memory#47, $t12) && !$IsEqual'num'(LenVec($1_bcs_$to_bytes'address'($t12)), 32))) || !$IsEqual'num'(LenVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(ConcatVec(MakeVec4(0, 0, 0, 0), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0)), MakeVec4(0, 0, 0, 0))), 32)) || $ResourceExists($1_stake_ValidatorConfig_$memory#48, $t12)) || ($ResourceExists($1_stake_AllowedValidators_$memory#49, 1) && !$ContainsVec'address'($accounts#$1_stake_AllowedValidators($t14), $t12))) || $ResourceExists($1_stake_StakePool_$memory#50, $t12)) || $ResourceExists($1_stake_OwnerCapability_$memory#51, $t12)) || ($ResourceExists($1_account_Account_$memory#47, $t12) && (($guid_creation_num#$1_account_Account($t13) + 12) >= 1125899906842624)));
+    // assert Or(Or(Or(Or(Or(Not(exists[@20]<staking_contract::Store>($t0)), Not(simple_map::spec_contains_key[]<address, staking_contract::StakingContract>($t10, $t1))), Not(exists[@21]<stake::StakePool>($t11))), Gt(Add($t13, $t14), 18446744073709551615)), Lt($t15, select staking_contract::StakingContract.principal($t3))), Gt(Mul($t16, select staking_contract::StakingContract.commission_percentage($t3)), 18446744073709551615)) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:22:5+1075
+    assume {:print "$at(3,680,1755)"} true;
+    assert {:msg "assert_failed(3,680,1755): abort not covered by any of the `aborts_if` clauses"}
+      (((((!$ResourceExists($1_staking_contract_Store_$memory#20, $t0) || !$1_simple_map_spec_contains_key'address_$1_staking_contract_StakingContract'($t10, $t1)) || !$ResourceExists($1_stake_StakePool_$memory#21, $t11)) || (($t13 + $t14) > 18446744073709551615)) || ($t15 < $principal#$1_staking_contract_StakingContract($t3))) || (($t16 * $commission_percentage#$1_staking_contract_StakingContract($t3)) > 18446744073709551615));
 
-    // abort($t16) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:243:5+1656
-    $abort_code := $t16;
+    // abort($t18) at /home/r/Downloads/Gitrepo/move_bit/aptos-core/aptos-move/framework/aptos-framework/sources/staking_contract.spec.move:22:5+1075
+    $abort_code := $t18;
     $abort_flag := true;
     return;
 
