@@ -8,6 +8,7 @@ spec aptos_framework::staking_proxy {
     spec set_operator(owner: &signer, old_operator: address, new_operator: address) {
         // TODO: Can't verify `set_vesting_contract_operator` and `set_staking_contract_operator`
         pragma aborts_if_is_partial;
+        include SetStakingContractOperatorAbortsIf;
         include SetStakePoolOperator;
     }
 
@@ -25,14 +26,54 @@ spec aptos_framework::staking_proxy {
     }
 
     spec set_staking_contract_operator(owner: &signer, old_operator: address, new_operator: address) {
-        use aptos_framework::staking_contract::{Store};
-        use aptos_framework::simple_map;
         // TODO: Verify timeout and can't verify `staking_contract::switch_operator`.
+        pragma verify = true;
         pragma aborts_if_is_partial;
 
+        include SetStakingContractOperatorAbortsIf;
+    }
+
+    spec schema SetStakingContractOperatorAbortsIf {
+        use aptos_framework::staking_contract::{Store};
+        use aptos_framework::simple_map;
+        use aptos_framework::timestamp;
+
+        owner: signer;
+        old_operator: address;
+        new_operator: address;
+
         let owner_address = signer::address_of(owner);
-        let store = borrow_global<Store>(owner_address);
+        let store = global<Store>(owner_address);
         let staking_contract_exists = exists<Store>(owner_address) && simple_map::spec_contains_key(store.staking_contracts, old_operator);
+        let staking_contracts = global<Store>(owner_address).staking_contracts;
+        let post post_staking_contracts = global<Store>(owner_address).staking_contracts;
+        let current_commission_percentage = simple_map::spec_get(staking_contracts, old_operator).commission_percentage;
+        aborts_if staking_contract_exists && simple_map::spec_contains_key(staking_contracts, new_operator);
+        let staking_contract = simple_map::spec_get(staking_contracts, old_operator);
+        ensures staking_contract_exists ==> !simple_map::spec_contains_key(post_staking_contracts, old_operator);
+
+        let pool_address = staking_contract.pool_address;
+        aborts_if staking_contract_exists && !exists<stake::StakePool>(pool_address);
+        let stake_pool = global<stake::StakePool>(pool_address);
+        let inactive = stake_pool.inactive.value;
+        let pending_inactive = stake_pool.pending_inactive.value;
+        aborts_if staking_contract_exists && inactive + pending_inactive > MAX_U64;
+
+        // verify stake::withdraw_with_cap()
+        let total_potential_withdrawable = inactive + pending_inactive;
+        let pool_address_1 = staking_contract.owner_cap.pool_address;
+        aborts_if staking_contract_exists && !exists<stake::StakePool>(pool_address_1);
+        let stake_pool_1 = global<stake::StakePool>(pool_address_1);
+        aborts_if staking_contract_exists && !exists<stake::ValidatorSet>(@aptos_framework);
+        let validator_set = global<stake::ValidatorSet>(@aptos_framework);
+        let inactive_state = !stake::spec_contains(validator_set.pending_active, pool_address_1)
+            && !stake::spec_contains(validator_set.active_validators, pool_address_1)
+            && !stake::spec_contains(validator_set.pending_inactive, pool_address_1);
+        let inactive_1 = stake_pool_1.inactive.value;
+        let pending_inactive_1 = stake_pool_1.pending_inactive.value;
+        let new_inactive_1 = inactive_1 + pending_inactive_1;
+        aborts_if staking_contract_exists && inactive_state && timestamp::spec_now_seconds() >= stake_pool_1.locked_until_secs 
+            && inactive_1 + pending_inactive_1 > MAX_U64;
     }
 
     spec set_vesting_contract_voter(owner: &signer, operator: address, new_voter: address) {
