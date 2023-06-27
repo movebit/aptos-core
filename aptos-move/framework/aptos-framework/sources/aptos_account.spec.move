@@ -27,7 +27,6 @@ spec aptos_framework::aptos_account {
 
     spec transfer(source: &signer, to: address, amount: u64) {
         let account_addr_source = signer::address_of(source);
-        let coin_store_to = global<coin::CoinStore<AptosCoin>>(to);
 
         // The 'from' addr is implictly not equal to 'to' addr
         requires account_addr_source != to;
@@ -37,6 +36,16 @@ spec aptos_framework::aptos_account {
         include WithdrawAbortsIf<AptosCoin>{from: source};
 
         aborts_if exists<coin::CoinStore<AptosCoin>>(to) && global<coin::CoinStore<AptosCoin>>(to).frozen;
+
+        let coin_store_from = global<coin::CoinStore<AptosCoin>>(account_addr_source).coin.value;
+        let post coin_store_post_from = global<coin::CoinStore<AptosCoin>>(account_addr_source).coin.value;
+        let coin_store_to = global<coin::CoinStore<AptosCoin>>(to).coin.value;
+        let post coin_store_post_to = global<coin::CoinStore<AptosCoin>>(to).coin.value;
+        ensures coin_store_post_from == coin_store_from - amount;
+        // ensures coin_store_post_to == coin_store_to + amount;
+        ensures account::exists_at(to) && coin::is_account_registered<AptosCoin>(to);
+        
+        include coin::TotalSupplyNoChange<AptosCoin>;
     }
 
     spec assert_account_exists(addr: address) {
@@ -53,6 +62,8 @@ spec aptos_framework::aptos_account {
     spec set_allow_direct_coin_transfers(account: &signer, allow: bool) {
         let addr = signer::address_of(account);
         include !exists<DirectTransferConfig>(addr) ==> account::NewEventHandleAbortsIf;
+        ensures exists<DirectTransferConfig>(addr);
+        ensures global<DirectTransferConfig>(addr).allow_arbitrary_coin_transfers == allow;
     }
 
     spec batch_transfer(source: &signer, recipients: vector<address>, amounts: vector<u64>) {
@@ -161,11 +172,13 @@ spec aptos_framework::aptos_account {
         include RegistCoinAbortsIf<CoinType>;
 
         aborts_if exists<coin::CoinStore<CoinType>>(to) && global<coin::CoinStore<CoinType>>(to).frozen;
+        
+        ensures account::exists_at(to) && coin::is_account_registered<CoinType>(to);
+        // ensures global<coin::CoinStore<CoinType>>(to).coin.value == old(global<coin::CoinStore<CoinType>>(to).coin.value) + coins.value;
     }
 
     spec transfer_coins<CoinType>(from: &signer, to: address, amount: u64) {
         let account_addr_source = signer::address_of(from);
-        let coin_store_to = global<coin::CoinStore<CoinType>>(to);
 
         //The 'from' addr is implictly not equal to 'to' addr
         requires account_addr_source != to;
@@ -176,6 +189,14 @@ spec aptos_framework::aptos_account {
         include RegistCoinAbortsIf<CoinType>;
 
         aborts_if exists<coin::CoinStore<CoinType>>(to) && global<coin::CoinStore<CoinType>>(to).frozen;
+
+        let coin_store_from = global<coin::CoinStore<CoinType>>(account_addr_source).coin.value;
+        let post coin_store_post_from = global<coin::CoinStore<CoinType>>(account_addr_source).coin.value;
+        let coin_store_to = global<coin::CoinStore<CoinType>>(to).coin.value;
+        let post coin_store_post_to = global<coin::CoinStore<CoinType>>(to).coin.value;
+        ensures account::exists_at(to) && coin::is_account_registered<CoinType>(to);
+        ensures coin_store_post_from == coin_store_from - amount;
+        // ensures coin_store_post_to == coin_store_to + amount;
     }
 
     spec schema CreateAccountTransferAbortsIf {
