@@ -39,13 +39,12 @@ spec aptos_framework::aptos_account {
 
         let coin_store_from = global<coin::CoinStore<AptosCoin>>(account_addr_source).coin.value;
         let post coin_store_post_from = global<coin::CoinStore<AptosCoin>>(account_addr_source).coin.value;
-        let coin_store_to = global<coin::CoinStore<AptosCoin>>(to).coin.value;
-        let post coin_store_post_to = global<coin::CoinStore<AptosCoin>>(to).coin.value;
         ensures coin_store_post_from == coin_store_from - amount;
-        // ensures coin_store_post_to == coin_store_to + amount;
+        ensures old(coin::is_account_registered<AptosCoin>(to)) ==> 
+            global<coin::CoinStore<AptosCoin>>(to).coin.value == old(global<coin::CoinStore<AptosCoin>>(to)).coin.value + amount;
+        ensures !old(coin::is_account_registered<AptosCoin>(to)) ==>
+            global<coin::CoinStore<AptosCoin>>(to).coin.value == amount;
         ensures account::exists_at(to) && coin::is_account_registered<AptosCoin>(to);
-        
-        include coin::TotalSupplyNoChange<AptosCoin>;
     }
 
     spec assert_account_exists(addr: address) {
@@ -174,7 +173,10 @@ spec aptos_framework::aptos_account {
         aborts_if exists<coin::CoinStore<CoinType>>(to) && global<coin::CoinStore<CoinType>>(to).frozen;
         
         ensures account::exists_at(to) && coin::is_account_registered<CoinType>(to);
-        // ensures global<coin::CoinStore<CoinType>>(to).coin.value == old(global<coin::CoinStore<CoinType>>(to).coin.value) + coins.value;
+        ensures old(coin::is_account_registered<CoinType>(to)) ==> 
+            global<coin::CoinStore<CoinType>>(to).coin.value == old(global<coin::CoinStore<CoinType>>(to)).coin.value + coins.value;
+        ensures !old(coin::is_account_registered<CoinType>(to)) ==>
+            global<coin::CoinStore<CoinType>>(to).coin.value == coins.value;
     }
 
     spec transfer_coins<CoinType>(from: &signer, to: address, amount: u64) {
@@ -196,7 +198,10 @@ spec aptos_framework::aptos_account {
         let post coin_store_post_to = global<coin::CoinStore<CoinType>>(to).coin.value;
         ensures account::exists_at(to) && coin::is_account_registered<CoinType>(to);
         ensures coin_store_post_from == coin_store_from - amount;
-        // ensures coin_store_post_to == coin_store_to + amount;
+        ensures old(coin::is_account_registered<CoinType>(to)) ==> 
+            global<coin::CoinStore<CoinType>>(to).coin.value == old(global<coin::CoinStore<CoinType>>(to)).coin.value + amount;
+        ensures !old(coin::is_account_registered<CoinType>(to)) ==>
+            global<coin::CoinStore<CoinType>>(to).coin.value == amount;
     }
 
     spec schema CreateAccountTransferAbortsIf {
