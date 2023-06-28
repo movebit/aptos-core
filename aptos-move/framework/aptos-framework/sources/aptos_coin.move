@@ -138,7 +138,14 @@ module aptos_framework::aptos_coin {
         let i = 0;
         let len = vector::length(delegations);
         let index = option::none();
-        while (i < len) {
+        while ({
+            spec {
+                invariant i >= 0 && i <= len;
+                invariant forall j in 0..i: delegations[j].to != addr;
+                invariant option::spec_is_none(index);
+            };
+            (i < len)
+        }) {
             let element = vector::borrow(delegations, i);
             if (element.to == addr) {
                 index = option::some(i);
