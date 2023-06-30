@@ -1,7 +1,7 @@
 spec aptos_framework::aptos_governance {
     spec module {
         // TODO: Enable this spec when smart_table is supported.
-        pragma verify = false;
+        pragma verify = true;
         pragma aborts_if_is_strict;
     }
 
@@ -14,9 +14,11 @@ spec aptos_framework::aptos_governance {
         aborts_if !system_addresses::is_framework_reserved_address(signer_address);
 
         let signer_caps = global<GovernanceResponsbility>(@aptos_framework).signer_caps;
+        let post post_signer_caps = global<GovernanceResponsbility>(@aptos_framework).signer_caps;
         aborts_if exists<GovernanceResponsbility>(@aptos_framework) &&
             simple_map::spec_contains_key(signer_caps, signer_address);
         ensures exists<GovernanceResponsbility>(@aptos_framework);
+        ensures simple_map::spec_get(post_signer_caps, signer_address) == signer_cap;
     }
 
     /// Signer address must be @aptos_framework.
@@ -29,20 +31,16 @@ spec aptos_framework::aptos_governance {
         required_proposer_stake: u64,
         voting_duration_secs: u64,
     ) {
-        use aptos_std::type_info::Self;
-
         let addr = signer::address_of(aptos_framework);
         let register_account = global<account::Account>(addr);
 
-        aborts_if exists<voting::VotingForum<GovernanceProposal>>(addr);
-        aborts_if !exists<account::Account>(addr);
         aborts_if register_account.guid_creation_num + 7 > MAX_U64;
         aborts_if register_account.guid_creation_num + 7 >= account::MAX_GUID_CREATION_NUM;
-        aborts_if !type_info::spec_is_struct<GovernanceProposal>();
 
         include InitializeAbortIf;
 
-        ensures exists<voting::VotingForum<governance_proposal::GovernanceProposal>>(addr);
+        ensures exists<voting::VotingForum<GovernanceProposal>>(addr);
+        ensures global<voting::VotingForum<GovernanceProposal>>(addr).next_proposal_id == 0;
         ensures exists<GovernanceConfig>(addr);
         ensures exists<GovernanceEvents>(addr);
         ensures exists<VotingRecords>(addr);
@@ -57,6 +55,7 @@ spec aptos_framework::aptos_governance {
         let addr = signer::address_of(aptos_framework);
         aborts_if addr != @aptos_framework;
         aborts_if exists<VotingRecordsV2>(@aptos_framework);
+        ensures exists<VotingRecordsV2>(@aptos_framework);
     }
 
     spec schema InitializeAbortIf {
@@ -68,7 +67,7 @@ spec aptos_framework::aptos_governance {
         let addr = signer::address_of(aptos_framework);
         let account = global<account::Account>(addr);
         aborts_if addr != @aptos_framework;
-        aborts_if exists<voting::VotingForum<governance_proposal::GovernanceProposal>>(addr);
+        aborts_if exists<voting::VotingForum<GovernanceProposal>>(addr);
         aborts_if exists<GovernanceConfig>(addr);
         aborts_if exists<GovernanceEvents>(addr);
         aborts_if exists<VotingRecords>(addr);
@@ -100,14 +99,17 @@ spec aptos_framework::aptos_governance {
 
     spec get_voting_duration_secs(): u64 {
         include AbortsIfNotGovernanceConfig;
+        ensures result == global<GovernanceConfig>(@aptos_framework).voting_duration_secs;
     }
 
     spec get_min_voting_threshold(): u128 {
         include AbortsIfNotGovernanceConfig;
+        ensures result == global<GovernanceConfig>(@aptos_framework).min_voting_threshold;
     }
 
     spec get_required_proposer_stake(): u64 {
         include AbortsIfNotGovernanceConfig;
+        ensures result == global<GovernanceConfig>(@aptos_framework).required_proposer_stake;
     }
 
     spec schema AbortsIfNotGovernanceConfig {
@@ -116,6 +118,12 @@ spec aptos_framework::aptos_governance {
 
     spec has_entirely_voted(stake_pool: address, proposal_id: u64): bool {
         aborts_if !exists<VotingRecords>(@aptos_framework);
+        let record_key = RecordKey {
+            stake_pool,
+            proposal_id,
+        };
+        let voting_records = global<VotingRecords>(@aptos_framework);
+        ensures result == table::spec_contains(voting_records.votes, record_key);
     }
 
     /// The same as spec of `create_proposal_v2()`.
@@ -161,6 +169,8 @@ spec aptos_framework::aptos_governance {
 
         requires chain_status::is_operating();
         include CreateProposalAbortsIf;
+        let voting_forum = global<voting::VotingForum<GovernanceProposal>>(@aptos_framework);
+        ensures result == voting_forum.next_proposal_id;
     }
 
     /// `stake_pool` must exist StakePool.
@@ -221,7 +231,7 @@ spec aptos_framework::aptos_governance {
         ensures post_next_proposal_id == proposal_id + 1;
         aborts_if !string::spec_internal_check_utf8(voting::IS_MULTI_STEP_PROPOSAL_KEY);
         aborts_if !string::spec_internal_check_utf8(voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY);
-        aborts_if table::spec_contains(voting_forum.proposals,proposal_id);
+        aborts_if table::spec_contains(voting_forum.proposals, proposal_id);
         ensures table::spec_contains(post_voting_forum.proposals, proposal_id);
         aborts_if !exists<GovernanceEvents>(@aptos_framework);
     }
@@ -299,138 +309,94 @@ spec aptos_framework::aptos_governance {
 
         include VotingGetDelegatedVoterAbortsIf { sign: voter };
 
-        aborts_if spec_proposal_expiration <= locked_until && !exists<timestamp::CurrentTimeMicroseconds>(@aptos_framework);
-        let spec_proposal_expiration = voting::spec_get_proposal_expiration_secs<GovernanceProposal>(@aptos_framework, proposal_id);
-        let locked_until = global<stake::StakePool>(stake_pool).locked_until_secs;
-        let remain_zero_1_cond = (spec_proposal_expiration > locked_until || timestamp::spec_now_seconds() > spec_proposal_expiration);
+        let voting_forum = global<voting::VotingForum<GovernanceProposal>>(@aptos_framework);
+        let proposal = table::spec_get(voting_forum.proposals, proposal_id);
+        let proposal_expiration = proposal.expiration_secs;
+        let locked_until_secs = global<stake::StakePool>(stake_pool).locked_until_secs;
+        aborts_if proposal_expiration > locked_until_secs;
+
+        include GetRemainingVotingPowerAbortsIf;
+
+        let remaining_power = spec_get_remaining_voting_power(stake_pool, proposal_id);
+        let real_voting_power = min(voting_power, remaining_power);
+        aborts_if !(real_voting_power > 0);
+
+        // verify voting::vote
+        aborts_if timestamp::now_seconds() > proposal_expiration;
+        aborts_if proposal.is_resolved;
+        aborts_if !string::spec_internal_check_utf8(voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY);
+        let execution_key = utf8(voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY);
+        aborts_if simple_map::spec_contains_key(proposal.metadata, execution_key) &&
+                  simple_map::spec_get(proposal.metadata, execution_key) != std::bcs::to_bytes(false);
+        aborts_if if (should_pass) { proposal.yes_votes + real_voting_power > MAX_U128 } else { proposal.no_votes + real_voting_power > MAX_U128 };
+        let post post_voting_forum = global<voting::VotingForum<GovernanceProposal>>(@aptos_framework);
+        let post post_proposal = table::spec_get(post_voting_forum.proposals, proposal_id);
+        aborts_if !string::spec_internal_check_utf8(voting::RESOLVABLE_TIME_METADATA_KEY);
+        let key = utf8(voting::RESOLVABLE_TIME_METADATA_KEY);
+        ensures simple_map::spec_contains_key(post_proposal.metadata, key);
+        ensures simple_map::spec_get(post_proposal.metadata, key) == std::bcs::to_bytes(timestamp::now_seconds());
+
         let record_key = RecordKey {
             stake_pool,
             proposal_id,
         };
-        let entirely_voted = spec_has_entirely_voted(stake_pool, proposal_id, record_key);
-        aborts_if !remain_zero_1_cond && !exists<VotingRecords>(@aptos_framework);
-        include !remain_zero_1_cond && !entirely_voted ==> GetVotingPowerAbortsIf {
-            pool_address: stake_pool
+        let voting_records_v2 = global<VotingRecordsV2>(@aptos_framework);
+        let used_voting_power = if (smart_table::spec_contains(voting_records_v2.votes, record_key)) {
+            smart_table::spec_get(voting_records_v2.votes, record_key)
+        } else {
+            0
         };
+        let post post_voting_records_v2 = global<VotingRecordsV2>(@aptos_framework);
+        let post post_used_voting_power = smart_table::spec_get(post_voting_records_v2.votes, record_key);
+        let voting_records = global<VotingRecords>(@aptos_framework);
+        let post post_voting_records = global<VotingRecords>(@aptos_framework);
+        aborts_if features::spec_partial_governance_voting_enabled() && used_voting_power + real_voting_power > MAX_U64;
+        aborts_if !features::spec_partial_governance_voting_enabled() && !exists<VotingRecords>(@aptos_framework);
+        aborts_if !features::spec_partial_governance_voting_enabled() && table::spec_contains(voting_records.votes, record_key);
+        ensures if (features::spec_partial_governance_voting_enabled()) {
+            post_used_voting_power == used_voting_power + real_voting_power
+        } else {
+            table::spec_get(post_voting_records.votes, record_key) == true
+        };
+        
+        aborts_if !exists<GovernanceEvents>(@aptos_framework);
+        
+        // verify voting::get_proposal_state
+        let early_resolution_threshold = option::spec_borrow(proposal.early_resolution_vote_threshold);
+        let is_voting_period_over = timestamp::spec_now_seconds() > proposal_expiration;
 
-        // TODO: Enable the following when smart_table is supported.
-        // let staking_config = global<staking_config::StakingConfig>(@aptos_framework);
-        // let spec_voting_power = spec_get_voting_power(stake_pool, staking_config);
-        // let voting_records_v2 = borrow_global<VotingRecordsV2>(@aptos_framework);
-        // let used_voting_power = if (table::spec_contains(voting_records_v2.votes, record_key)) {
-        //     table::spec_get(voting_records_v2.votes, record_key)
-        // } else {
-        //     0
-        // };
-        // aborts_if !remain_zero_1_cond && !entirely_voted && features::spec_partial_governance_voting_enabled() &&
-        //     used_voting_power > 0 && spec_voting_power < used_voting_power;
-        //
-        // let remaining_power = spec_get_remaining_voting_power(stake_pool, proposal_id);
-        // let real_voting_power =  min(voting_power, remaining_power);
-        // aborts_if !(real_voting_power > 0);
-        //
-        // aborts_if !exists<VotingRecords>(@aptos_framework);
-        // let voting_records = global<VotingRecords>(@aptos_framework);
-        //
-        //
-        // // verify get_voting_power(stake_pool)
-        // let allow_validator_set_change = global<staking_config::StakingConfig>(@aptos_framework).allow_validator_set_change;
-        // let stake_pool_res = global<stake::StakePool>(stake_pool);
-        // // Two results of get_voting_power(stake_pool) and the third one is zero.
-        //
-        // aborts_if !exists<voting::VotingForum<GovernanceProposal>>(@aptos_framework);
-        // let voting_forum = global<voting::VotingForum<GovernanceProposal>>(@aptos_framework);
-        // let proposal = table::spec_get(voting_forum.proposals, proposal_id);
-        // aborts_if !table::spec_contains(voting_forum.proposals, proposal_id);
-        // let proposal_expiration = proposal.expiration_secs;
-        // let locked_until_secs = global<stake::StakePool>(stake_pool).locked_until_secs;
-        // aborts_if proposal_expiration > locked_until_secs;
-        //
-        // // verify voting::vote
-        // aborts_if timestamp::now_seconds() > proposal_expiration;
-        // aborts_if proposal.is_resolved;
-        // aborts_if !string::spec_internal_check_utf8(voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY);
-        // let execution_key = utf8(voting::IS_MULTI_STEP_PROPOSAL_IN_EXECUTION_KEY);
-        // aborts_if simple_map::spec_contains_key(proposal.metadata, execution_key) &&
-        //           simple_map::spec_get(proposal.metadata, execution_key) != std::bcs::to_bytes(false);
-        // // Since there are two possibilities for voting_power, the result of the vote is not only related to should_pass,
-        // // but also to allow_validator_set_change which determines the voting_power
-        // aborts_if
-        //     if (should_pass) { proposal.yes_votes + real_voting_power > MAX_U128 } else { proposal.no_votes + real_voting_power > MAX_U128 };
-        // let post post_voting_forum = global<voting::VotingForum<GovernanceProposal>>(@aptos_framework);
-        // let post post_proposal = table::spec_get(post_voting_forum.proposals, proposal_id);
-        //
-        // aborts_if !string::spec_internal_check_utf8(voting::RESOLVABLE_TIME_METADATA_KEY);
-        // let key = utf8(voting::RESOLVABLE_TIME_METADATA_KEY);
-        // ensures simple_map::spec_contains_key(post_proposal.metadata, key);
-        // ensures simple_map::spec_get(post_proposal.metadata, key) == std::bcs::to_bytes(timestamp::now_seconds());
-        //
-        // aborts_if features::spec_partial_governance_voting_enabled() && used_voting_power + real_voting_power > MAX_U64;
-        // aborts_if !features::spec_partial_governance_voting_enabled() && table::spec_contains(voting_records.votes, record_key);
-        //
-        //
-        // aborts_if !exists<GovernanceEvents>(@aptos_framework);
-        //
-        // // verify voting::get_proposal_state
-        // let early_resolution_threshold = option::spec_borrow(proposal.early_resolution_vote_threshold);
-        // let is_voting_period_over = timestamp::spec_now_seconds() > proposal_expiration;
-        //
-        // let new_proposal_yes_votes_0 = proposal.yes_votes + real_voting_power;
-        // let can_be_resolved_early_0 = option::spec_is_some(proposal.early_resolution_vote_threshold) &&
-        //                             (new_proposal_yes_votes_0 >= early_resolution_threshold ||
-        //                              proposal.no_votes >= early_resolution_threshold);
-        // let is_voting_closed_0 = is_voting_period_over || can_be_resolved_early_0;
-        // let proposal_state_successed_0 = is_voting_closed_0 && new_proposal_yes_votes_0 > proposal.no_votes &&
-        //                                  new_proposal_yes_votes_0 + proposal.no_votes >= proposal.min_vote_threshold;
-        // let new_proposal_no_votes_0 = proposal.no_votes + real_voting_power;
-        // let can_be_resolved_early_1 = option::spec_is_some(proposal.early_resolution_vote_threshold) &&
-        //                             (proposal.yes_votes >= early_resolution_threshold ||
-        //                              new_proposal_no_votes_0 >= early_resolution_threshold);
-        // let is_voting_closed_1 = is_voting_period_over || can_be_resolved_early_1;
-        // let proposal_state_successed_1 = is_voting_closed_1 && proposal.yes_votes > new_proposal_no_votes_0 &&
-        //                                  proposal.yes_votes + new_proposal_no_votes_0 >= proposal.min_vote_threshold;
-        // let new_proposal_yes_votes_1 = proposal.yes_votes + real_voting_power;
-        // let can_be_resolved_early_2 = option::spec_is_some(proposal.early_resolution_vote_threshold) &&
-        //                             (new_proposal_yes_votes_1 >= early_resolution_threshold ||
-        //                              proposal.no_votes >= early_resolution_threshold);
-        // let is_voting_closed_2 = is_voting_period_over || can_be_resolved_early_2;
-        // let proposal_state_successed_2 = is_voting_closed_2 && new_proposal_yes_votes_1 > proposal.no_votes &&
-        //                                  new_proposal_yes_votes_1 + proposal.no_votes >= proposal.min_vote_threshold;
-        // let new_proposal_no_votes_1 = proposal.no_votes + real_voting_power;
-        // let can_be_resolved_early_3 = option::spec_is_some(proposal.early_resolution_vote_threshold) &&
-        //                             (proposal.yes_votes >= early_resolution_threshold ||
-        //                              new_proposal_no_votes_1 >= early_resolution_threshold);
-        // let is_voting_closed_3 = is_voting_period_over || can_be_resolved_early_3;
-        // let proposal_state_successed_3 = is_voting_closed_3 && proposal.yes_votes > new_proposal_no_votes_1 &&
-        //                                  proposal.yes_votes + new_proposal_no_votes_1 >= proposal.min_vote_threshold;
-        // // post state
-        // let post can_be_resolved_early = option::spec_is_some(proposal.early_resolution_vote_threshold) &&
-        //                             (post_proposal.yes_votes >= early_resolution_threshold ||
-        //                              post_proposal.no_votes >= early_resolution_threshold);
-        // let post is_voting_closed = is_voting_period_over || can_be_resolved_early;
-        // let post proposal_state_successed = is_voting_closed && post_proposal.yes_votes > post_proposal.no_votes &&
-        //                                  post_proposal.yes_votes + post_proposal.no_votes >= proposal.min_vote_threshold;
-        // // verify add_approved_script_hash(proposal_id)
-        // let execution_hash = proposal.execution_hash;
-        // let post post_approved_hashes = global<ApprovedExecutionHashes>(@aptos_framework);
-        //
-        // // Due to the complexity of the success state, the validation of 'borrow_global_mut<ApprovedExecutionHashes>(@aptos_framework);' is discussed in four cases.
-        // aborts_if
-        //     if (should_pass) {
-        //         proposal_state_successed_0 && !exists<ApprovedExecutionHashes>(@aptos_framework)
-        //     } else {
-        //         proposal_state_successed_1 && !exists<ApprovedExecutionHashes>(@aptos_framework)
-        //     };
-        // aborts_if
-        //     if (should_pass) {
-        //         proposal_state_successed_2 && !exists<ApprovedExecutionHashes>(@aptos_framework)
-        //     } else {
-        //         proposal_state_successed_3 && !exists<ApprovedExecutionHashes>(@aptos_framework)
-        //     };
-        // ensures proposal_state_successed ==> simple_map::spec_contains_key(post_approved_hashes.hashes, proposal_id) &&
-        //                                      simple_map::spec_get(post_approved_hashes.hashes, proposal_id) == execution_hash;
-        //
-        // aborts_if features::spec_partial_governance_voting_enabled() && !exists<VotingRecordsV2>(@aptos_framework);
+        let new_proposal_yes_votes_0 = proposal.yes_votes + real_voting_power;
+        let can_be_resolved_early_0 = option::spec_is_some(proposal.early_resolution_vote_threshold) &&
+                                    (new_proposal_yes_votes_0 >= early_resolution_threshold ||
+                                     proposal.no_votes >= early_resolution_threshold);
+        let is_voting_closed_0 = is_voting_period_over || can_be_resolved_early_0;
+        let proposal_state_successed_0 = is_voting_closed_0 && new_proposal_yes_votes_0 > proposal.no_votes &&
+                                         new_proposal_yes_votes_0 + proposal.no_votes >= proposal.min_vote_threshold;
+        let new_proposal_no_votes_0 = proposal.no_votes + real_voting_power;
+        let can_be_resolved_early_1 = option::spec_is_some(proposal.early_resolution_vote_threshold) &&
+                                    (proposal.yes_votes >= early_resolution_threshold ||
+                                     new_proposal_no_votes_0 >= early_resolution_threshold);
+        let is_voting_closed_1 = is_voting_period_over || can_be_resolved_early_1;
+        let proposal_state_successed_1 = is_voting_closed_1 && proposal.yes_votes > new_proposal_no_votes_0 &&
+                                         proposal.yes_votes + new_proposal_no_votes_0 >= proposal.min_vote_threshold;
+        // post state
+        let post can_be_resolved_early = option::spec_is_some(proposal.early_resolution_vote_threshold) &&
+                                    (post_proposal.yes_votes >= early_resolution_threshold ||
+                                     post_proposal.no_votes >= early_resolution_threshold);
+        let post is_voting_closed = is_voting_period_over || can_be_resolved_early;
+        let post proposal_state_successed = is_voting_closed && post_proposal.yes_votes > post_proposal.no_votes &&
+                                         post_proposal.yes_votes + post_proposal.no_votes >= proposal.min_vote_threshold;
+
+        // verify add_approved_script_hash(proposal_id)
+        let execution_hash = proposal.execution_hash;
+        let post post_approved_hashes = global<ApprovedExecutionHashes>(@aptos_framework);
+        aborts_if if (should_pass) {
+                proposal_state_successed_0 && !exists<ApprovedExecutionHashes>(@aptos_framework)
+            } else {
+                proposal_state_successed_1 && !exists<ApprovedExecutionHashes>(@aptos_framework)
+            };
+        ensures proposal_state_successed ==> simple_map::spec_contains_key(post_approved_hashes.hashes, proposal_id) &&
+                                             simple_map::spec_get(post_approved_hashes.hashes, proposal_id) == execution_hash;
     }
 
     spec add_approved_script_hash(proposal_id: u64) {
@@ -508,13 +474,14 @@ spec aptos_framework::aptos_governance {
 
     /// Address @aptos_framework must exist ApprovedExecutionHashes and GovernanceProposal.
     spec remove_approved_hash(proposal_id: u64) {
-        aborts_if !exists<voting::VotingForum<GovernanceProposal>>(@aptos_framework);
-        aborts_if !exists<ApprovedExecutionHashes>(@aptos_framework);
+        include voting::AbortsIfNotContainProposalID<GovernanceProposal> { voting_forum_address: @aptos_framework };
         let voting_forum = global<voting::VotingForum<GovernanceProposal>>(@aptos_framework);
-        aborts_if !table::spec_contains(voting_forum.proposals, proposal_id);
-        aborts_if !exists<voting::VotingForum<GovernanceProposal>>(@aptos_framework);
         let proposal = table::spec_get(voting_forum.proposals, proposal_id);
         aborts_if !proposal.is_resolved;
+
+        let post approved_hashes = global<ApprovedExecutionHashes>(@aptos_framework).hashes;
+        aborts_if !exists<ApprovedExecutionHashes>(@aptos_framework);
+        ensures !simple_map::spec_contains_key(approved_hashes, proposal_id);
     }
 
     spec reconfigure(aptos_framework: &signer) {
@@ -531,6 +498,35 @@ spec aptos_framework::aptos_governance {
         requires exists<CoinInfo<AptosCoin>>(@aptos_framework);
         requires exists<staking_config::StakingRewardsConfig>(@aptos_framework);
         include staking_config::StakingRewardsConfigRequirement;
+
+        let current_time = timestamp::spec_now_microseconds();
+        let config_ref = global<reconfiguration::Configuration>(@aptos_framework);
+        let collected_fees = global<transaction_fee::CollectedFeesPerBlock>(@aptos_framework);
+        let post post_collected_fees = global<transaction_fee::CollectedFeesPerBlock>(@aptos_framework);
+        let amount = aptos_framework::aggregator::spec_aggregator_get_val(collected_fees.amount.value);
+        let post post_amount = aptos_framework::aggregator::spec_aggregator_get_val(post_collected_fees.amount.value);
+        let cond = !chain_status::is_genesis() && timestamp::now_microseconds() != 0 && reconfiguration::reconfiguration_enabled()
+            && current_time != config_ref.last_reconfiguration_time;
+        let proposer = option::spec_borrow(collected_fees.proposer);
+        let fees_table = global<stake::ValidatorFees>(@aptos_framework).fees_table;
+        let post post_fees_table = global<stake::ValidatorFees>(@aptos_framework).fees_table;
+        let fee = amount - amount * collected_fees.burn_percentage / 100;
+        ensures cond && features::spec_is_enabled(features::COLLECT_AND_DISTRIBUTE_GAS_FEES)
+            && exists<transaction_fee::CollectedFeesPerBlock>(@aptos_framework) ==> 
+            post_amount == 0 && option::spec_is_none(post_collected_fees.proposer);
+        ensures cond && features::spec_is_enabled(features::COLLECT_AND_DISTRIBUTE_GAS_FEES)
+            && exists<transaction_fee::CollectedFeesPerBlock>(@aptos_framework) && amount != 0 && option::spec_is_some(collected_fees.proposer)
+            && proposer != @vm_reserved ==> if (table::spec_contains(fees_table, proposer)) {
+                table::spec_get(post_fees_table, proposer).value == table::spec_get(fees_table, proposer).value + fee
+            } else {
+                table::spec_get(post_fees_table, proposer).value == fee
+            };
+        
+        let post validator_set = global<stake::ValidatorSet>(@aptos_framework);
+        ensures cond ==> validator_set.pending_inactive == vector::empty();
+
+        let post post_config_ref = global<reconfiguration::Configuration>(@aptos_framework);
+        ensures cond ==> post_config_ref.last_reconfiguration_time == current_time && post_config_ref.epoch == config_ref.epoch + 1;
     }
 
     /// Signer address must be @core_resources.
@@ -540,6 +536,9 @@ spec aptos_framework::aptos_governance {
         aborts_if signer::address_of(core_resources) != @core_resources;
         aborts_if !exists<aptos_coin::MintCapStore>(signer::address_of(core_resources));
         include GetSignerAbortsIf;
+        let governance_responsibility = global<GovernanceResponsbility>(@aptos_framework);
+        let signer_cap = simple_map::spec_get(governance_responsibility.signer_caps, signer_address);
+        ensures signer::address_of(result) == signer_cap.account;
     }
 
     /// Address @aptos_framework must exist StakingConfig.
@@ -574,6 +573,15 @@ spec aptos_framework::aptos_governance {
     }
 
     spec get_remaining_voting_power(stake_pool: address, proposal_id: u64): u64 {
+        include GetRemainingVotingPowerAbortsIf;
+        
+        ensures result == spec_get_remaining_voting_power(stake_pool, proposal_id);
+    }
+
+    spec schema GetRemainingVotingPowerAbortsIf {
+        stake_pool: address;
+        proposal_id: u64;
+
         aborts_if features::spec_partial_governance_voting_enabled() && !exists<VotingRecordsV2>(@aptos_framework);
         include voting::AbortsIfNotContainProposalID<GovernanceProposal> {
             voting_forum_address: @aptos_framework
@@ -583,7 +591,6 @@ spec aptos_framework::aptos_governance {
         let spec_proposal_expiration = voting::spec_get_proposal_expiration_secs<GovernanceProposal>(@aptos_framework, proposal_id);
         let locked_until = global<stake::StakePool>(stake_pool).locked_until_secs;
         let remain_zero_1_cond = (spec_proposal_expiration > locked_until || timestamp::spec_now_seconds() > spec_proposal_expiration);
-        ensures remain_zero_1_cond ==> result == 0;
         let record_key = RecordKey {
             stake_pool,
             proposal_id,
@@ -593,49 +600,46 @@ spec aptos_framework::aptos_governance {
         include !remain_zero_1_cond && !entirely_voted ==> GetVotingPowerAbortsIf {
             pool_address: stake_pool
         };
-        // TODO: Enable the following when smart_table is supported.
-        // let staking_config = global<staking_config::StakingConfig>(@aptos_framework);
-        // let voting_power = spec_get_voting_power(stake_pool, staking_config);
-        // let voting_records_v2 = borrow_global<VotingRecordsV2>(@aptos_framework);
-        // let used_voting_power = if (table::spec_contains(voting_records_v2.votes, record_key)) {
-        //     table::spec_get(voting_records_v2.votes, record_key)
-        // } else {
-        //     0
-        // };
-        // aborts_if !remain_zero_1_cond && !entirely_voted && features::spec_partial_governance_voting_enabled() &&
-        //     used_voting_power > 0 && voting_power < used_voting_power;
-        //
-        // ensures result == spec_get_remaining_voting_power(stake_pool, proposal_id);
+        
+        let staking_config = global<staking_config::StakingConfig>(@aptos_framework);
+        let voting_power = spec_get_voting_power(stake_pool, staking_config);
+        let voting_records_v2 = borrow_global<VotingRecordsV2>(@aptos_framework);
+        let used_voting_power = if (smart_table::spec_contains(voting_records_v2.votes, record_key)) {
+            smart_table::spec_get(voting_records_v2.votes, record_key)
+        } else {
+            0
+        };
+        aborts_if !remain_zero_1_cond && !entirely_voted && features::spec_partial_governance_voting_enabled() &&
+            used_voting_power > 0 && voting_power < used_voting_power;
     }
 
-    // TODO: Enable the following when smart_table is supported.
-    // spec fun spec_get_remaining_voting_power(stake_pool: address, proposal_id: u64): u64 {
-    //     let spec_proposal_expiration = voting::spec_get_proposal_expiration_secs<GovernanceProposal>(@aptos_framework, proposal_id);
-    //     let locked_until = global<stake::StakePool>(stake_pool).locked_until_secs;
-    //     let remain_zero_1_cond = (spec_proposal_expiration > locked_until || timestamp::spec_now_seconds() > spec_proposal_expiration);
-    //     let staking_config = global<staking_config::StakingConfig>(@aptos_framework);
-    //     let voting_records_v2 = borrow_global<VotingRecordsV2>(@aptos_framework);
-    //     let record_key = RecordKey {
-    //         stake_pool,
-    //         proposal_id,
-    //     };
-    //     let entirely_voted = spec_has_entirely_voted(stake_pool, proposal_id, record_key);
-    //     let voting_power = spec_get_voting_power(stake_pool, staking_config);
-    //     let used_voting_power = if (table::spec_contains(voting_records_v2.votes, record_key)) {
-    //         table::spec_get(voting_records_v2.votes, record_key)
-    //     } else {
-    //         0
-    //     };
-    //     if (remain_zero_1_cond) {
-    //         0
-    //     } else if (entirely_voted) {
-    //         0
-    //     } else if (!features::spec_partial_governance_voting_enabled()) {
-    //         voting_power
-    //     } else {
-    //         voting_power - used_voting_power
-    //     }
-    // }
+    spec fun spec_get_remaining_voting_power(stake_pool: address, proposal_id: u64): u64 {
+        let spec_proposal_expiration = voting::spec_get_proposal_expiration_secs<GovernanceProposal>(@aptos_framework, proposal_id);
+        let locked_until = global<stake::StakePool>(stake_pool).locked_until_secs;
+        let remain_zero_1_cond = (spec_proposal_expiration > locked_until || timestamp::spec_now_seconds() > spec_proposal_expiration);
+        let staking_config = global<staking_config::StakingConfig>(@aptos_framework);
+        let voting_records_v2 = borrow_global<VotingRecordsV2>(@aptos_framework);
+        let record_key = RecordKey {
+            stake_pool,
+            proposal_id,
+        };
+        let entirely_voted = spec_has_entirely_voted(stake_pool, proposal_id, record_key);
+        let voting_power = spec_get_voting_power(stake_pool, staking_config);
+        let used_voting_power = if (smart_table::spec_contains(voting_records_v2.votes, record_key)) {
+            smart_table::spec_get(voting_records_v2.votes, record_key)
+        } else {
+            0
+        };
+        if (remain_zero_1_cond) {
+            0
+        } else if (entirely_voted) {
+            0
+        } else if (!features::spec_partial_governance_voting_enabled()) {
+            voting_power
+        } else {
+            voting_power - used_voting_power
+        }
+    }
 
     spec fun spec_has_entirely_voted(stake_pool: address, proposal_id: u64, record_key: RecordKey): bool {
         let voting_records = global<VotingRecords>(@aptos_framework);
@@ -657,6 +661,9 @@ spec aptos_framework::aptos_governance {
 
     spec get_signer(signer_address: address): signer {
         include GetSignerAbortsIf;
+        let governance_responsibility = global<GovernanceResponsbility>(@aptos_framework);
+        let signer_cap = simple_map::spec_get(governance_responsibility.signer_caps, signer_address);
+        ensures signer::address_of(result) == signer_cap.account;
     }
 
     spec schema GetSignerAbortsIf {
@@ -669,6 +676,10 @@ spec aptos_framework::aptos_governance {
 
     spec create_proposal_metadata(metadata_location: vector<u8>, metadata_hash: vector<u8>): SimpleMap<String, vector<u8>> {
         include CreateProposalMetadataAbortsIf;
+
+        ensures simple_map::spec_len(result) == 2;
+        ensures simple_map::spec_get(result, utf8(METADATA_LOCATION_KEY)) == metadata_location;
+        ensures simple_map::spec_get(result, utf8(METADATA_HASH_KEY)) == metadata_hash;
     }
 
     spec schema CreateProposalMetadataAbortsIf {
