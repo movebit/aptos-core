@@ -422,6 +422,7 @@ spec aptos_framework::aptos_governance {
         let proposal = table::spec_get(voting_forum.proposals, proposal_id);
         aborts_if !table::spec_contains(voting_forum.proposals, proposal_id);
         let early_resolution_threshold = option::spec_borrow(proposal.early_resolution_vote_threshold);
+        // The following aborts_if statement is equivalent to aborts_if proposal_state == PROPOSAL_STATE_FAILED or PROPOSAL_STATE_PENDING.
         aborts_if timestamp::now_seconds() <= proposal.expiration_secs &&
             (option::spec_is_none(proposal.early_resolution_vote_threshold) ||
             proposal.yes_votes < early_resolution_threshold && proposal.no_votes < early_resolution_threshold);
