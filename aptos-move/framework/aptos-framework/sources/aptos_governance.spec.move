@@ -1,6 +1,5 @@
 spec aptos_framework::aptos_governance {
     spec module {
-        // TODO: Enable this spec when smart_table is supported.
         pragma verify = true;
         pragma aborts_if_is_strict;
     }
