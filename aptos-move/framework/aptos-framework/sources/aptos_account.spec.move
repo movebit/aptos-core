@@ -8,11 +8,15 @@ spec aptos_framework::aptos_account {
     /// Limit the address of auth_key is not @vm_reserved / @aptos_framework / @aptos_toke.
     spec create_account(auth_key: address) {
         include CreateAccountAbortsIf;
+
+        // property 2: After creating an Aptos account, the account should become registered to receive AptosCoin.
         ensures exists<account::Account>(auth_key);
         ensures exists<coin::CoinStore<AptosCoin>>(auth_key);
     }
     spec schema CreateAccountAbortsIf {
         auth_key: address;
+
+        // property 1: During the creation of an Aptos account the following rules should hold.
         aborts_if exists<account::Account>(auth_key);
         aborts_if length_judgment(auth_key);
         aborts_if auth_key == @vm_reserved || auth_key == @aptos_framework || auth_key == @aptos_token;
@@ -44,6 +48,7 @@ spec aptos_framework::aptos_account {
             global<coin::CoinStore<AptosCoin>>(to).coin.value == old(global<coin::CoinStore<AptosCoin>>(to)).coin.value + amount;
         ensures !old(coin::is_account_registered<AptosCoin>(to)) ==>
             global<coin::CoinStore<AptosCoin>>(to).coin.value == amount;
+        // property 5: Ensure an account is created and AptosCoin is registered for that account if the account do not have these resources.
         ensures account::exists_at(to) && coin::is_account_registered<AptosCoin>(to);
     }
 
@@ -61,6 +66,7 @@ spec aptos_framework::aptos_account {
     spec set_allow_direct_coin_transfers(account: &signer, allow: bool) {
         let addr = signer::address_of(account);
         include !exists<DirectTransferConfig>(addr) ==> account::NewEventHandleAbortsIf;
+        // property 4: Ensure the DirectTransferConfig structure exists for the signer.
         ensures exists<DirectTransferConfig>(addr);
         ensures global<DirectTransferConfig>(addr).allow_arbitrary_coin_transfers == allow;
     }
@@ -78,6 +84,7 @@ spec aptos_framework::aptos_account {
             amounts[i] > 0;
 
         // create account properties
+        // proprety 7: Verify that the length of the recipient addresses vector matches the length of the amount vector through an assertion.
         aborts_if len(recipients) != len(amounts);
         aborts_if exists i in 0..len(recipients):
                 !account::exists_at(recipients[i]) && length_judgment(recipients[i]);
@@ -108,6 +115,8 @@ spec aptos_framework::aptos_account {
 
     spec can_receive_direct_coin_transfers(account: address): bool {
         aborts_if false;
+
+        // property 3: Transfers of a coin to an account that has not yet registered for that coin should abort if and only if the allow_arbitrary_coin_transfers flag is explicitly set to false.
         ensures result == (
             !exists<DirectTransferConfig>(account) ||
                 global<DirectTransferConfig>(account).allow_arbitrary_coin_transfers
@@ -172,6 +181,7 @@ spec aptos_framework::aptos_account {
 
         aborts_if exists<coin::CoinStore<CoinType>>(to) && global<coin::CoinStore<CoinType>>(to).frozen;
         
+        // property 6: Ensure an account is created and AptosCoin is registered for that account if the account do not have these resources.
         ensures account::exists_at(to) && coin::is_account_registered<CoinType>(to);
         ensures old(coin::is_account_registered<CoinType>(to)) ==> 
             global<coin::CoinStore<CoinType>>(to).coin.value == old(global<coin::CoinStore<CoinType>>(to)).coin.value + coins.value;
