@@ -137,6 +137,7 @@ spec aptos_framework::aptos_governance {
         pragma verify_duration_estimate = 120;
 
         requires chain_status::is_operating();
+        // property 1: Ensure create_proposal_v2 is called in create_proposal.
         include CreateProposalAbortsIf;
     }
 
@@ -198,7 +199,8 @@ spec aptos_framework::aptos_governance {
         let stake_balance_2 = 0;
         let governance_config = global<GovernanceConfig>(@aptos_framework);
         let required_proposer_stake = governance_config.required_proposer_stake;
-        // Comparison of the three results of get_voting_power(stake_pool) and required_proposer_stake
+        // property 2: Verify that the stake balance equals or exceeds the required proposer stake amount.
+        // Comparison of the three results of get_voting_power(stake_pool) with required_proposer_stake
         aborts_if allow_validator_set_change && stake_balance_0 < required_proposer_stake;
         aborts_if !allow_validator_set_change && stake::spec_is_current_epoch_validator(stake_pool) && stake_balance_1 < required_proposer_stake;
         aborts_if !allow_validator_set_change && !stake::spec_is_current_epoch_validator(stake_pool) && stake_balance_2 < required_proposer_stake;
@@ -389,6 +391,7 @@ spec aptos_framework::aptos_governance {
         // verify add_approved_script_hash(proposal_id)
         let execution_hash = proposal.execution_hash;
         let post post_approved_hashes = global<ApprovedExecutionHashes>(@aptos_framework);
+        // property 3: Ensure the Approved execution hashes resources exist when the vote function is called.
         aborts_if if (should_pass) {
                 proposal_state_successed_0 && !exists<ApprovedExecutionHashes>(@aptos_framework)
             } else {
@@ -421,7 +424,7 @@ spec aptos_framework::aptos_governance {
         let proposal = table::spec_get(voting_forum.proposals, proposal_id);
         aborts_if !table::spec_contains(voting_forum.proposals, proposal_id);
         let early_resolution_threshold = option::spec_borrow(proposal.early_resolution_vote_threshold);
-        // The following aborts_if statement is equivalent to aborts_if proposal_state == PROPOSAL_STATE_FAILED or PROPOSAL_STATE_PENDING.
+        // property 4: The following aborts_if statements are equivalent to aborts_if proposal_state == PROPOSAL_STATE_FAILED or PROPOSAL_STATE_PENDING.
         aborts_if timestamp::now_seconds() <= proposal.expiration_secs &&
             (option::spec_is_none(proposal.early_resolution_vote_threshold) ||
             proposal.yes_votes < early_resolution_threshold && proposal.no_votes < early_resolution_threshold);
