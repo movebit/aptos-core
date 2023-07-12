@@ -11,16 +11,6 @@ spec aptos_framework::storage_gas {
     spec GasCurve {
         invariant min_gas <= max_gas;
         invariant max_gas <= MAX_U64 / BASIS_POINT_DENOMINATION;
-        // invariant (len(points) > 0 ==> points[0].x > 0)
-        //     && (len(points) > 0 ==> points[len(points) - 1].x < BASIS_POINT_DENOMINATION)
-        //     && (forall i in 0..len(points) - 1: (points[i].x < points[i + 1].x && points[i].y <= points[i + 1].y));
-
-        // invariant forall i in 0..len(points) - 1: (points[i].x < points[i + 1].x && points[i].y <= points[i + 1].y);
-        // invariant (len(points) > 0 ==> points[0].x > 0)
-        //     && (len(points) > 0 ==> points[len(points) - 1].x < BASIS_POINT_DENOMINATION);
-
-        // invariant forall i in 0..len(points) - 1: (points[i].x < points[i + 1].x && points[i].y <= points[i + 1].y);
-        // invariant len(points) > 0 ==> (points[0].x > 0 && points[len(points) - 1].x < BASIS_POINT_DENOMINATION);
 
         invariant forall i in 0..len(points) - 1: (points[i].x < points[i + 1].x && points[i].y <= points[i + 1].y);
         invariant len(points) > 0 ==> points[0].x > 0;
