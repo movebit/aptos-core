@@ -68,7 +68,6 @@ spec aptos_framework::storage_gas {
 
     /// A non decreasing curve must ensure that next is greater than cur.
     spec new_gas_curve(min_gas: u64, max_gas: u64, points: vector<Point>): GasCurve {
-        // pragma verify = false;
         include NewGasCurveAbortsIf;
         include ValidatePointsAbortsIf;
 
