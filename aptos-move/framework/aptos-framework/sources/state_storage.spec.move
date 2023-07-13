@@ -32,8 +32,6 @@ spec aptos_framework::state_storage {
 
         aborts_if false;
         ensures epoch == global<StateStorageUsage>(@aptos_framework).epoch;
-        // ensures global<StateStorageUsage>(@aptos_framework).epoch != epoch ==> 
-        //     global<StateStorageUsage>(@aptos_framework).usage == spec_get_state_storage_usage_only_at_epoch_beginning();
     }
 
     spec current_items_and_bytes(): (u64, u64) {
@@ -48,10 +46,7 @@ spec aptos_framework::state_storage {
     spec get_state_storage_usage_only_at_epoch_beginning(): Usage {
         // TODO: temporary mockup.
         pragma opaque;
-        // ensures result == spec_get_state_storage_usage_only_at_epoch_beginning();
     }
-
-    // spec native fun spec_get_state_storage_usage_only_at_epoch_beginning(): Usage;
 
     spec on_reconfig {
         aborts_if true;
