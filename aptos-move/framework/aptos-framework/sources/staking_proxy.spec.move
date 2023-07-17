@@ -72,7 +72,7 @@ spec aptos_framework::staking_proxy {
         let inactive_1 = stake_pool_1.inactive.value;
         let pending_inactive_1 = stake_pool_1.pending_inactive.value;
         let new_inactive_1 = inactive_1 + pending_inactive_1;
-        aborts_if staking_contract_exists && inactive_state && timestamp::spec_now_seconds() >= stake_pool_1.locked_until_secs 
+        aborts_if staking_contract_exists && inactive_state && timestamp::spec_now_seconds() >= stake_pool_1.locked_until_secs
             && inactive_1 + pending_inactive_1 > MAX_U64;
     }
 

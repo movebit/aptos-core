@@ -280,6 +280,7 @@ Aborts if conditions of SetStakePoolOperator are not met
 
 
 <pre><code><b>pragma</b> aborts_if_is_partial;
+<b>include</b> <a href="staking_proxy.md#0x1_staking_proxy_SetStakingContractOperatorAbortsIf">SetStakingContractOperatorAbortsIf</a>;
 <b>include</b> <a href="staking_proxy.md#0x1_staking_proxy_SetStakePoolOperator">SetStakePoolOperator</a>;
 </code></pre>
 
@@ -331,10 +332,51 @@ Aborts if conditions of SetStackingContractVoter and SetStackPoolVoterAbortsIf a
 
 
 
-<pre><code><b>pragma</b> aborts_if_is_partial;
-<b>let</b> owner_address = <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer_address_of">signer::address_of</a>(owner);
-<b>let</b> store = <b>borrow_global</b>&lt;Store&gt;(owner_address);
-<b>let</b> staking_contract_exists = <b>exists</b>&lt;Store&gt;(owner_address) && <a href="../../aptos-stdlib/doc/simple_map.md#0x1_simple_map_spec_contains_key">simple_map::spec_contains_key</a>(store.staking_contracts, old_operator);
+<pre><code><b>pragma</b> verify = <b>true</b>;
+<b>pragma</b> aborts_if_is_partial;
+<b>include</b> <a href="staking_proxy.md#0x1_staking_proxy_SetStakingContractOperatorAbortsIf">SetStakingContractOperatorAbortsIf</a>;
+</code></pre>
+
+
+
+
+<a name="0x1_staking_proxy_SetStakingContractOperatorAbortsIf"></a>
+
+
+<pre><code><b>schema</b> <a href="staking_proxy.md#0x1_staking_proxy_SetStakingContractOperatorAbortsIf">SetStakingContractOperatorAbortsIf</a> {
+    owner: <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>;
+    old_operator: <b>address</b>;
+    new_operator: <b>address</b>;
+    <b>let</b> owner_address = <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer_address_of">signer::address_of</a>(owner);
+    <b>let</b> store = <b>global</b>&lt;Store&gt;(owner_address);
+    <b>let</b> staking_contract_exists = <b>exists</b>&lt;Store&gt;(owner_address) && <a href="../../aptos-stdlib/doc/simple_map.md#0x1_simple_map_spec_contains_key">simple_map::spec_contains_key</a>(store.staking_contracts, old_operator);
+    <b>let</b> staking_contracts = <b>global</b>&lt;Store&gt;(owner_address).staking_contracts;
+    <b>let</b> <b>post</b> post_staking_contracts = <b>global</b>&lt;Store&gt;(owner_address).staking_contracts;
+    <b>let</b> current_commission_percentage = <a href="../../aptos-stdlib/doc/simple_map.md#0x1_simple_map_spec_get">simple_map::spec_get</a>(staking_contracts, old_operator).commission_percentage;
+    <b>aborts_if</b> staking_contract_exists && <a href="../../aptos-stdlib/doc/simple_map.md#0x1_simple_map_spec_contains_key">simple_map::spec_contains_key</a>(staking_contracts, new_operator);
+    <b>let</b> <a href="staking_contract.md#0x1_staking_contract">staking_contract</a> = <a href="../../aptos-stdlib/doc/simple_map.md#0x1_simple_map_spec_get">simple_map::spec_get</a>(staking_contracts, old_operator);
+    <b>ensures</b> staking_contract_exists ==&gt; !<a href="../../aptos-stdlib/doc/simple_map.md#0x1_simple_map_spec_contains_key">simple_map::spec_contains_key</a>(post_staking_contracts, old_operator);
+    <b>let</b> pool_address = <a href="staking_contract.md#0x1_staking_contract">staking_contract</a>.pool_address;
+    <b>aborts_if</b> staking_contract_exists && !<b>exists</b>&lt;<a href="stake.md#0x1_stake_StakePool">stake::StakePool</a>&gt;(pool_address);
+    <b>let</b> stake_pool = <b>global</b>&lt;<a href="stake.md#0x1_stake_StakePool">stake::StakePool</a>&gt;(pool_address);
+    <b>let</b> inactive = stake_pool.inactive.value;
+    <b>let</b> pending_inactive = stake_pool.pending_inactive.value;
+    <b>aborts_if</b> staking_contract_exists && inactive + pending_inactive &gt; MAX_U64;
+    <b>let</b> total_potential_withdrawable = inactive + pending_inactive;
+    <b>let</b> pool_address_1 = <a href="staking_contract.md#0x1_staking_contract">staking_contract</a>.owner_cap.pool_address;
+    <b>aborts_if</b> staking_contract_exists && !<b>exists</b>&lt;<a href="stake.md#0x1_stake_StakePool">stake::StakePool</a>&gt;(pool_address_1);
+    <b>let</b> stake_pool_1 = <b>global</b>&lt;<a href="stake.md#0x1_stake_StakePool">stake::StakePool</a>&gt;(pool_address_1);
+    <b>aborts_if</b> staking_contract_exists && !<b>exists</b>&lt;<a href="stake.md#0x1_stake_ValidatorSet">stake::ValidatorSet</a>&gt;(@aptos_framework);
+    <b>let</b> validator_set = <b>global</b>&lt;<a href="stake.md#0x1_stake_ValidatorSet">stake::ValidatorSet</a>&gt;(@aptos_framework);
+    <b>let</b> inactive_state = !<a href="stake.md#0x1_stake_spec_contains">stake::spec_contains</a>(validator_set.pending_active, pool_address_1)
+        && !<a href="stake.md#0x1_stake_spec_contains">stake::spec_contains</a>(validator_set.active_validators, pool_address_1)
+        && !<a href="stake.md#0x1_stake_spec_contains">stake::spec_contains</a>(validator_set.pending_inactive, pool_address_1);
+    <b>let</b> inactive_1 = stake_pool_1.inactive.value;
+    <b>let</b> pending_inactive_1 = stake_pool_1.pending_inactive.value;
+    <b>let</b> new_inactive_1 = inactive_1 + pending_inactive_1;
+    <b>aborts_if</b> staking_contract_exists && inactive_state && <a href="timestamp.md#0x1_timestamp_spec_now_seconds">timestamp::spec_now_seconds</a>() &gt;= stake_pool_1.locked_until_secs
+        && inactive_1 + pending_inactive_1 &gt; MAX_U64;
+}
 </code></pre>
 
 
