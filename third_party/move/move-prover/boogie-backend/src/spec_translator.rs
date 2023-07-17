@@ -703,6 +703,7 @@ impl<'env> SpecTranslator<'env> {
             | ExpData::Sequence(..)
             | ExpData::Loop(..)
             | ExpData::Assign(..)
+            | ExpData::Mutate(..)
             | ExpData::LoopCont(..) => panic!("imperative expressions not supported"),
         }
     }
@@ -908,7 +909,16 @@ impl<'env> SpecTranslator<'env> {
                     "currently `TRACE(..)` cannot be used in spec functions or in lets",
                 )
             },
-            Operation::MoveFunction(_, _) | Operation::BorrowGlobal(_) | Operation::Old => {
+            Operation::MoveFunction(_, _)
+            | Operation::BorrowGlobal(_)
+            | Operation::Borrow(..)
+            | Operation::Deref
+            | Operation::MoveTo
+            | Operation::MoveFrom
+            | Operation::Freeze
+            | Operation::Abort
+            | Operation::Vector
+            | Operation::Old => {
                 panic!("operation unexpected: {:?}", oper)
             },
         }

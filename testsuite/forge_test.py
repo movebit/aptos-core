@@ -162,6 +162,7 @@ def fake_context(
             name="tomato", kubeconf="kubeconf", is_multiregion=multiregion
         ),
         forge_test_suite="banana",
+        forge_username="banana-eater",
         forge_blocking=True,
         github_actions="false",
         github_job_url="https://banana",
@@ -623,10 +624,21 @@ class ForgeFormattingTests(unittest.TestCase, AssertFixtureMixin):
             "testFormatReport.fixture",
         )
 
+    def testSanitizeForgeNamespaceLastCharacter(self) -> None:
+        namespace_with_invalid_last_char = "forge-$$$"
+        namespace = sanitize_forge_resource_name(namespace_with_invalid_last_char)
+        self.assertEqual(namespace, "forge---0")
+
     def testSanitizeForgeNamespaceSlashes(self) -> None:
         namespace_with_slash = "forge-banana/apple"
         namespace = sanitize_forge_resource_name(namespace_with_slash)
         self.assertEqual(namespace, "forge-banana-apple")
+
+    def testSanitizeForgeNamespaceStartsWith(self) -> None:
+        namespace_with_invalid_start = "frog-"
+        self.assertRaises(
+            Exception, sanitize_forge_resource_name, namespace_with_invalid_start
+        )
 
     def testSanitizeForgeNamespaceTooLong(self) -> None:
         namespace_too_long = "forge-" + "a" * 10000
