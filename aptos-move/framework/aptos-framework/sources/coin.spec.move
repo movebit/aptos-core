@@ -134,6 +134,11 @@ spec aptos_framework::coin {
         } else {
             option::spec_is_none(result)
         };
+
+        let post p_maybe_supply = global<CoinInfo<CoinType>>(coin_addr).supply;
+        let post p_supply = option::spec_borrow(p_maybe_supply);
+        let post p_value = optional_aggregator::optional_aggregator_value(p_supply);
+        ensures value == p_value;
     }
 
     spec burn<CoinType>(
@@ -269,6 +274,11 @@ spec aptos_framework::coin {
         aborts_if exists<CoinInfo<CoinType>>(account_addr);
         aborts_if string::length(name) > MAX_COIN_NAME_LENGTH;
         aborts_if string::length(symbol) > MAX_COIN_SYMBOL_LENGTH;
+
+        // P1: Only the owner of a coin may mint, burn or freeze coins.
+        ensures result_1 == BurnCapability<CoinType> {};
+        ensures result_2 == FreezeCapability<CoinType> {};
+        ensures result_3 == MintCapability<CoinType> {};
     }
 
     // `account` must be `@aptos_framework`.
@@ -332,6 +342,7 @@ spec aptos_framework::coin {
         } else {
             option::spec_is_none(coin_info.supply)
         };
+        // P1: Only the owner of a coin may mint, burn or freeze coins.
         ensures result_1 == BurnCapability<CoinType> {};
         ensures result_2 == FreezeCapability<CoinType> {};
         ensures result_3 == MintCapability<CoinType> {};
@@ -377,6 +388,8 @@ spec aptos_framework::coin {
                  coin_store_from.coin.value - amount;
         ensures account_addr_from != to ==> coin_store_post_to.coin.value == coin_store_to.coin.value + amount;
         ensures account_addr_from == to ==> coin_store_post_from.coin.value == coin_store_from.coin.value;
+        // P6: Coin operations should fail if the user has not registered for the coin.
+        ensures is_account_registered<CoinType>(account_addr_from) && is_account_registered<CoinType>(to);
     }
 
     /// Account is not frozen and sufficient balance.

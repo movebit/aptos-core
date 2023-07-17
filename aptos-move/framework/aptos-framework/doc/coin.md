@@ -2317,6 +2317,10 @@ Get address by reflection.
 } <b>else</b> {
     <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_spec_is_none">option::spec_is_none</a>(result)
 };
+<b>let</b> <b>post</b> p_maybe_supply = <b>global</b>&lt;<a href="coin.md#0x1_coin_CoinInfo">CoinInfo</a>&lt;CoinType&gt;&gt;(coin_addr).<a href="coin.md#0x1_coin_supply">supply</a>;
+<b>let</b> <b>post</b> p_supply = <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_spec_borrow">option::spec_borrow</a>(p_maybe_supply);
+<b>let</b> <b>post</b> p_value = <a href="optional_aggregator.md#0x1_optional_aggregator_optional_aggregator_value">optional_aggregator::optional_aggregator_value</a>(p_supply);
+<b>ensures</b> value == p_value;
 </code></pre>
 
 
@@ -2558,6 +2562,9 @@ The creator of <code>CoinType</code> must be <code>@aptos_framework</code>.
 <b>aborts_if</b> <b>exists</b>&lt;<a href="coin.md#0x1_coin_CoinInfo">CoinInfo</a>&lt;CoinType&gt;&gt;(account_addr);
 <b>aborts_if</b> <a href="../../aptos-stdlib/../move-stdlib/doc/string.md#0x1_string_length">string::length</a>(name) &gt; <a href="coin.md#0x1_coin_MAX_COIN_NAME_LENGTH">MAX_COIN_NAME_LENGTH</a>;
 <b>aborts_if</b> <a href="../../aptos-stdlib/../move-stdlib/doc/string.md#0x1_string_length">string::length</a>(symbol) &gt; <a href="coin.md#0x1_coin_MAX_COIN_SYMBOL_LENGTH">MAX_COIN_SYMBOL_LENGTH</a>;
+<b>ensures</b> result_1 == <a href="coin.md#0x1_coin_BurnCapability">BurnCapability</a>&lt;CoinType&gt; {};
+<b>ensures</b> result_2 == <a href="coin.md#0x1_coin_FreezeCapability">FreezeCapability</a>&lt;CoinType&gt; {};
+<b>ensures</b> result_3 == <a href="coin.md#0x1_coin_MintCapability">MintCapability</a>&lt;CoinType&gt; {};
 </code></pre>
 
 
@@ -2733,6 +2740,7 @@ Updating <code>Account.guid_creation_num</code> will not overflow.
          coin_store_from.<a href="coin.md#0x1_coin">coin</a>.value - amount;
 <b>ensures</b> account_addr_from != <b>to</b> ==&gt; coin_store_post_to.<a href="coin.md#0x1_coin">coin</a>.value == coin_store_to.<a href="coin.md#0x1_coin">coin</a>.value + amount;
 <b>ensures</b> account_addr_from == <b>to</b> ==&gt; coin_store_post_from.<a href="coin.md#0x1_coin">coin</a>.value == coin_store_from.<a href="coin.md#0x1_coin">coin</a>.value;
+<b>ensures</b> <a href="coin.md#0x1_coin_is_account_registered">is_account_registered</a>&lt;CoinType&gt;(account_addr_from) && <a href="coin.md#0x1_coin_is_account_registered">is_account_registered</a>&lt;CoinType&gt;(<b>to</b>);
 </code></pre>
 
 
