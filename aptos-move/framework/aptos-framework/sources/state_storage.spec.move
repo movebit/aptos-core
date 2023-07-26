@@ -19,9 +19,9 @@ spec aptos_framework::state_storage {
         // property 3: The initialization function is only called once, during genesis.
         aborts_if exists<StateStorageUsage>(@aptos_framework);
 
-        // property 2: The resource for tracking state storage usage may only be initialized with specific values and published under the aptos_framework account.
         ensures exists<StateStorageUsage>(@aptos_framework);
         let post state_usage = global<StateStorageUsage>(@aptos_framework);
+        // property 2: The resource for tracking state storage usage may only be initialized with specific values and published under the aptos_framework account.
         ensures state_usage.epoch == 0 && state_usage.usage.bytes == 0 && state_usage.usage.items == 0;
     }
 
