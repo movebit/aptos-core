@@ -83,6 +83,7 @@ def test_move_compile(run_helper: RunHelper, test_name=None):
     if f"{account_info.account_address}::cli_e2e_tests" not in response.stdout:
         raise TestError("Module did not compile successfully")
 
+
 @test_case
 def test_move_compile_dev_mode(run_helper: RunHelper, test_name=None):
     package_dir = f"move/cli-e2e-tests/{run_helper.base_network}"
@@ -103,6 +104,7 @@ def test_move_compile_dev_mode(run_helper: RunHelper, test_name=None):
 
     if f"{account_info.account_address}::cli_e2e_tests" not in response.stdout:
         raise TestError("Module did not compile successfully")
+
 
 @test_case
 def test_move_compile_script(run_helper: RunHelper, test_name=None):
@@ -150,8 +152,7 @@ def test_move_run(run_helper: RunHelper, test_name=None):
         ],
     )
 
-    response = json.loads(response.stdout)
-    if response["Result"].get("success") != True:
+    if '"success": true' not in response.stdout:
         raise TestError("Move run did not execute successfully")
 
     # Get what modules exist on chain.
@@ -176,3 +177,87 @@ def test_move_run(run_helper: RunHelper, test_name=None):
         raise TestError(
             "Data on chain (view_hero) does not match expected data from (mint_hero)"
         )
+
+
+@test_case
+def test_move_view(run_helper: RunHelper, test_name=None):
+    account_info = run_helper.get_account_info()
+
+    # Run the view function
+    response = run_helper.run_command(
+        test_name,
+        [
+            "aptos",
+            "move",
+            "view",
+            "--function-id",
+            "0x1::account::exists_at",
+            "--args",
+            f"address:{account_info.account_address}",
+        ],
+    )
+
+    response = json.loads(response.stdout)
+    if response["Result"] == None or response["Result"][0] != True:
+        raise TestError("View function did not return correct result")
+
+    # Test view function with with big number arguments
+    expected_u64 = 18446744073709551615
+    expected_128 = 340282366920938463463374607431768211455
+    expected_256 = (
+        115792089237316195423570985008687907853269984665640564039457584007913129639935
+    )
+    response = run_helper.run_command(
+        test_name,
+        [
+            "aptos",
+            "move",
+            "view",
+            "--assume-yes",
+            "--function-id",
+            "default::cli_e2e_tests::test_big_number",
+            "--args",
+            f"u64:{expected_u64}",
+            f"u128:{expected_128}",
+            f"u256:{expected_256}",  # Important to test this big number
+        ],
+    )
+
+    response = json.loads(response.stdout)
+    if (
+        response["Result"] == None
+        or response["Result"][0] != f"{expected_u64}"
+        or response["Result"][1] != f"{expected_128}"
+        or response["Result"][2] != f"{expected_256}"
+    ):
+        raise TestError(
+            f"View function [test_big_number] did not return correct result"
+        )
+
+    # Test view function with with vector arguments
+    # Follow 2 lines are for testing vector of u16-u256
+    response = run_helper.run_command(
+        test_name,
+        [
+            "aptos",
+            "move",
+            "view",
+            "--assume-yes",
+            "--function-id",
+            "default::cli_e2e_tests::test_vector",
+            "--args",
+            "string:1234",  # Notice this is testing u8 vector instead of actual string
+            f"u16:[1,2]",
+            f"u32:[1,2]",
+            f"u64:[1,2]",
+            f"u128:[1,2]",
+            f"u256:[1,2]",
+            f'address:["0x123","0x456"]',
+            "bool:[true,false]",
+            'string:["abc","efg"]',
+        ],
+    )
+
+    response = json.loads(response.stdout)
+    if response["Result"] == None or len(response["Result"]) != 9:
+        raise TestError(f"View function [test_vector] did not return correct result")

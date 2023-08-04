@@ -282,6 +282,10 @@ impl fmt::Display for VMStatus {
             status = format!("{} with sub status {}", status, code);
         }
 
+        if let Some(msg) = self.message() {
+            status = format!("{} with message {}", status, msg);
+        }
+
         write!(f, "{}", status)
     }
 }
@@ -788,8 +792,8 @@ pub enum StatusCode {
     EXECUTION_LIMIT_REACHED = 4030,
     IO_LIMIT_REACHED = 4031,
     STORAGE_LIMIT_REACHED = 4032,
+    TYPE_TAG_LIMIT_EXCEEDED = 4033,
     // Reserved error code for future use
-    RESERVED_RUNTIME_ERROR_1 = 4033,
     RESERVED_RUNTIME_ERROR_2 = 4034,
     RESERVED_RUNTIME_ERROR_3 = 4035,
     RESERVED_RUNTIME_ERROR_4 = 4036,

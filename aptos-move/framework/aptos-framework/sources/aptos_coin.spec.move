@@ -59,4 +59,9 @@ spec aptos_framework::aptos_coin {
         ensures (forall i in 0..len(delegations): delegations[i].to != addr) ==>
             option::spec_is_none(result);
     }
+
+    spec schema ExistsAptosCoin {
+        requires exists<coin::CoinInfo<AptosCoin>>(@aptos_framework);
+    }
+
 }

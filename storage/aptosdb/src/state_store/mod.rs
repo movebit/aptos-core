@@ -61,8 +61,6 @@ use claims::{assert_ge, assert_le};
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
-#[cfg(test)]
-use std::collections::HashMap;
 use std::{collections::HashSet, ops::Deref, sync::Arc};
 
 pub(crate) mod buffered_state;
@@ -474,10 +472,9 @@ impl StateStore {
         let ledger_store = LedgerStore::new(Arc::clone(&state_db.ledger_db));
         let num_transactions = ledger_store.get_latest_version().map_or(0, |v| v + 1);
 
-        // The latest snapshot can be at exactly num_transactions or before it.
         let latest_snapshot_version = state_db
             .state_merkle_db
-            .get_state_snapshot_version_before(num_transactions + 1)
+            .get_state_snapshot_version_before(num_transactions)
             .expect("Failed to query latest node on initialization.");
 
         info!(
@@ -943,20 +940,19 @@ impl StateStore {
     pub fn merklize_value_set(
         &self,
         value_set: Vec<(HashValue, Option<&(HashValue, StateKey)>)>,
-        node_hashes: Option<&HashMap<aptos_types::nibble::nibble_path::NibblePath, HashValue>>,
         version: Version,
         base_version: Option<Version>,
     ) -> Result<HashValue> {
-        let (top_levels_batch, sharded_batch, hash) = self.state_merkle_db.merklize_value_set(
-            value_set,
-            node_hashes,
-            version,
-            base_version,
-            None, // previous epoch ending version
-        )?;
+        let (top_levels_batch, sharded_batch, root_hash) =
+            self.state_merkle_db.merklize_value_set(
+                value_set,
+                version,
+                base_version,
+                /*previous_epoch_ending_version=*/ None,
+            )?;
         self.state_merkle_db
             .commit(version, top_levels_batch, sharded_batch)?;
-        Ok(hash)
+        Ok(root_hash)
     }
 
     pub fn get_root_hash(&self, version: Version) -> Result<HashValue> {

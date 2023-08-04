@@ -29,6 +29,7 @@ This module provides the foundation for typesafe Coins.
 -  [Function `coin_address`](#0x1_coin_coin_address)
 -  [Function `balance`](#0x1_coin_balance)
 -  [Function `is_coin_initialized`](#0x1_coin_is_coin_initialized)
+-  [Function `is_coin_store_frozen`](#0x1_coin_is_coin_store_frozen)
 -  [Function `is_account_registered`](#0x1_coin_is_account_registered)
 -  [Function `name`](#0x1_coin_name)
 -  [Function `symbol`](#0x1_coin_symbol)
@@ -68,6 +69,7 @@ This module provides the foundation for typesafe Coins.
     -  [Function `coin_address`](#@Specification_1_coin_address)
     -  [Function `balance`](#@Specification_1_balance)
     -  [Function `is_coin_initialized`](#@Specification_1_is_coin_initialized)
+    -  [Function `is_account_registered`](#@Specification_1_is_account_registered)
     -  [Function `name`](#@Specification_1_name)
     -  [Function `symbol`](#@Specification_1_symbol)
     -  [Function `decimals`](#@Specification_1_decimals)
@@ -688,6 +690,7 @@ Publishes supply configuration. Initially, upgrading is not allowed.
 ## Function `allow_supply_upgrades`
 
 This should be called by on-chain governance to update the config and allow
+or disallow upgradability of total supply.
 
 
 <pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_allow_supply_upgrades">allow_supply_upgrades</a>(aptos_framework: &<a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>, allowed: bool)
@@ -949,6 +952,37 @@ Returns <code><b>true</b></code> if the type <code>CoinType</code> is an initial
 
 <pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_is_coin_initialized">is_coin_initialized</a>&lt;CoinType&gt;(): bool {
     <b>exists</b>&lt;<a href="coin.md#0x1_coin_CoinInfo">CoinInfo</a>&lt;CoinType&gt;&gt;(<a href="coin.md#0x1_coin_coin_address">coin_address</a>&lt;CoinType&gt;())
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_coin_is_coin_store_frozen"></a>
+
+## Function `is_coin_store_frozen`
+
+Returns <code><b>true</b></code> is account_addr has frozen the CoinStore or if it's not registered at all
+
+
+<pre><code>#[view]
+<b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_is_coin_store_frozen">is_coin_store_frozen</a>&lt;CoinType&gt;(account_addr: <b>address</b>): bool
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_is_coin_store_frozen">is_coin_store_frozen</a>&lt;CoinType&gt;(account_addr: <b>address</b>): bool <b>acquires</b> <a href="coin.md#0x1_coin_CoinStore">CoinStore</a> {
+    <b>if</b>(!<a href="coin.md#0x1_coin_is_account_registered">is_account_registered</a>&lt;CoinType&gt;(account_addr)) {
+      <b>return</b> <b>true</b>
+    };
+
+    <b>let</b> coin_store = <b>borrow_global</b>&lt;<a href="coin.md#0x1_coin_CoinStore">CoinStore</a>&lt;CoinType&gt;&gt;(account_addr);
+    coin_store.frozen
 }
 </code></pre>
 
@@ -2147,7 +2181,24 @@ Get address by reflection.
 
 
 
-<pre><code><b>pragma</b> verify = <b>false</b>;
+<pre><code><b>aborts_if</b> <b>false</b>;
+</code></pre>
+
+
+
+<a name="@Specification_1_is_account_registered"></a>
+
+### Function `is_account_registered`
+
+
+<pre><code>#[view]
+<b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_is_account_registered">is_account_registered</a>&lt;CoinType&gt;(account_addr: <b>address</b>): bool
+</code></pre>
+
+
+
+
+<pre><code><b>aborts_if</b> <b>false</b>;
 </code></pre>
 
 
@@ -2341,6 +2392,7 @@ Get address by reflection.
 
 
 <pre><code><b>modifies</b> <b>global</b>&lt;<a href="coin.md#0x1_coin_CoinInfo">CoinInfo</a>&lt;CoinType&gt;&gt;(account_addr);
+<b>include</b> <a href="coin.md#0x1_coin_DepositAbortsIf">DepositAbortsIf</a>&lt;CoinType&gt;;
 <b>ensures</b> <b>global</b>&lt;<a href="coin.md#0x1_coin_CoinStore">CoinStore</a>&lt;CoinType&gt;&gt;(account_addr).<a href="coin.md#0x1_coin">coin</a>.value == <b>old</b>(<b>global</b>&lt;<a href="coin.md#0x1_coin_CoinStore">CoinStore</a>&lt;CoinType&gt;&gt;(account_addr)).<a href="coin.md#0x1_coin">coin</a>.value + <a href="coin.md#0x1_coin">coin</a>.value;
 </code></pre>
 
@@ -2727,4 +2779,4 @@ Account is not frozen and sufficient balance.
 </code></pre>
 
 
-[move-book]: https://aptos.dev/guides/move-guides/book/SUMMARY
+[move-book]: https://aptos.dev/move/book/SUMMARY

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use self::framework::FrameworkReleaseConfig;
-use crate::components::feature_flags::Features;
+use crate::{aptos_framework_path, components::feature_flags::Features, release_builder_path};
 use anyhow::{anyhow, bail, Result};
 use aptos::governance::GenerateExecutionHash;
 use aptos_rest_client::Client;
@@ -122,7 +122,7 @@ impl ReleaseEntry {
                 }
             },
             ReleaseEntry::DefaultGas => {
-                let gas_schedule = aptos_gas::gen::current_gas_schedule();
+                let gas_schedule = aptos_gas_schedule_updator::current_gas_schedule();
                 if !fetch_and_equals::<GasScheduleV2>(client, &gas_schedule)? {
                     result.append(&mut gas::generate_gas_upgrade_proposal(
                         &gas_schedule,
@@ -205,8 +205,7 @@ impl ReleaseEntry {
                 }
             },
             ReleaseEntry::RawScript(script_path) => {
-                let base_path =
-                    PathBuf::from(std::env!("CARGO_MANIFEST_DIR")).join(script_path.as_path());
+                let base_path = release_builder_path().join(script_path.as_path());
                 let file_name = base_path
                     .file_name()
                     .and_then(|name| name.to_str())
@@ -260,7 +259,10 @@ impl ReleaseEntry {
                 }
             },
             ReleaseEntry::DefaultGas => {
-                if !fetch_and_equals(client_opt, &aptos_gas::gen::current_gas_schedule())? {
+                if !fetch_and_equals(
+                    client_opt,
+                    &aptos_gas_schedule_updator::current_gas_schedule(),
+                )? {
                     bail!("Gas schedule config mismatch: Expected Default");
                 }
             },
@@ -507,7 +509,8 @@ impl Default for ReleaseConfig {
                         }),
                         ReleaseEntry::Consensus(OnChainConsensusConfig::default()),
                         ReleaseEntry::Execution(OnChainExecutionConfig::V1(ExecutionConfigV1 {
-                            transaction_shuffler_type: TransactionShufflerType::SenderAwareV1(32),
+                            transaction_shuffler_type:
+                                TransactionShufflerType::DeprecatedSenderAwareV1(32),
                         })),
                         ReleaseEntry::RawScript(PathBuf::from(
                             "data/proposals/empty_multi_step.move",
@@ -538,6 +541,7 @@ pub fn get_execution_hash(result: &Vec<(String, String)>) -> Vec<u8> {
 
         let (_, hash) = GenerateExecutionHash {
             script_path: Option::from(move_script_path),
+            framework_local_dir: Some(aptos_framework_path()),
         }
         .generate_hash()
         .unwrap();
@@ -562,6 +566,7 @@ fn append_script_hash(raw_script: String) -> String {
 
     let (_, hash) = GenerateExecutionHash {
         script_path: Option::from(move_script_path),
+        framework_local_dir: Some(aptos_framework_path()),
     }
     .generate_hash()
     .unwrap();
