@@ -16,6 +16,7 @@ spec aptos_framework::managed_coin {
         let account_addr = signer::address_of(account);
 
         // Resource Capabilities<CoinType> should exists in the signer address.
+        // property 3: Minting/Burning should only be done by the account who hold the valid capabilities.
         aborts_if !exists<Capabilities<CoinType>>(account_addr);
         let coin_store = global<coin::CoinStore<CoinType>>(account_addr);
         let balance = coin_store.coin.value;
@@ -29,6 +30,7 @@ spec aptos_framework::managed_coin {
 
         let addr =  type_info::type_of<CoinType>().account_address;
         let maybe_supply = global<coin::CoinInfo<CoinType>>(addr).supply;
+        let post post_maybe_supply = global<coin::CoinInfo<CoinType>>(addr).supply;
 
         // Ensure the amount won't be overflow.
         aborts_if amount <= 0;
@@ -39,6 +41,12 @@ spec aptos_framework::managed_coin {
         aborts_if option::is_some(maybe_supply) && !optional_aggregator::is_parallelizable(option::borrow(maybe_supply))
             && option::borrow(option::borrow(maybe_supply).integer).value <
             amount;
+
+        ensures global<coin::CoinStore<CoinType>>(account_addr).coin.value == 
+            old(global<coin::CoinStore<CoinType>>(account_addr)).coin.value - amount;
+        ensures option::spec_is_some(maybe_supply) ==> 
+            optional_aggregator::optional_aggregator_value(option::spec_borrow(post_maybe_supply)) == 
+                optional_aggregator::optional_aggregator_value(option::spec_borrow(maybe_supply)) - amount;
     }
 
     /// Make sure `name` and `symbol` are legal length.
@@ -53,11 +61,16 @@ spec aptos_framework::managed_coin {
         decimals: u8,
         monitor_supply: bool,
     ) {
+        // property 2: A new coin should be properly initialized.
         include coin::InitializeInternalSchema<CoinType>;
         aborts_if !string::spec_internal_check_utf8(name);
         aborts_if !string::spec_internal_check_utf8(symbol);
         aborts_if exists<Capabilities<CoinType>>(signer::address_of(account));
+
+        // property 1: The initializing account should hold the capabilities to operate the coin.
+        // property 3: Minting/Burning should only be done by the account who hold the valid capabilities.
         ensures exists<Capabilities<CoinType>>(signer::address_of(account));
+        ensures exists<coin::CoinInfo<CoinType>>(signer::address_of(account));
     }
 
     /// The Capabilities<CoinType> should not exist in the signer address.
@@ -67,11 +80,31 @@ spec aptos_framework::managed_coin {
         dst_addr: address,
         amount: u64,
     ) {
+        use aptos_framework::optional_aggregator;
+        // use aptos_std::type_info;
+        use std::option;
+        // use aptos_framework::aggregator;
+
         let account_addr = signer::address_of(account);
+        // property 3: Minting/Burning should only be done by the account who hold the valid capabilities.
         aborts_if !exists<Capabilities<CoinType>>(account_addr);
         let coin_store = global<coin::CoinStore<CoinType>>(dst_addr);
         aborts_if !exists<coin::CoinStore<CoinType>>(dst_addr);
         aborts_if coin_store.frozen;
+
+        let maybe_supply = global<coin::CoinInfo<CoinType>>(account_addr).supply;
+        let post post_maybe_supply = global<coin::CoinInfo<CoinType>>(account_addr).supply;
+        let balance = global<coin::CoinStore<CoinType>>(dst_addr).coin.value;
+        let post post_balance = global<coin::CoinStore<CoinType>>(dst_addr).coin.value;
+        ensures option::spec_is_some(maybe_supply) ==> if (amount != 0) {
+            optional_aggregator::optional_aggregator_value(option::borrow(post_maybe_supply)) == 
+                optional_aggregator::optional_aggregator_value(option::borrow(maybe_supply)) + amount
+            && post_balance == balance + amount
+        } else {
+            optional_aggregator::optional_aggregator_value(option::borrow(post_maybe_supply)) == 
+                optional_aggregator::optional_aggregator_value(option::borrow(maybe_supply)) 
+            && post_balance == balance
+        };
     }
 
     /// An account can only be registered once.
