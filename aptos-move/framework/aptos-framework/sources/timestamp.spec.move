@@ -1,6 +1,8 @@
 spec aptos_framework::timestamp {
     spec module {
         use aptos_framework::chain_status;
+        // property 1: There should only exist one global wall clock and it should be created during genesis.
+        // property 2: The global wall clock resource should only be owned by the Aptos framework.
         invariant chain_status::is_operating() ==> exists<CurrentTimeMicroseconds>(@aptos_framework);
     }
 
@@ -14,7 +16,9 @@ spec aptos_framework::timestamp {
         account: signer;
         proposer: address;
         timestamp: u64;
+        // property 3: The clock time should only be updated by the VM account.
         aborts_if !system_addresses::is_vm(account);
+        // property 4: The clock time should increase with every update as agreed through consensus and proposed by the current epoch's validator.
         aborts_if (proposer == @vm_reserved) && (spec_now_microseconds() != timestamp);
         aborts_if (proposer != @vm_reserved) && (spec_now_microseconds() >= timestamp);
     }
