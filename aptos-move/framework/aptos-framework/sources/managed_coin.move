@@ -46,6 +46,10 @@ module aptos_framework::managed_coin {
         let capabilities = borrow_global<Capabilities<CoinType>>(account_addr);
 
         let to_burn = coin::withdraw<CoinType>(account, amount);
+        spec {
+            // property 5: Before burning coins, exact amount of coins are withdrawn.
+            assert to_burn.value == amount;
+        };
         coin::burn(to_burn, &capabilities.burn_cap);
     }
 

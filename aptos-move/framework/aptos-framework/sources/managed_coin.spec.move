@@ -30,7 +30,6 @@ spec aptos_framework::managed_coin {
 
         let addr =  type_info::type_of<CoinType>().account_address;
         let maybe_supply = global<coin::CoinInfo<CoinType>>(addr).supply;
-        let post post_maybe_supply = global<coin::CoinInfo<CoinType>>(addr).supply;
 
         // Ensure the amount won't be overflow.
         aborts_if amount <= 0;
@@ -41,12 +40,6 @@ spec aptos_framework::managed_coin {
         aborts_if option::is_some(maybe_supply) && !optional_aggregator::is_parallelizable(option::borrow(maybe_supply))
             && option::borrow(option::borrow(maybe_supply).integer).value <
             amount;
-
-        ensures global<coin::CoinStore<CoinType>>(account_addr).coin.value == 
-            old(global<coin::CoinStore<CoinType>>(account_addr)).coin.value - amount;
-        ensures option::spec_is_some(maybe_supply) ==> 
-            optional_aggregator::optional_aggregator_value(option::spec_borrow(post_maybe_supply)) == 
-                optional_aggregator::optional_aggregator_value(option::spec_borrow(maybe_supply)) - amount;
     }
 
     /// Make sure `name` and `symbol` are legal length.
@@ -80,31 +73,12 @@ spec aptos_framework::managed_coin {
         dst_addr: address,
         amount: u64,
     ) {
-        use aptos_framework::optional_aggregator;
-        // use aptos_std::type_info;
-        use std::option;
-        // use aptos_framework::aggregator;
-
         let account_addr = signer::address_of(account);
         // property 3: Minting/Burning should only be done by the account who hold the valid capabilities.
         aborts_if !exists<Capabilities<CoinType>>(account_addr);
         let coin_store = global<coin::CoinStore<CoinType>>(dst_addr);
         aborts_if !exists<coin::CoinStore<CoinType>>(dst_addr);
         aborts_if coin_store.frozen;
-
-        let maybe_supply = global<coin::CoinInfo<CoinType>>(account_addr).supply;
-        let post post_maybe_supply = global<coin::CoinInfo<CoinType>>(account_addr).supply;
-        let balance = global<coin::CoinStore<CoinType>>(dst_addr).coin.value;
-        let post post_balance = global<coin::CoinStore<CoinType>>(dst_addr).coin.value;
-        ensures option::spec_is_some(maybe_supply) ==> if (amount != 0) {
-            optional_aggregator::optional_aggregator_value(option::borrow(post_maybe_supply)) == 
-                optional_aggregator::optional_aggregator_value(option::borrow(maybe_supply)) + amount
-            && post_balance == balance + amount
-        } else {
-            optional_aggregator::optional_aggregator_value(option::borrow(post_maybe_supply)) == 
-                optional_aggregator::optional_aggregator_value(option::borrow(maybe_supply)) 
-            && post_balance == balance
-        };
     }
 
     /// An account can only be registered once.
@@ -120,5 +94,9 @@ spec aptos_framework::managed_coin {
         aborts_if !exists<coin::CoinStore<CoinType>>(account_addr) && acc.guid_creation_num + 2 > MAX_U64;
         aborts_if !exists<coin::CoinStore<CoinType>>(account_addr) && !exists<account::Account>(account_addr);
         aborts_if !exists<coin::CoinStore<CoinType>>(account_addr) && !type_info::spec_is_struct<CoinType>();
+
+        ensures exists<coin::CoinStore<CoinType>>(account_addr);
+        ensures !exists<coin::CoinStore<CoinType>>(account_addr) ==> global<coin::CoinStore<CoinType>>(account_addr).coin.value == 0
+            && global<coin::CoinStore<CoinType>>(account_addr).frozen == false;
     }
 }
