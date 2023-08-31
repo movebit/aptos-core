@@ -23,6 +23,7 @@ spec aptos_framework::system_addresses {
     /// Specifies that a function aborts if the account does not have the root address.
     spec schema AbortsIfNotCoreResource {
         addr: address;
+        // property 1: Asserting that a provided address corresponds to the Core Resources address should always yield a true result when matched.
         aborts_if addr != @core_resources with error::PERMISSION_DENIED;
     }
 
@@ -41,6 +42,7 @@ spec aptos_framework::system_addresses {
     /// Specifies that a function aborts if the account does not have the aptos framework address.
     spec schema AbortsIfNotAptosFramework {
         account: signer;
+        // property 2: Asserting that a provided address corresponds to the Aptos Framework Resources address should always yield a true result when matched.
         aborts_if signer::address_of(account) != @aptos_framework with error::PERMISSION_DENIED;
     }
 
@@ -52,6 +54,7 @@ spec aptos_framework::system_addresses {
     /// Specifies that a function aborts if the account does not have the VM reserved address.
     spec schema AbortsIfNotVM {
         account: signer;
+        // property 3: Asserting that a provided address corresponds to the VM address should always yield a true result when matched.
         aborts_if signer::address_of(account) != @vm_reserved with error::PERMISSION_DENIED;
     }
 }
