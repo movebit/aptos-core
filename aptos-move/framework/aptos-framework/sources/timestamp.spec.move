@@ -10,6 +10,14 @@ spec aptos_framework::timestamp {
         use aptos_framework::chain_status;
         requires chain_status::is_operating();
         include UpdateGlobalTimeAbortsIf;
+
+        let old_time = global<CurrentTimeMicroseconds>(@aptos_framework).microseconds;
+        let post lastest_time = global<CurrentTimeMicroseconds>(@aptos_framework).microseconds;
+        ensures if(proposer == @vm_reserved) {
+            lastest_time == old_time
+        } else {
+            lastest_time == timestamp
+        };
     }
 
     spec schema UpdateGlobalTimeAbortsIf {
