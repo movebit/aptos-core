@@ -4,6 +4,10 @@ spec aptos_framework::code {
         pragma aborts_if_is_strict;
     }
 
+    spec PackageMetadata {
+        invariant std::option::spec_is_none(extension);
+    }
+
     spec request_publish {
         // TODO: temporary mockup.
         pragma opaque;
