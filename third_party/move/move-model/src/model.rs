@@ -1010,6 +1010,19 @@ impl GlobalEnv {
         self.source_files.source(id)
     }
 
+    pub fn get_file_alias(&self, id: &FileId) -> Option<&Rc<BTreeMap<Symbol, NumericalAddress>>> {
+        self.file_alias_map.get(id)
+    }
+
+    pub fn get_file_aliases(&self) -> Vec<Rc<BTreeMap<Symbol, NumericalAddress>>> {
+        self.file_alias_map
+            .iter()
+            .filter_map(|(_, (bt))| {
+                    Some(bt.clone())
+            })
+            .collect()
+    }
+
     /// Return the source file name for `file_id`
     pub fn get_file(&self, file_id: FileId) -> &OsStr {
         self.source_files.name(file_id)
