@@ -1015,7 +1015,8 @@ impl GlobalEnv {
     }
 
     pub fn get_file_alias(&self, id: &FileId) -> Option<&Rc<BTreeMap<Symbol, NumericalAddress>>> {
-        self.file_alias_map.clone().get(id)
+        // self.file_alias_map.clone().get(id)
+        None
     }
 
     pub fn get_file_aliases(&self) -> Vec<Rc<BTreeMap<Symbol, NumericalAddress>>> {
