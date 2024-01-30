@@ -605,7 +605,7 @@ impl<'env, 'translator> ModuleBuilder<'env, 'translator> {
             },
             PA::LeadingNameAccess_::AnonymousAddress(num) => {
                 eprintln!("PA::LeadingNameAccess_::AnonymousAddress");
-                eprintln!("num = {}",num.to_standard_string());
+                eprintln!("num = {}",num);
                 let addr = Address::Numerical(num.into_inner());
                 (addr.clone(), addr)
             },
