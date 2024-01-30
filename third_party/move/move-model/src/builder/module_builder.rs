@@ -589,8 +589,6 @@ impl<'env, 'translator> ModuleBuilder<'env, 'translator> {
         // Now determine address and resolve module if possible.
         let (given_addr, resolved_addr) = match mid.value.address.value {
             PA::LeadingNameAccess_::Name(x) => {
-                eprintln!("PA::LeadingNameAccess_::Name");
-                eprintln!("addr_alias: {}", x.value.as_str());
                 let addr_alias = self.symbol_pool().make(x.value.as_str());
                 let addr = Address::Symbolic(addr_alias);
 

@@ -61,6 +61,7 @@ use move_command_line_common::{
     address::NumericalAddress, env::read_bool_env_var, files::FileHash,
 };
 use move_compiler::command_line as cli;
+use move_compiler::expansion::ast::ModuleIdent_;
 use move_core_types::{
     account_address::AccountAddress,
     identifier::{IdentStr, Identifier},
@@ -563,6 +564,8 @@ pub struct GlobalEnv {
     pub(crate) extlib_address: Option<Address>,
     /// Address alias map
     pub(crate) address_alias_map: BTreeMap<Symbol, AccountAddress>,
+    /// MoveBit: AddressNum 2 AddressName
+    pub(crate) address_alias_vec: Vec<ModuleIdent_>,
 }
 
 /// A helper type for implementing fmt::Display depending on GlobalEnv
@@ -621,6 +624,7 @@ impl GlobalEnv {
             stdlib_address: None,
             extlib_address: None,
             address_alias_map: Default::default(),
+            address_alias_vec: Default::default(),
         }
     }
 
@@ -1011,7 +1015,7 @@ impl GlobalEnv {
     }
 
     pub fn get_file_alias(&self, id: &FileId) -> Option<&Rc<BTreeMap<Symbol, NumericalAddress>>> {
-        self.file_alias_map.get(id)
+        self.file_alias_map.clone().get(id)
     }
 
     pub fn get_file_aliases(&self) -> Vec<Rc<BTreeMap<Symbol, NumericalAddress>>> {
