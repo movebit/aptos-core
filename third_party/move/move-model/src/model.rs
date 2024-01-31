@@ -1027,8 +1027,8 @@ impl GlobalEnv {
             .collect()
     }
 
-    pub fn get_module_idents(&self) -> Vec<ModuleIdent_> {
-        self.address_alias_vec
+    pub fn get_module_idents(&self) -> &Vec<ModuleIdent_> {
+        &self.address_alias_vec
     }
 
     /// Return the source file name for `file_id`
