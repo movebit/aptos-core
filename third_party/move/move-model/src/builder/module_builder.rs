@@ -591,19 +591,13 @@ impl<'env, 'translator> ModuleBuilder<'env, 'translator> {
             PA::LeadingNameAccess_::Name(x) => {
                 let addr_alias = self.symbol_pool().make(x.value.as_str());
                 let addr = Address::Symbolic(addr_alias);
-
                 if let Some(num) = self.parent.env.resolve_address_alias(addr_alias) {
-                    eprintln!("(addr, Address::Numerical(num))");
-                    eprintln!("num = {}",num.to_standard_string());
                     (addr, Address::Numerical(num))
                 } else {
-                    eprintln!("(addr.clone(), addr)");
                     (addr.clone(), addr)
                 }
             },
             PA::LeadingNameAccess_::AnonymousAddress(num) => {
-                eprintln!("PA::LeadingNameAccess_::AnonymousAddress");
-                eprintln!("num = {}",num);
                 let addr = Address::Numerical(num.into_inner());
                 (addr.clone(), addr)
             },

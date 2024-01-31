@@ -362,7 +362,6 @@ fn run_move_checker(env: &mut GlobalEnv, program: E::Program) {
         module_idents.push(module_count.clone());
     }
 
-    eprintln!("run_move_checker {:?}", module_idents.clone());
     env.address_alias_vec = module_idents;
 
     let mut builder = ModelBuilder::new(env);
