@@ -1027,6 +1027,10 @@ impl GlobalEnv {
             .collect()
     }
 
+    pub fn get_module_idents(&self) -> Vec<ModuleIdent_> {
+        self.address_alias_vec
+    }
+
     /// Return the source file name for `file_id`
     pub fn get_file(&self, file_id: FileId) -> &OsStr {
         self.source_files.name(file_id)
