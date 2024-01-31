@@ -88,12 +88,13 @@ where
         },
     };
 
-    for module_ident in env.get_module_idents() {
-        match module_ident.address {
+    eprintln!("env.get_module_idents() = {:?}", env.get_module_idents());
+    // for module_ident in env.get_module_idents() {
+    //     match module_ident.address {
 
-        }
-        // module_ident.module.to_srring();
-    }
+    //     }
+    //     // module_ident.module.to_srring();
+    // }
 
     let mut addrnum_2_addrname: HashMap<String, Vec<String>> = Default::default();
     file_alias.iter().for_each(|(sym, num_addr)| {

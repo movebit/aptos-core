@@ -10,14 +10,15 @@ use lsp_server::*;
 use lsp_types::*;
 use move_model::{
     ast::{ExpData::*, Operation::*, Pattern as MoveModelPattern, Spec, SpecBlockTarget},
-    model::{FunId, GlobalEnv, ModuleEnv, ModuleId, NodeId, Parameter, StructId},
+    model::{FunId, FunctionEnv, GlobalEnv, ModuleEnv, ModuleId, NodeId, StructId},
     symbol::Symbol,
 };
 use std::{
-    collections::HashMap,
-    ops::Deref,
-    path::{Path, PathBuf},
+    collections::HashMap, ops::Deref, path::{Path, PathBuf}
 };
+use move_compiler::parser::lexer::{Lexer, Tok};
+use move_command_line_common::files::FileHash;
+
 
 /// Handles go-to-def request of the language server.
 pub fn on_go_to_def_request(context: &Context, request: &Request) -> lsp_server::Response {
@@ -116,8 +117,8 @@ impl Handler {
                 codespan::Span::new(loc.span().end(), loc.span().end() + codespan::ByteOffset(1)),
             )) {
                 if u32::from(obj_first_col.line) == self.line
-                    && u32::from(obj_first_col.column) < self.col
-                    && self.col < u32::from(obj_last_col.column)
+                    && u32::from(obj_first_col.column) <= self.col
+                    && self.col <= u32::from(obj_last_col.column)
                 {
                     return true;
                 }
@@ -422,29 +423,155 @@ impl Handler {
         let target_fun = target_module.get_function(target_fun_id);
         let target_fun_loc: move_model::model::Loc = target_fun.get_loc();
         self.get_mouse_loc(env, &target_fun_loc);
-        self.process_parameter(env, &target_fun.get_parameters());
-        self.process_return_type();
+        self.process_parameter(env, &target_fun);
+        self.process_return_type_and_specifiers(env, &target_fun);
 
         if let Some(exp) = target_fun.get_def().deref() {
             self.process_expr(env, exp);
         };
     }
 
-    /// MoveModel currently lacks support for obtaining the Span and Loc of function parameters and return type.
-    /// As a result, it is unable to compare positions with user-clicked addresses.
-    /// Parameters and return types in function signatures are currently not supported for navigation.
-    #[allow(unused)]
-    fn process_parameter(&mut self, env: &GlobalEnv,fun_paras: &Vec<Parameter>) {
-        // for para in fun_paras {
-        //     eprintln!("para :{}", para.0.display(env.symbol_pool()).to_string());
-        //     if !self.check_move_model_loc_contains_mouse_pos(env, &para.2) {
-        //         continue;
-        //     }
-        //     self.process_type(env, &para.2, &para.1);
-        // }
+    fn process_parameter(&mut self, env: &GlobalEnv, target_fun: &FunctionEnv) {
+        let fun_paras = target_fun.get_parameters();
+        for (para_idx, para) in fun_paras.iter().enumerate() {
+            let cur_para_name = para.0.display(env.symbol_pool()).to_string();
+            eprintln!("para: {}", cur_para_name);
+            if para_idx < fun_paras.len() - 1 {
+                let next_para = &fun_paras[para_idx + 1];
+                let capture_ty_start = para.2.span().end() + codespan::ByteOffset(cur_para_name.len() as i64);
+                let capture_ty_end = next_para.2.span().start();
+                let capture_ty_loc = move_model::model::Loc::new(
+                    para.2.file_id(),
+                    codespan::Span::new(
+                        capture_ty_start,
+                        capture_ty_end,
+                    ),
+                );
+                self.process_type(env, &capture_ty_loc, &para.1);
+            } else {
+                let capture_ty_start = para.2.span().end() + codespan::ByteOffset(cur_para_name.len() as i64);
+                let capture_ty_end = target_fun.get_loc().span().end();
+                let capture_ty_loc = move_model::model::Loc::new(
+                    para.2.file_id(),
+                    codespan::Span::new(
+                        capture_ty_start,
+                        capture_ty_end,
+                    ),
+                );
+                let ty_source = env.get_source(&capture_ty_loc);
+                if let Ok(ty_str) = ty_source {
+                    let mut colon_vec = vec![];
+                    let mut r_paren_vec = vec![];
+                    let mut l_brace_vec = vec![];
+                    let mut lexer = Lexer::new(ty_str, FileHash::new(ty_str));
+                    let mut capture_ty_end_pos = 0;
+                    if !lexer.advance().is_err() {
+                        while lexer.peek() != Tok::EOF {
+                            if lexer.peek() == Tok::Colon {
+                                if !colon_vec.is_empty() {
+                                    capture_ty_end_pos = lexer.start_loc();
+                                    break;
+                                }
+                                colon_vec.push(lexer.content());
+                            }
+                            if lexer.peek() == Tok::RParen {
+                                r_paren_vec.push(lexer.content());
+                            }
+                            if lexer.peek() == Tok::LBrace {
+                                if !r_paren_vec.is_empty() {
+                                    capture_ty_end_pos = lexer.start_loc();
+                                    break;
+                                }
+                                l_brace_vec.push(lexer.content());
+                            }
+                            if lexer.advance().is_err() {
+                                break;
+                            }
+                        }
+                    }
+                    let capture_ty_loc = move_model::model::Loc::new(
+                        para.2.file_id(),
+                        codespan::Span::new(
+                            capture_ty_start,
+                            capture_ty_start + codespan::ByteOffset(capture_ty_end_pos as i64),
+                        ),
+                    );
+                    self.process_type(env, &capture_ty_loc, &para.1);
+                }
+            }
+
+            if !self.check_move_model_loc_contains_mouse_pos(env, &para.2) {
+                continue;
+            }
+            self.process_type(env, &para.2, &para.1);
+        }
     }
 
-    fn process_return_type(&mut self) {}
+    fn process_return_type_and_specifiers(&mut self, env: &GlobalEnv, target_fun: &FunctionEnv) {
+        eprintln!("dump_fun = {}", env.dump_fun(target_fun));
+        let ret_ty_vec = target_fun.get_result_type();
+        let specifier_vec = target_fun.get_access_specifiers();
+        let require_vec = target_fun.get_acquires_global_resources();
+
+        let fn_source = env.get_source(&target_fun.get_loc());
+        if let Ok(fn_str) = fn_source {
+            let mut r_paren_vec = vec![];
+            let mut l_brace_vec = vec![];
+            let mut lexer = Lexer::new(fn_str, FileHash::new(fn_str));
+            let mut capture_ty_start_pos = 0;
+            let mut capture_ty_end_pos = 0;
+            if !lexer.advance().is_err() {
+                while lexer.peek() != Tok::EOF {
+                    if lexer.peek() == Tok::Colon {
+                        if !r_paren_vec.is_empty() {
+                            capture_ty_start_pos = lexer.start_loc();
+                        }
+                    }
+                    if lexer.peek() == Tok::RParen {
+                        r_paren_vec.push(lexer.content());
+                    }
+                    if lexer.peek() == Tok::LBrace {
+                        if !r_paren_vec.is_empty() {
+                            capture_ty_end_pos = lexer.start_loc();
+                            break;
+                        }
+                        l_brace_vec.push(lexer.content());
+                    }
+                    if lexer.advance().is_err() {
+                        break;
+                    }
+                }
+            }
+            let capture_ty_loc = move_model::model::Loc::new(
+                target_fun.get_loc().file_id(),
+                codespan::Span::new(
+                    target_fun.get_loc().span().start() + codespan::ByteOffset(capture_ty_start_pos as i64),
+                    target_fun.get_loc().span().start() + codespan::ByteOffset(capture_ty_end_pos as i64),
+                ),
+            );
+            self.process_type(env, &capture_ty_loc, &ret_ty_vec);
+
+            if let Some(specifiers) = specifier_vec {
+                eprintln!("specifier = {:?}", specifiers);
+                for specifier in specifiers {
+                    if let move_model::ast::ResourceSpecifier::Resource(struct_id) 
+                        = &specifier.resource.1 {
+                        self.process_type(env, &specifier.resource.0, &struct_id.to_type());
+                    }
+                }
+            }
+            if let Some(requires) = require_vec {
+                eprintln!("requires = {:?}", requires);
+                for strct_id in requires {
+                    eprintln!("strct_id = {:?}", target_fun.module_env.get_struct(strct_id).get_full_name_str());
+                    // if let move_model::ast::ResourceSpecifier::Resource(struct_id) 
+                    //     = &specifier.resource.1 {
+                    //     self.process_type(env, &specifier.resource.0, &struct_id.to_type());
+                    // }
+                }
+            }
+        }
+    }
 
     fn process_spec_func(&mut self, env: &GlobalEnv) {
         log::trace!("process_spec_func =======================================");
