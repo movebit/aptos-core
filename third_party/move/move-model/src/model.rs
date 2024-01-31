@@ -1021,7 +1021,7 @@ impl GlobalEnv {
     pub fn get_file_aliases(&self) -> Vec<Rc<BTreeMap<Symbol, NumericalAddress>>> {
         self.file_alias_map
             .iter()
-            .filter_map(|(_, (bt))| {
+            .filter_map(|(_, bt)| {
                     Some(bt.clone())
             })
             .collect()

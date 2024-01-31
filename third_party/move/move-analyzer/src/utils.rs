@@ -480,7 +480,7 @@ pub fn collect_use_decl(
         }
 
         let addr_name = before_after[0];
-        log::info!("full module name {}", using_decl_name);
+        log::trace!("full module name {}", using_decl_name);
         let addr_num = match addrname_2_addrnum.get(addr_name) {
             Some(x) => x,
             None => {
