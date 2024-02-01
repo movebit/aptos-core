@@ -10,15 +10,14 @@ use codespan::Span;
 use lsp_server::*;
 use lsp_types::*;
 use move_model::{
-    ast::{ExpData::*, Operation::*, Pattern as MoveModelPattern, Spec, SpecBlockTarget},
-    model::{FunId, GlobalEnv, ModuleEnv, ModuleId, NodeId, Parameter, StructId},
-    symbol::Symbol,
+    ast::{ExpData::*, Operation::*, Pattern as MoveModelPattern, Spec, SpecBlockTarget}, model::{FunId, FunctionEnv, GlobalEnv, ModuleEnv, ModuleId, NodeId, StructId}, symbol::Symbol, well_known::TYPE_NAME_MOVE
 };
 use std::{
-    collections::HashMap,
-    ops::Deref,
-    path::{Path, PathBuf},
+    collections::HashMap, ops::Deref, path::{Path, PathBuf}
 };
+use move_compiler::parser::lexer::{Lexer, Tok};
+use move_command_line_common::files::FileHash;
+
 
 /// Handles go-to-def request of the language server.
 pub fn on_go_to_def_request(context: &Context, request: &Request) -> lsp_server::Response {
@@ -120,8 +119,8 @@ impl Handler {
                 codespan::Span::new(loc.span().end(), loc.span().end() + codespan::ByteOffset(1)),
             )) {
                 if u32::from(obj_first_col.line) == self.line
-                    && u32::from(obj_first_col.column) < self.col
-                    && self.col < u32::from(obj_last_col.column)
+                    && u32::from(obj_first_col.column) <= self.col
+                    && self.col <= u32::from(obj_last_col.column)
                 {
                     return true;
                 }
@@ -224,6 +223,9 @@ impl Handler {
                     file_id,
                     codespan::Span::new(capture_span.start(), capture_span.end()),
                 );
+
+                log::info!("   {}", env.get_source(&span_loc).unwrap());
+
                 if crate::move_generate_spec_sel::ReqParametersPath::is_linecol_in_loc(
                     self.line, self.col, &span_loc, env,
                 ) {
@@ -248,7 +250,7 @@ impl Handler {
     }
 
     fn process_use_decl(&mut self, env: &GlobalEnv) {
-        log::info!("process_use_decl for goto definition \n\n");
+        log::info!("process_use_decl for goto definition");
         let target_module = env.get_module(self.target_module_id);
         let spool = env.symbol_pool();
         let mut target_stct_or_fn = String::default();
@@ -334,19 +336,7 @@ impl Handler {
                 );
                 if stct.get_full_name_str().contains(&target_stct_or_fn) {
                     log::info!("stct.get_full_name_str() = {:?}", stct.get_full_name_str());
-                    let (type_struct_file, type_struct_pos) =
-                        env.get_file_and_location(&stct.get_loc()).unwrap();
-                    let result = FileRange {
-                        path: PathBuf::from(type_struct_file),
-                        line_start: type_struct_pos.line.0,
-                        col_start: type_struct_pos.column.0,
-                        line_end: type_struct_pos.line.0,
-                        col_end: type_struct_pos.column.0,
-                    };
-                    if self.capture_items_span_push(&capture_items_loc.span()) {
-                        self.result_candidates.push(result);
-                    }
-                    
+                    self.insert_result(env, &stct.get_loc(), &capture_items_loc);
                     return;
                 }
             }
@@ -358,20 +348,7 @@ impl Handler {
                 );
                 if func.get_name_str().contains(&target_stct_or_fn) {
                     log::info!("func.get_name_str() = {:?}", func.get_name_str());
-                    let (use_fun_file, use_fun_line) =
-                        env.get_file_and_location(&func.get_loc()).unwrap();
-                    let path_buf = PathBuf::from(use_fun_file);
-                    let result = FileRange {
-                        path: path_buf,
-                        line_start: use_fun_line.line.0,
-                        col_start: use_fun_line.column.0,
-                        line_end: use_fun_line.line.0,
-                        col_end: use_fun_line.column.0,
-                    };
-                    if self.capture_items_span_push(&capture_items_loc.span()) {
-                        self.result_candidates.push(result);
-                    }
-                    
+                    self.insert_result(env, &func.get_loc(), &capture_items_loc);
                     return;
                 }
             }
@@ -379,25 +356,12 @@ impl Handler {
 
         if found_usedecl_same_line {
             log::info!("find use decl module...");
-            let (module_file, module_pos) = env
-                .get_file_and_location(&use_decl_module.get_loc())
-                .unwrap();
-            let result = FileRange {
-                path: PathBuf::from(module_file),
-                line_start: module_pos.line.0,
-                col_start: module_pos.column.0,
-                line_end: module_pos.line.0,
-                col_end: module_pos.column.0,
-            };
-            if self.capture_items_span_push(&capture_items_loc.span()) {
-                self.result_candidates.push(result);
-            }
-
+            self.insert_result(env, &use_decl_module.get_loc(), &capture_items_loc)
         }
     }
 
     fn process_func(&mut self, env: &GlobalEnv) {
-        log::info!("process_func for goto defnition\n");
+        log::info!("process_func for goto defnition");
         let mut found_target_fun = false;
         let mut target_fun_id = FunId::new(env.symbol_pool().make("name"));
 
@@ -434,8 +398,8 @@ impl Handler {
         let target_fun_loc: move_model::model::Loc = target_fun.get_loc();
         self.target_function_id = Some(target_fun.get_id());
         self.get_mouse_loc(env, &target_fun_loc);
-        self.process_parameter(env, &target_fun.get_parameters());
-        self.process_return_type();
+        self.process_parameter(env, &target_fun);
+        self.process_return_type_and_specifiers(env, &target_fun);
 
         if let Some(exp) = target_fun.get_def().deref() {
             self.process_expr(env, exp);
@@ -443,21 +407,141 @@ impl Handler {
         self.target_function_id = None;
     }
 
-    /// MoveModel currently lacks support for obtaining the Span and Loc of function parameters and return type.
-    /// As a result, it is unable to compare positions with user-clicked addresses.
-    /// Parameters and return types in function signatures are currently not supported for navigation.
-    #[allow(unused)]
-    fn process_parameter(&mut self, env: &GlobalEnv,fun_paras: &Vec<Parameter>) {
-        // for para in fun_paras {
-        //     eprintln!("para :{}", para.0.display(env.symbol_pool()).to_string());
-        //     if !self.check_move_model_loc_contains_mouse_pos(env, &para.2) {
-        //         continue;
-        //     }
-        //     self.process_type(env, &para.2, &para.1);
-        // }
+    fn process_parameter(&mut self, env: &GlobalEnv, target_fun: &FunctionEnv) {
+        let fun_paras = target_fun.get_parameters();
+        for (para_idx, para) in fun_paras.iter().enumerate() {
+            let cur_para_name = para.0.display(env.symbol_pool()).to_string();
+            if para_idx < fun_paras.len() - 1 {
+                let next_para = &fun_paras[para_idx + 1]; 
+                let capture_ty_start = para.2.span().end();
+                let capture_ty_end = next_para.2.span().start();
+
+                let capture_ty_loc = move_model::model::Loc::new(
+                    para.2.file_id(),
+                    codespan::Span::new(
+                        capture_ty_start,
+                        capture_ty_end,
+                    ),
+                );
+                self.process_type(env, &capture_ty_loc, &para.1);
+            } else {
+                let capture_ty_start = para.2.span().end();
+                let capture_ty_end = target_fun.get_loc().span().end();
+                let capture_ty_loc = move_model::model::Loc::new(
+                    para.2.file_id(),
+                    codespan::Span::new(
+                        capture_ty_start,
+                        capture_ty_end,
+                    ),
+                );
+                let ty_source = env.get_source(&capture_ty_loc);
+                if let Ok(ty_str) = ty_source {
+                    let mut colon_vec = vec![];
+                    let mut r_paren_vec = vec![];
+                    let mut l_brace_vec = vec![];
+                    let mut lexer = Lexer::new(ty_str, FileHash::new(ty_str));
+                    let mut capture_ty_end_pos = 0;
+                    if !lexer.advance().is_err() {
+                        while lexer.peek() != Tok::EOF {
+                            if lexer.peek() == Tok::Colon {
+                                if !colon_vec.is_empty() {
+                                    capture_ty_end_pos = lexer.start_loc();
+                                    break;
+                                }
+                                colon_vec.push(lexer.content());
+                            }
+                            if lexer.peek() == Tok::RParen {
+                                r_paren_vec.push(lexer.content());
+                            }
+                            if lexer.peek() == Tok::LBrace {
+                                if !r_paren_vec.is_empty() {
+                                    capture_ty_end_pos = lexer.start_loc();
+                                    break;
+                                }
+                                l_brace_vec.push(lexer.content());
+                            }
+                            if lexer.advance().is_err() {
+                                break;
+                            }
+                        }
+                    }
+                    let capture_ty_loc = move_model::model::Loc::new(
+                        para.2.file_id(),
+                        codespan::Span::new(
+                            capture_ty_start,
+                            capture_ty_start + codespan::ByteOffset(capture_ty_end_pos as i64),
+                        ),
+                    );
+                    self.process_type(env, &capture_ty_loc, &para.1);
+                }
+            }
+            if !self.check_move_model_loc_contains_mouse_pos(env, &para.2) {
+                continue;
+            }
+            self.process_type(env, &para.2, &para.1);
+        }
     }
 
-    fn process_return_type(&mut self) {}
+    fn process_return_type_and_specifiers(&mut self, env: &GlobalEnv, target_fun: &FunctionEnv) {
+        let ret_ty_vec = target_fun.get_result_type();
+        let specifier_vec = target_fun.get_access_specifiers();
+        let require_vec = target_fun.get_acquires_global_resources();
+
+        let fn_source = env.get_source(&target_fun.get_loc());
+        if let Ok(fn_str) = fn_source {
+            let mut r_paren_vec = vec![];
+            let mut l_brace_vec = vec![];
+            let mut lexer = Lexer::new(fn_str, FileHash::new(fn_str));
+            let mut capture_ty_start_pos = 0;
+            let mut capture_ty_end_pos = 0;
+            if !lexer.advance().is_err() {
+                while lexer.peek() != Tok::EOF {
+                    if lexer.peek() == Tok::Colon {
+                        if !r_paren_vec.is_empty() {
+                            capture_ty_start_pos = lexer.start_loc();
+                        }
+                    }
+                    if lexer.peek() == Tok::RParen {
+                        r_paren_vec.push(lexer.content());
+                    }
+                    if lexer.peek() == Tok::LBrace {
+                        if !r_paren_vec.is_empty() {
+                            capture_ty_end_pos = lexer.start_loc();
+                            break;
+                        }
+                        l_brace_vec.push(lexer.content());
+                    }
+                    if lexer.advance().is_err() {
+                        break;
+                    }
+                }
+            }
+            let capture_ty_loc = move_model::model::Loc::new(
+                target_fun.get_loc().file_id(),
+                codespan::Span::new(
+                    target_fun.get_loc().span().start() + codespan::ByteOffset(capture_ty_start_pos as i64),
+                    target_fun.get_loc().span().start() + codespan::ByteOffset(capture_ty_end_pos as i64),
+                ),
+            );
+            self.process_type(env, &capture_ty_loc, &ret_ty_vec);
+
+            if let Some(specifiers) = specifier_vec {
+                eprintln!("specifier = {:?}", specifiers);
+                for specifier in specifiers {
+                    if let move_model::ast::ResourceSpecifier::Resource(struct_id) 
+                        = &specifier.resource.1 {
+                        self.process_type(env, &specifier.resource.0, &struct_id.to_type());
+                    }
+                }
+            }
+            if let Some(requires) = require_vec {
+                eprintln!("requires = {:?}", requires);
+                for strct_id in requires {
+                    eprintln!("strct_id = {:?}", target_fun.module_env.get_struct(strct_id).get_full_name_str());
+                }
+            }
+        }
+    }
 
     fn process_spec_func(&mut self, env: &GlobalEnv) {
         log::trace!("process_spec_func for goto definition\n\n");
@@ -514,7 +598,7 @@ impl Handler {
     }
 
     fn process_struct(&mut self, env: &GlobalEnv) {
-        log::info!("process_struct for goto definition\n\n");
+        log::info!("process_struct for goto definition");
         let mut found_target_struct = false;
         let mut target_struct_id = StructId::new(env.symbol_pool().make("name"));
         let target_module = env.get_module(self.target_module_id);
@@ -639,7 +723,6 @@ impl Handler {
 
     fn process_expr(&mut self, env: &GlobalEnv, exp: &move_model::ast::Exp) {
         log::trace!("process_expr -------------------------\n");
-        
         exp.visit_pre_order(&mut |e| {
             match e {
                 Value(node_id, _) => {
@@ -660,19 +743,7 @@ impl Handler {
                             );
                             let named_const_str = named_const.get_name().display(spool).to_string();
                             if value_str.contains(&named_const_str) {
-                                let (def_file, def_line) =
-                                    env.get_file_and_location(&named_const.get_loc()).unwrap();
-                                let result = FileRange {
-                                    path: PathBuf::from(def_file),
-                                    line_start: def_line.line.0,
-                                    col_start: def_line.column.0,
-                                    line_end: def_line.line.0,
-                                    col_end: def_line.column.0,
-                                };
-                                if self.capture_items_span_push(&value_loc.span()) {
-                                    self.result_candidates.push(result);
-                                }
-                                
+                                self.insert_result(env, &named_const.get_loc(), &value_loc)
                             }
                         }
                     }
@@ -694,21 +765,7 @@ impl Handler {
 
                     if let Some(pattern_id) = self.symbol_2_pattern_id.get(localvar_symbol) {
                         let pattern_loc = env.get_node_loc(*pattern_id);
-                        if let Some((def_file, def_location)) =
-                            env.get_file_and_location(&pattern_loc)
-                        {
-                            let result = FileRange {
-                                path: PathBuf::from(def_file),
-                                line_start: def_location.line.0,
-                                col_start: def_location.column.0,
-                                line_end: def_location.line.0,
-                                col_end: def_location.column.0,
-                            };
-                            if self.capture_items_span_push(&localvar_loc.span()) {
-                                eprintln!("insert result");
-                                self.result_candidates.push(result);
-                            }
-                        }
+                        self.insert_result(env, &pattern_loc, &localvar_loc)
                     }
                     true
                 },
@@ -730,7 +787,7 @@ impl Handler {
                     self.process_temporary_for_function_para(env, &tmpvar_loc);
                     true
                 },
-                Call(..) => {
+                Call(_, _, _) => {
                     self.process_call_spec_func(env, e);
                     self.process_call(env, e);
                     true
@@ -739,11 +796,16 @@ impl Handler {
                     self.process_spec_block(env, &env.get_node_loc(*node_id), spec);
                     true
                 },
-                Block(_, pat, _, _) => {
-                    self.collect_local_var_in_pattern(pat);
-                    self.process_pattern(env, pat);
+                Block(_, pattern, _, _) => {
+                    self.collect_local_var_in_pattern(pattern);
+                    self.process_pattern(env, pattern);
                     true
                 },
+                Assign(_, pattern, _) => {
+                    self.process_pattern(env, pattern);
+                    self.collect_local_var_in_pattern(pattern);
+                    true
+                }
                 _ => {
                     log::trace!("________________");
                     true
@@ -764,22 +826,7 @@ impl Handler {
                     continue;
                 }
                 let para_loc = para.2;
-                let (para_file, para_location) =
-                    env.get_file_and_location(&para_loc).unwrap();
-
-                let path_buf = PathBuf::from(para_file);
-                let result = FileRange {
-                    path: path_buf,
-                    line_start: para_location.line.0,
-                    col_start: para_location.column.0,
-                    line_end: para_location.line.0,
-                    col_end: para_location.column.0
-                        + para_string.len() as u32,
-                };
-                
-                if self.capture_items_span_push(&source_loc.span()) {
-                    self.result_candidates.push(result);
-                }
+                self.insert_result(env, &para_loc, &source_loc)
             }
         }
     }
@@ -801,20 +848,7 @@ impl Handler {
                     spec_fun.name.display(env.symbol_pool())
                 );
                 let spec_fun_loc = spec_fun.loc.clone();
-                let (spec_fun_file, spec_fun_line) =
-                    env.get_file_and_location(&spec_fun_loc).unwrap();
-                let path_buf = PathBuf::from(spec_fun_file);
-                let result = FileRange {
-                    path: path_buf,
-                    line_start: spec_fun_line.line.0,
-                    col_start: spec_fun_line.column.0,
-                    line_end: spec_fun_line.line.0,
-                    col_end: spec_fun_line.column.0,
-                };
-                
-                if self.capture_items_span_push(&this_call_loc.span()) {
-                    self.result_candidates.push(result);
-                }
+                self.insert_result(env, &spec_fun_loc, &this_call_loc);
 
                 let inst_vec = &env.get_node_instantiation(*node_id);
                 for inst in inst_vec {
@@ -967,24 +1001,7 @@ impl Handler {
             let pack_struct = pack_module.get_struct(*sid);
             let pack_struct_loc = pack_struct.get_loc();
             self.insert_result(env, &pack_struct_loc, &this_call_loc);
-            // let (pack_struct_file, pack_struct_location) =
-            //     env.get_file_and_location(&pack_struct_loc).unwrap();
-
-            // let path_buf = PathBuf::from(pack_struct_file);
-            // let result = FileRange {
-            //     path: path_buf,
-            //     line_start: pack_struct_location.line.0,
-            //     col_start: pack_struct_location.column.0,
-            //     line_end: pack_struct_location.line.0,
-            //     col_end: pack_struct_location.column.0
-            //         + pack_struct.get_full_name_str().len() as u32,
-            // };
-            
-            // if self.capture_items_span_push(&this_call_loc.span()) {
-            //     self.result_candidates.push(result);
-            // }
         }
-        log::trace!("lll << process_call");
     }
 
     fn collect_local_var_in_pattern(&mut self, pattern: &MoveModelPattern) {
@@ -996,16 +1013,18 @@ impl Handler {
     fn process_pattern(&mut self, env: &GlobalEnv, pattern: &MoveModelPattern) {
         match pattern {
             MoveModelPattern::Var(node_id, sym) => {
-                // let this_call_loc = env.get_node_loc(*node_id);
-                // if this_call_loc.span().start() > self.mouse_span.end()
-                //     || self.mouse_span.end() > this_call_loc.span().end()
-                // {
-                //     return;
-                // }
-                // if let Some(sym_pattern_node_id) = self.symbol_2_pattern_id.get(sym) {
-                //     env.get_l
-                //     self.insert_result(env, ,&this_call_loc);
-                // }
+                let this_call_loc = env.get_node_loc(*node_id);
+                if this_call_loc.span().start() > self.mouse_span.end()
+                    || self.mouse_span.end() > this_call_loc.span().end()
+                {
+                    return;
+                }
+                if let Some(sym_pattern_node_id) = self.symbol_2_pattern_id.get(sym) {
+                    let pattern_loc = env.get_node_loc(*sym_pattern_node_id);
+                    self.insert_result(env, &pattern_loc, &this_call_loc)
+                } else {
+                    self.process_temporary_for_function_para(env, &this_call_loc);
+                }
             }
             MoveModelPattern::Struct(node_id, q_id, _) => {
                 let this_call_loc = env.get_node_loc(*node_id);
@@ -1074,20 +1093,7 @@ impl Handler {
                 log::trace!("lll >> type_struct = {:?}", type_struct.get_full_name_str());
                 let type_struct_loc = type_struct.get_loc();
                 self.insert_result(env, &type_struct_loc, capture_items_loc);
-                // let (type_struct_file, type_struct_pos) =
-                //     env.get_file_and_location(&type_struct_loc).unwrap();
-                // let result = FileRange {
-                //     path: PathBuf::from(type_struct_file),
-                //     line_start: type_struct_pos.line.0,
-                //     col_start: type_struct_pos.column.0,
-                //     line_end: type_struct_pos.line.0,
-                //     col_end: type_struct_pos.column.0
-                //         + type_struct.get_full_name_str().len() as u32,
-                // };
-                // if self.capture_items_span_push(&(*capture_items_loc).span()) {
-                //     self.result_candidates.push(result);
-                // }
-                
+
                 for ty in ty_vec {
                     if let Some(generic_struct_ty) = ty.get_struct(env) {
                         let generic_struct_ty_symbol = generic_struct_ty.0.get_name();

@@ -1,7 +1,7 @@
 // Copyright (c) The BitsLab.MoveBit Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-use codespan::{FileId, Span};
+use codespan::FileId;
 use codespan_reporting::files::{Files, SimpleFiles};
 use lsp_types::{Command, Location, Position};
 use move_command_line_common::files::FileHash;

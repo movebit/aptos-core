@@ -572,6 +572,10 @@ impl Handler {
                     self.match_pattern(env, pattern);
                     true
                 },
+                Assign(_, pattern, _) => {
+                    self.match_pattern(env, pattern);
+                    true    
+                }
                 _ => true,
             }
         });
