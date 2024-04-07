@@ -368,6 +368,8 @@ pub fn run_model_builder_with_options_and_compilation_flags<
 }
 
 fn run_move_checker(env: &mut GlobalEnv, program: E::Program) {
+    
+    // MoveBit::for spec file generate
     let mut module_idents = vec![];
     for (_, module_count, _) in program.clone()
         .modules
@@ -375,12 +377,9 @@ fn run_move_checker(env: &mut GlobalEnv, program: E::Program) {
     {
         module_idents.push(module_count.clone());
     }
-
     env.address_alias_vec = module_idents;
 
     let mut builder = ModelBuilder::new(env);
-
-
     for (module_count, (module_id, module_def)) in program
         .modules
         .into_iter()
