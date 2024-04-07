@@ -21,31 +21,19 @@ codespan-reporting = "0.11.1"
 derivative = "2.2.0"
 dunce = "1.0.2"
 im = "15.1.0"
-<<<<<<< HEAD
-lsp-server = "0.7.0"
-lsp-types = "0.94.0"
-petgraph = "0.5.1"
-serde = { version = "1.0.193", features = ["derive"] }
-=======
 lsp-server = "0.5.1"
-lsp-types = "0.90.1"
+lsp-types = "0.94.0"
 move-command-line-common = { path = "../move-command-line-common" }
 move-compiler = { path = "../move-compiler" }
 move-ir-types = { path = "../move-ir/types" }
 move-package = { path = "../tools/move-package" }
 move-symbol-pool = { path = "../move-symbol-pool" }
->>>>>>> main
 serde_json = "1.0.64"
 tempfile = "3.2.0"
 url = "2.2.2"
 clap = { version = "3.1.8", features = ["derive"] }
 crossbeam = "0.8"
 move-model = { path = "../move-model", package = "move-model" }
-move-command-line-common = { path = "../move-command-line-common", package = "move-command-line-common" }
-move-compiler = { path = "../move-compiler", package = "move-compiler" }
-move-ir-types = { path = "../move-ir/types", package = "move-ir-types" }
-move-package = { path = "../tools/move-package", package = "move-package" }
-move-symbol-pool = { path = "../move-symbol-pool", package = "move-symbol-pool" }
 move-core-types = { path = "../move-core/types", package = "move-core-types" }
 move-cli = { path = "../tools/move-cli", package = "move-cli" }
 movefmt = { git = "https://github.com/movebit/movefmt.git", branch = "develop" }
@@ -57,6 +45,7 @@ stderrlog = "0.5.4"
 enum-iterator = "1.2.0"
 num-bigint = "0.4.0"
 home = "0.5.3"
+serde = { version = "1.0", features = ["derive"] }
 
 [target.'cfg(not(target_os= "windows"))'.dependencies]
 pprof = { version = "0.11.0" , features = ["flamegraph" , "protobuf"]}

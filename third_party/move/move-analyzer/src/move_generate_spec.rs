@@ -147,7 +147,7 @@ impl FunSpecGenerator {
 
     fn generate_body_zx(&self, f: &FunctionEnv, global_env: &GlobalEnv) -> String {
         let mut statements = String::new();
-        if let Some(exp) = f.get_def().deref() {
+        if let Some(exp) = f.get_def() {
             FunSpecGenerator::try_emit_exp_zx(self, &mut statements, exp, global_env);
         } else {
             log::trace!("body is none");

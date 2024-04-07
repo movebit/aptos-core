@@ -1,4 +1,5 @@
 module Symbols::M1 {
+    use std::vector;
     use Symbols::M2::{Self, SomeOtherStruct, some_other_struct, multi_arg};
 
     struct SomeStruct has key, drop, store {

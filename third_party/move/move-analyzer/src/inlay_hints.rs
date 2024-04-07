@@ -117,7 +117,7 @@ impl Handler {
             if self.range.line_start <= func_start_pos.line.0
                 && func_end_pos.line.0 <= self.range.line_end
             {
-                if let Some(exp) = fun.get_def().deref() {
+                if let Some(exp) = fun.get_def() {
                     log::trace!("process funcation: {}", fun.get_name_string());
                     self.process_expr(env, &fun, exp);
                 }
