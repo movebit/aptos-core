@@ -380,6 +380,7 @@ spec aptos_framework::staking_contract {
 
     /// The StakePool exists under the pool_address of StakingContract.
     spec get_staking_contract_amounts_internal(staking_contract: &StakingContract): (u64, u64, u64) {
+        pragma verify_duration_estimate = 120;
         include GetStakingContractAmountsAbortsIf;
 
         let pool_address = staking_contract.pool_address;
@@ -440,7 +441,7 @@ spec aptos_framework::staking_contract {
     }
 
     /// The Account exists under the staker.
-    /// The guid_creation_num of the ccount resource is up to MAX_U64.
+    /// The guid_creation_num of the account resource is up to MAX_U64.
     spec new_staking_contracts_holder(staker: &signer): Store {
         include NewStakingContractsHolderAbortsIf;
     }
