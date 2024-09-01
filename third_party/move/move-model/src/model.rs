@@ -63,6 +63,7 @@ use move_command_line_common::{
     address::NumericalAddress, env::read_bool_env_var, files::FileHash,
 };
 use move_compiler::command_line as cli;
+use move_compiler::expansion::ast::{ModuleIdent, ModuleIdent_};
 use move_core_types::{
     account_address::AccountAddress,
     identifier::{IdentStr, Identifier},
@@ -533,6 +534,8 @@ pub struct GlobalEnv {
     pub(crate) file_hash_map: BTreeMap<FileHash, (String, FileId)>,
     /// Reverse of the above mapping, mapping FileId to hash.
     pub(crate) reverse_file_hash_map: BTreeMap<FileId, FileHash>,
+    /// A mapping from file id to associated alias map.
+    pub(crate) file_alias_map: BTreeMap<FileId, Rc<BTreeMap<Symbol, NumericalAddress>>>,
     /// Bijective mapping between FileId and a plain int. FileId's are themselves wrappers around
     /// ints, but the inner representation is opaque and cannot be accessed. This is used so we
     /// can emit FileId's to generated code and read them back.
@@ -631,6 +634,7 @@ impl GlobalEnv {
             internal_loc,
             file_hash_map,
             reverse_file_hash_map,
+            file_alias_map: BTreeMap::new(),
             file_id_to_idx,
             file_idx_to_id,
             file_id_is_target: BTreeSet::new(),
@@ -796,6 +800,7 @@ impl GlobalEnv {
         is_target: bool,
         is_primary_target: bool,
     ) -> FileId {
+        let file_id = self.source_files.add(file_name, source.to_string());
         // Check for address alias conflicts.
         self.stdlib_address =
             self.resolve_std_address_alias(self.stdlib_address.clone(), "std", &address_aliases);
@@ -804,6 +809,7 @@ impl GlobalEnv {
             "Extensions",
             &address_aliases,
         );
+	self.file_alias_map.insert(file_id, address_aliases);
         if let Some((_filename, file_id)) = self.file_hash_map.get(&file_hash) {
             // This is a duplicate source, make sure it is marked as a target
             // and/or a primary_target if any instance marks it as such.
@@ -1118,6 +1124,18 @@ impl GlobalEnv {
         self.source_files.source(id)
     }
 
+    pub fn get_file_alias(&self, id: &FileId) ->Option<&Rc<BTreeMap<Symbol, NumericalAddress>>> {
+        self.file_alias_map.get(id)
+    }
+
+    pub fn get_file_aliases(&self) -> Vec<Rc<BTreeMap<Symbol, NumericalAddress>>> {
+        self.file_alias_map
+            .iter()
+            .filter_map(|(_, bt)| {
+                    Some(bt.clone())
+            })
+            .collect()
+    }
 
     pub fn get_module_idents(&self) -> &Vec<ModuleIdent_> {
         &self.address_alias_vec

@@ -142,7 +142,7 @@ impl ResolvingGraph {
             package_table,
         } = self;
 
-        let mut unresolved_addresses = Vec::new();
+        // let mut unresolved_addresses: Vec<String> = Vec::new();
 
         let resolved_package_table = package_table
             .into_iter()
@@ -161,11 +161,11 @@ impl ResolvingGraph {
                     .filter_map(|(addr_name, instantiation_opt)| {
                         match *instantiation_opt.value.borrow() {
                             None => {
-                                unresolved_addresses.push(format!(
-                                    "Named address '{}' in package '{}'",
-                                    addr_name, name
-                                ));
-                                None
+                                // unresolved_addresses.push(format!(
+                                //     "Named address '{}' in package '{}'",
+                                //     addr_name, name
+                                // ));
+                                Some((addr_name, AccountAddress::from_hex_literal("0x0").ok().unwrap()))
                             },
                             Some(addr) => Some((addr_name, addr)),
                         }
@@ -183,16 +183,16 @@ impl ResolvingGraph {
             })
             .collect::<BTreeMap<_, _>>();
 
-        if !unresolved_addresses.is_empty() {
-            bail!(
-                "Unresolved addresses found: [\n{}\n]\n\
-                To fix this, add an entry for each unresolved address to the [addresses] section of {}/Move.toml: \
-                e.g.,\n[addresses]\nstd = \"0x1\"\n\
-                Alternatively, you can also define [dev-addresses] and call with the --dev flag",
-                unresolved_addresses.join("\n"),
-                root_package_path.to_string_lossy()
-            )
-        }
+        // if !unresolved_addresses.is_empty() {
+        //     bail!(
+        //         "Unresolved addresses found: [\n{}\n]\n\
+        //         To fix this, add an entry for each unresolved address to the [addresses] section of {}/Move.toml: \
+        //         e.g.,\n[addresses]\nstd = \"0x1\"\n\
+        //         Alternatively, you can also define [dev-addresses] and call with the --dev flag",
+        //         unresolved_addresses.join("\n"),
+        //         root_package_path.to_string_lossy()
+        //     )
+        // }
 
         Ok(ResolvedGraph {
             root_package_path,
