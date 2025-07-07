@@ -201,10 +201,11 @@ impl VMBlockExecutor for MockVM {
         let mut block_epilogue_txn = None;
         if !skip_rest {
             if let Some(block_id) = transaction_slice_metadata.append_state_checkpoint_to_block() {
-                block_epilogue_txn = Some(Transaction::block_epilogue(
+                block_epilogue_txn = Some(Transaction::block_epilogue_v0(
                     block_id,
                     BlockEndInfo::new_empty(),
                 ));
+                outputs.push(TransactionOutput::new_empty_success());
             }
         }
 
