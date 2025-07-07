@@ -257,9 +257,9 @@ pub fn run_model_builder_with_options_and_compilation_flags<
             let compiler_env: &mut CompilationEnv = compiler.compilation_env();
             if let Err(diags) = compiler_env.check_diags_at_or_above_severity(Severity::Warning) {
                 add_move_lang_diagnostics(&mut env, diags);
-                if env.has_errors() {
-                    return Ok(env);
-                }
+                // if env.has_errors() {
+                //     return Ok(env);
+                // }
             }
             compiler.into_ast()
         },
